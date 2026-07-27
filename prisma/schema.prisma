@@ -37,6 +37,26 @@ enum SubscriptionStatus {
   CANCELED
 }
 
+enum IndustryProfileKey {
+  GENERAL_SERVICES
+  TECHNICAL_SERVICES
+  AUTOMOTIVE_WORKSHOP
+  CIVIL_ARCHITECTURAL
+  GENERAL_TRADING
+}
+
+enum VatRegistrationStatus {
+  NOT_REGISTERED
+  REGISTERED
+  DEREGISTERED
+}
+
+enum DocumentLanguage {
+  ENGLISH
+  ARABIC
+  BILINGUAL
+}
+
 model User {
   id            String   @id
   name          String
@@ -80,7 +100,7 @@ model Account {
   refreshTokenExpiresAt DateTime?
   scope                  String?
   idToken                String?
-  password               String?
+  password              String?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
   user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -117,15 +137,15 @@ model Tenant {
 }
 
 model TenantMembership {
-  id        String           @id @default(cuid())
-  tenantId  String
-  userId    String
-  status    MembershipStatus @default(INVITED)
-  isOwner   Boolean          @default(false)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  tenantId   String
+  userId     String
+  status     MembershipStatus @default(INVITED)
+  isOwner    Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   businesses BusinessMembership[]
 
   @@unique([tenantId, userId])
@@ -144,6 +164,7 @@ model Business {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  profile          BusinessProfile?
   memberships      BusinessMembership[]
   onboarding       OnboardingOperation[]
   invitationGrants BusinessInvitationGrant[]
@@ -151,6 +172,28 @@ model Business {
   @@unique([tenantId, id])
   @@unique([tenantId, slug])
   @@index([tenantId])
+}
+
+model BusinessProfile {
+  id                       String                @id @default(cuid())
+  tenantId                 String
+  businessId               String                @unique
+  industryProfile          IndustryProfileKey?
+  legalForm                String?
+  tradeLicenseNumber       String?
+  tradeLicenseAuthority    String?
+  vatRegistrationStatus    VatRegistrationStatus @default(NOT_REGISTERED)
+  trn                      String?
+  vatEffectiveFrom         DateTime?
+  fiscalYearStartMonth     Int                    @default(1)
+  documentLanguage         DocumentLanguage       @default(ENGLISH)
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  business                 Business               @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, businessId])
+  @@index([tenantId, industryProfile])
+  @@index([tenantId, vatRegistrationStatus])
 }
 
 model BusinessMembership {
@@ -216,15 +259,15 @@ model FeatureDefinition {
 }
 
 model Plan {
-  id           String             @id @default(cuid())
-  key          String             @unique
-  name         String
-  description  String?
-  isInternal   Boolean            @default(false)
-  active       Boolean            @default(true)
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  entitlements PlanEntitlement[]
+  id            String               @id @default(cuid())
+  key           String               @unique
+  name          String
+  description   String?
+  isInternal    Boolean              @default(false)
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  entitlements  PlanEntitlement[]
   subscriptions TenantSubscription[]
 }
 
