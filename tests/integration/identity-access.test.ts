@@ -4,6 +4,10 @@ import { MembershipStatus } from "../../src/generated/prisma/client";
 import { db } from "../../src/lib/db";
 import { hasBusinessCapability } from "../../src/modules/access/roles";
 import {
+  getBusinessProfile,
+  updateBusinessProfile,
+} from "../../src/modules/business-settings/server/business-profile";
+import {
   requireTenantCapacity,
   resolveTenantEntitlements,
 } from "../../src/modules/entitlements/server/resolve";
@@ -36,7 +40,7 @@ describe("identity and business access foundation", () => {
     await db.$disconnect();
   });
 
-  it("creates one owner tenant and business idempotently", async () => {
+  it("creates one owner tenant, subscription, business, and profile idempotently", async () => {
     const user = await createUser("owner");
     const input = {
       idempotencyKey: testKey("onboarding-owner"),
@@ -53,6 +57,7 @@ describe("identity and business access foundation", () => {
     expect(await db.tenantMembership.count({ where: { tenantId: first.tenantId, userId: user.id } })).toBe(1);
     expect(await db.businessMembership.count({ where: { businessId: first.businessId, userId: user.id } })).toBe(1);
     expect(await db.tenantSubscription.count({ where: { tenantId: first.tenantId } })).toBe(1);
+    expect(await db.businessProfile.count({ where: { tenantId: first.tenantId, businessId: first.businessId } })).toBe(1);
   });
 
   it("resolves access only through active tenant and business membership", async () => {
@@ -225,6 +230,87 @@ describe("identity and business access foundation", () => {
         currentUsage: 1,
       }),
     ).rejects.toThrow("TENANT_LIMIT_REACHED");
+  });
+
+  it("updates a tenant-scoped UAE business profile with registered VAT details", async () => {
+    const owner = await createUser("profile-owner");
+    const onboarding = await onboardOwner({
+      idempotencyKey: testKey("profile-onboarding"),
+      userId: owner.id,
+      tenantName: "Profile Tenant",
+      businessLegalName: "Profile Technical Services LLC",
+    });
+    const context = await resolveBusinessAccessContext({ userId: owner.id, businessId: onboarding.businessId });
+    expect(context).not.toBeNull();
+
+    const updated = await updateBusinessProfile(context!, {
+      industryProfile: "TECHNICAL_SERVICES",
+      legalForm: "Limited Liability Company",
+      tradeLicenseNumber: "CN-1234567",
+      tradeLicenseAuthority: "Abu Dhabi Department of Economic Development",
+      vatRegistrationStatus: "REGISTERED",
+      trn: "100000000000003",
+      vatEffectiveFrom: "2026-01-01",
+      fiscalYearStartMonth: 1,
+      documentLanguage: "BILINGUAL",
+    });
+
+    expect(updated).toMatchObject({
+      industryProfile: "TECHNICAL_SERVICES",
+      vatRegistrationStatus: "REGISTERED",
+      trn: "100000000000003",
+      documentLanguage: "BILINGUAL",
+    });
+    expect((await getBusinessProfile(context!)).profile?.trn).toBe("100000000000003");
+  });
+
+  it("rejects incomplete VAT registration and read-only profile changes", async () => {
+    const owner = await createUser("profile-guard-owner");
+    const viewer = await createUser("profile-guard-viewer");
+    const onboarding = await onboardOwner({
+      idempotencyKey: testKey("profile-guard-onboarding"),
+      userId: owner.id,
+      tenantName: "Profile Guard Tenant",
+      businessLegalName: "Profile Guard LLC",
+    });
+    const ownerContext = await resolveBusinessAccessContext({ userId: owner.id, businessId: onboarding.businessId });
+
+    await expect(updateBusinessProfile(ownerContext!, {
+      industryProfile: "GENERAL_SERVICES",
+      legalForm: "LLC",
+      tradeLicenseNumber: "123",
+      tradeLicenseAuthority: "Authority",
+      vatRegistrationStatus: "REGISTERED",
+      trn: "123",
+      vatEffectiveFrom: null,
+      fiscalYearStartMonth: 1,
+      documentLanguage: "ENGLISH",
+    })).rejects.toThrow();
+
+    await db.tenantMembership.create({
+      data: { tenantId: onboarding.tenantId, userId: viewer.id, status: MembershipStatus.ACTIVE },
+    });
+    await db.businessMembership.create({
+      data: {
+        tenantId: onboarding.tenantId,
+        businessId: onboarding.businessId,
+        userId: viewer.id,
+        roleKey: "business.viewer",
+        status: MembershipStatus.ACTIVE,
+      },
+    });
+    const viewerContext = await resolveBusinessAccessContext({ userId: viewer.id, businessId: onboarding.businessId });
+    await expect(updateBusinessProfile(viewerContext!, {
+      industryProfile: null,
+      legalForm: null,
+      tradeLicenseNumber: null,
+      tradeLicenseAuthority: null,
+      vatRegistrationStatus: "NOT_REGISTERED",
+      trn: null,
+      vatEffectiveFrom: null,
+      fiscalYearStartMonth: 1,
+      documentLanguage: "ENGLISH",
+    })).rejects.toThrow("BUSINESS_CAPABILITY_DENIED");
   });
 
   it("maps practical roles to capabilities without granting management by default", () => {
