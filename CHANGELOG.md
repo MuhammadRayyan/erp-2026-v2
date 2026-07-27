@@ -15,6 +15,14 @@
 - Module-registry unit tests.
 - Environment contract validation and unit tests.
 - Non-cached health endpoint for deployment checks.
-- CI environment configuration and generated lockfile artifact.
-- Generated Prisma client excluded from source linting.
-- CI now preserves the generated npm lockfile on the verification branch.
+- Prisma 7 PostgreSQL runtime adapter and singleton database client.
+- Better Auth with PostgreSQL-backed sessions and the Next.js auth handler.
+- Explicit idempotent owner onboarding.
+- Server-side business access context.
+- Database-enforced prevention of cross-tenant business memberships.
+- PostgreSQL integration tests for onboarding and access isolation.
+
+### Changed
+
+- Tenant and business membership schema now uses composite tenant keys to enforce isolation in PostgreSQL.
+- CI now provisions PostgreSQL, deploys migrations, and runs integration tests.
