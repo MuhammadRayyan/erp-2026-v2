@@ -10,6 +10,15 @@ export type PlatformEmail = {
 
 let transport: ReturnType<typeof nodemailer.createTransport> | null = null;
 
+export function escapeEmailHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function getTransport() {
   if (!serverEnv.SMTP_HOST) {
     throw new Error("SMTP_NOT_CONFIGURED");
