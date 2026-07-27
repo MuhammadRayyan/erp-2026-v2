@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { modulesByGroup, type ModuleGroup } from "@/modules/core/module-registry";
 
 const groups: readonly { key: ModuleGroup; label: string }[] = [
@@ -9,13 +10,30 @@ const groups: readonly { key: ModuleGroup; label: string }[] = [
   { key: "settings", label: "Settings" },
 ];
 
-export function BusinessShell({ children }: { children: React.ReactNode }) {
+function businessHref(href: string, businessId: string) {
+  return href.replace(/^\/business/, `/business/${businessId}`);
+}
+
+export function BusinessShell({
+  children,
+  context,
+  user,
+}: {
+  children: React.ReactNode;
+  context: {
+    businessId: string;
+    businessName: string;
+    tenantName: string;
+    roleKey: string;
+  };
+  user: { name: string; email: string };
+}) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="border-r border-[var(--border)] bg-[var(--surface)] p-4">
-        <Link href="/businesses" className="block rounded-xl border border-[var(--border)] p-4">
+        <Link href="/businesses" className="block rounded-xl border border-[var(--border)] p-4 transition hover:bg-[var(--surface-muted)]">
           <span className="block text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Active business</span>
-          <strong className="mt-1 block">Demo Business</strong>
+          <strong className="mt-1 block truncate">{context.businessName}</strong>
           <span className="text-sm text-[var(--muted)]">Switch business</span>
         </Link>
         <nav className="mt-6 space-y-6" aria-label="Business navigation">
@@ -23,9 +41,9 @@ export function BusinessShell({ children }: { children: React.ReactNode }) {
             <div key={group.key}>
               <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{group.label}</p>
               <div className="space-y-1">
-                {modulesByGroup(group.key).map((module) => (
-                  <Link key={module.key} href={module.href} className="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--surface-muted)]">
-                    {module.label}
+                {modulesByGroup(group.key).map((entry) => (
+                  <Link key={entry.key} href={businessHref(entry.href, context.businessId)} className="block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--surface-muted)]">
+                    {entry.label}
                   </Link>
                 ))}
               </div>
@@ -34,12 +52,19 @@ export function BusinessShell({ children }: { children: React.ReactNode }) {
         </nav>
       </aside>
       <div>
-        <header className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-6 py-4">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">UAE · AED · FY 2026</p>
-            <strong>Demo Business</strong>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{context.tenantName} · {context.roleKey.replace("business.", "")}</p>
+            <strong>{context.businessName}</strong>
           </div>
-          <Link href="/platform" className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm">Platform</Link>
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <p className="text-sm font-medium">{user.name}</p>
+              <p className="text-xs text-[var(--muted)]">{user.email}</p>
+            </div>
+            <Link href="/platform" className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm transition hover:bg-[var(--surface-muted)]">Platform</Link>
+            <SignOutButton compact />
+          </div>
         </header>
         <main className="p-6 lg:p-8">{children}</main>
       </div>

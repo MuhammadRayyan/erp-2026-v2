@@ -1,46 +1,36 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { MembershipStatus } from "../../src/generated/prisma/client";
 import { db } from "../../src/lib/db";
 import { resolveBusinessAccessContext } from "../../src/modules/tenancy/server/context";
 import { onboardOwner } from "../../src/modules/tenancy/server/onboarding";
 
-async function resetDatabase() {
-  await db.$transaction([
-    db.onboardingOperation.deleteMany(),
-    db.businessMembership.deleteMany(),
-    db.business.deleteMany(),
-    db.tenantMembership.deleteMany(),
-    db.tenant.deleteMany(),
-    db.session.deleteMany(),
-    db.account.deleteMany(),
-    db.verification.deleteMany(),
-    db.user.deleteMany(),
-  ]);
-}
+async function createUser(label: string) {
+  const suffix = randomUUID();
 
-async function createUser(email: string) {
   return db.user.create({
     data: {
       id: randomUUID(),
       name: "Test Owner",
-      email,
+      email: `${label}-${suffix}@example.com`,
       emailVerified: true,
     },
   });
 }
 
+function testKey(label: string) {
+  return `${label}-${randomUUID()}`;
+}
+
 describe("identity and business access foundation", () => {
-  beforeEach(resetDatabase);
   afterAll(async () => {
-    await resetDatabase();
     await db.$disconnect();
   });
 
   it("creates one owner tenant and business idempotently", async () => {
-    const user = await createUser("owner@example.com");
+    const user = await createUser("owner");
     const input = {
-      idempotencyKey: "onboarding-test-owner-0001",
+      idempotencyKey: testKey("onboarding-owner"),
       userId: user.id,
       tenantName: "Owner Account",
       businessLegalName: "Example Technical Services LLC",
@@ -50,16 +40,15 @@ describe("identity and business access foundation", () => {
     const second = await onboardOwner(input);
 
     expect(second.id).toBe(first.id);
-    expect(await db.tenant.count()).toBe(1);
-    expect(await db.business.count()).toBe(1);
-    expect(await db.tenantMembership.count()).toBe(1);
-    expect(await db.businessMembership.count()).toBe(1);
+    expect(await db.onboardingOperation.count({ where: { idempotencyKey: input.idempotencyKey } })).toBe(1);
+    expect(await db.tenantMembership.count({ where: { tenantId: first.tenantId, userId: user.id } })).toBe(1);
+    expect(await db.businessMembership.count({ where: { businessId: first.businessId, userId: user.id } })).toBe(1);
   });
 
   it("resolves access only through active tenant and business membership", async () => {
-    const user = await createUser("member@example.com");
+    const user = await createUser("member");
     const onboarding = await onboardOwner({
-      idempotencyKey: "onboarding-test-member-0002",
+      idempotencyKey: testKey("onboarding-member"),
       userId: user.id,
       tenantName: "Member Account",
       businessLegalName: "Member Business LLC",
@@ -96,16 +85,16 @@ describe("identity and business access foundation", () => {
   });
 
   it("rejects a business membership that crosses tenant boundaries", async () => {
-    const firstUser = await createUser("first@example.com");
-    const secondUser = await createUser("second@example.com");
+    const firstUser = await createUser("first");
+    const secondUser = await createUser("second");
     const first = await onboardOwner({
-      idempotencyKey: "onboarding-cross-tenant-0001",
+      idempotencyKey: testKey("onboarding-cross-first"),
       userId: firstUser.id,
       tenantName: "First Tenant",
       businessLegalName: "First Business LLC",
     });
     const second = await onboardOwner({
-      idempotencyKey: "onboarding-cross-tenant-0002",
+      idempotencyKey: testKey("onboarding-cross-second"),
       userId: secondUser.id,
       tenantName: "Second Tenant",
       businessLegalName: "Second Business LLC",

@@ -21,8 +21,15 @@
 - Server-side business access context.
 - Database-enforced prevention of cross-tenant business memberships.
 - PostgreSQL integration tests for onboarding and access isolation.
+- Modern sign-in and sign-up pages.
+- Authenticated Account Hub with real business memberships.
+- Explicit business onboarding UI and validated request contract.
+- Business-specific protected workspace routes and live workspace identity.
+- Sign-out controls and empty-business onboarding state.
 
 ### Changed
 
 - Tenant and business membership schema now uses composite tenant keys to enforce isolation in PostgreSQL.
 - CI now provisions PostgreSQL, deploys migrations, and runs integration tests.
+- Demo business navigation was replaced by authenticated business-specific URLs.
+- Legacy static workspace URLs now redirect to the Account Hub.
