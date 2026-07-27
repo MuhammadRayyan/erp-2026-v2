@@ -93,6 +93,13 @@ export async function onboardOwner(rawInput: OnboardingInput) {
           },
         });
 
+        await transaction.businessProfile.create({
+          data: {
+            tenantId: tenant.id,
+            businessId: business.id,
+          },
+        });
+
         await transaction.businessMembership.create({
           data: {
             tenantId: tenant.id,
