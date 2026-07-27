@@ -46,7 +46,7 @@ export default async function BusinessesPage() {
 
       {memberships.length === 0 ? (
         <Card className="mt-8 border-dashed p-10 text-center">
-          <div className="mx-auto flex h-13 w-13 items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--brand)]"><Building2 size={24} /></div>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--brand)]"><Building2 size={24} /></div>
           <h2 className="mt-5 text-xl font-semibold">Create your first business</h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">Your account is ready. Create a business to establish the accounting, user-access, and operational boundary.</p>
           <Link href="/businesses/new" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white">Start business setup <span aria-hidden>→</span></Link>
