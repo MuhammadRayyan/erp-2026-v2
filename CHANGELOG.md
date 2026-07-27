@@ -47,6 +47,11 @@
 - Per-business role changes using the authoritative role registry.
 - Pending invitation revocation.
 - Owner-protection and session-revocation integration tests.
+- Normalized feature definitions, plans, plan entitlements, tenant subscriptions, entitlement overrides, and usage limits.
+- Internal-unlimited plan assigned through the normal tenant subscription path.
+- Tenant entitlement resolver with boolean feature and numeric/unlimited limit handling.
+- Transactional, tenant-locked user-limit enforcement for invitation creation.
+- Entitlement override and plan-resolution integration tests.
 
 ### Changed
 
@@ -55,10 +60,11 @@
 - Demo business navigation was replaced by authenticated business-specific URLs.
 - Legacy static workspace URLs now redirect to the Account Hub.
 - Account Hub now exposes tenant access administration only to tenant owners.
-- Business navigation now displays only implemented modules permitted by the active role.
-- Dashboard and business settings now enforce capabilities on the server.
+- Business navigation now displays only implemented modules permitted by both the active role and tenant plan.
+- Dashboard and business settings now enforce capabilities and feature entitlements on the server.
 - Business settings queries now use tenant-scoped composite identity.
 - Docker dependency installation now uses the committed lockfile and `npm ci`.
 - Full Docker startup now waits for PostgreSQL health and successful migration deployment before starting the web service.
 - Tenant invitation creation now reports delivery status instead of returning a reusable secret link.
 - Disabling a tenant member now disables their business grants and removes active sessions atomically.
+- Account Hub business cards now show the resolved tenant plan.
