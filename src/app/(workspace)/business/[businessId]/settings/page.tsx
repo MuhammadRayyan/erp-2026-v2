@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import { Card } from "@/components/ui/card";
+import { BusinessProfileForm } from "@/components/business-settings/business-profile-form";
+import { hasBusinessCapability } from "@/modules/access/roles";
 import { requireBusinessPageAccess } from "@/modules/access/server/business-page";
+import { getBusinessProfile } from "@/modules/business-settings/server/business-profile";
 
 export default async function SettingsPage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = await params;
@@ -13,23 +15,10 @@ export default async function SettingsPage({ params }: { params: Promise<{ busin
     notFound();
   }
 
-  const business = await db.business.findUnique({
-    where: {
-      tenantId_id: {
-        tenantId: access.context.tenantId,
-        id: businessId,
-      },
-    },
-    select: {
-      legalName: true,
-      tradingName: true,
-      countryCode: true,
-      baseCurrency: true,
-      timezone: true,
-    },
-  });
+  const business = await getBusinessProfile(access.context);
+  const profile = business.profile;
 
-  if (!business) {
+  if (!profile) {
     notFound();
   }
 
@@ -37,16 +26,34 @@ export default async function SettingsPage({ params }: { params: Promise<{ busin
     <div>
       <p className="text-sm font-medium text-[var(--brand)]">Configuration</p>
       <h1 className="mt-1 text-3xl font-semibold tracking-tight">Business settings</h1>
-      <p className="mt-2 text-[var(--muted)]">Business identity, fiscal, tax, numbering, document, email, and workflow settings are managed here.</p>
+      <p className="mt-2 text-[var(--muted)]">Manage the business identity, localization, industry defaults, UAE VAT status, and fiscal foundation.</p>
+
       <Card className="mt-7">
-        <dl className="grid gap-6 sm:grid-cols-2">
-          <div><dt className="text-sm text-[var(--muted)]">Legal name</dt><dd className="mt-1 font-medium">{business.legalName}</dd></div>
-          <div><dt className="text-sm text-[var(--muted)]">Trading name</dt><dd className="mt-1 font-medium">{business.tradingName || "Not set"}</dd></div>
-          <div><dt className="text-sm text-[var(--muted)]">Country</dt><dd className="mt-1 font-medium">{business.countryCode}</dd></div>
-          <div><dt className="text-sm text-[var(--muted)]">Base currency</dt><dd className="mt-1 font-medium">{business.baseCurrency}</dd></div>
-          <div><dt className="text-sm text-[var(--muted)]">Timezone</dt><dd className="mt-1 font-medium">{business.timezone}</dd></div>
-          <div><dt className="text-sm text-[var(--muted)]">Industry profile</dt><dd className="mt-1 font-medium">Not selected</dd></div>
-        </dl>
+        <div className="mb-7 border-b border-[var(--border)] pb-6">
+          <h2 className="text-lg font-semibold">Workspace identity</h2>
+          <dl className="mt-4 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div><dt className="text-sm text-[var(--muted)]">Legal name</dt><dd className="mt-1 font-medium">{business.legalName}</dd></div>
+            <div><dt className="text-sm text-[var(--muted)]">Trading name</dt><dd className="mt-1 font-medium">{business.tradingName || "Not set"}</dd></div>
+            <div><dt className="text-sm text-[var(--muted)]">Base currency</dt><dd className="mt-1 font-medium">{business.baseCurrency}</dd></div>
+            <div><dt className="text-sm text-[var(--muted)]">Timezone</dt><dd className="mt-1 font-medium">{business.timezone}</dd></div>
+          </dl>
+        </div>
+
+        <BusinessProfileForm
+          businessId={business.id}
+          editable={hasBusinessCapability(access.context.roleKey, "settings.manage")}
+          initial={{
+            industryProfile: profile.industryProfile,
+            legalForm: profile.legalForm,
+            tradeLicenseNumber: profile.tradeLicenseNumber,
+            tradeLicenseAuthority: profile.tradeLicenseAuthority,
+            vatRegistrationStatus: profile.vatRegistrationStatus,
+            trn: profile.trn,
+            vatEffectiveFrom: profile.vatEffectiveFrom?.toISOString().slice(0, 10) ?? null,
+            fiscalYearStartMonth: profile.fiscalYearStartMonth,
+            documentLanguage: profile.documentLanguage,
+          }}
+        />
       </Card>
     </div>
   );
