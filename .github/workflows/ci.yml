@@ -56,5 +56,12 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
-      - run: npm run test:integration
+      - name: Run integration tests
+        run: npm run test:integration 2>&1 | tee integration-output.txt
+      - name: Upload integration output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-output
+          path: integration-output.txt
       - run: npm run build
