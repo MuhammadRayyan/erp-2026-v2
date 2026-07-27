@@ -13,3 +13,6 @@
 - Initial tenant, business, tenant-membership, and business-membership data model.
 - Docker Compose and GitHub Actions verification workflow.
 - Module-registry unit tests.
+- Environment contract validation and unit tests.
+- Non-cached health endpoint for deployment checks.
+- CI environment configuration and generated lockfile artifact.

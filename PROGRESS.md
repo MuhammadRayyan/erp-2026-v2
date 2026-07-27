@@ -12,6 +12,7 @@ Current phase: Phase 1 — Application foundation
 - Shared design tokens, navigation shell, module registry, and representative dashboard/settings pages added.
 - Initial Prisma tenant, business, tenant-membership, and business-membership schema added.
 - Docker and GitHub Actions verification definitions added.
+- Environment validation and a health endpoint added on the verification branch.
 
 ## Verification status
 
@@ -19,8 +20,8 @@ Local dependency installation was unavailable in the authoring environment. Lint
 
 ## Next priority
 
-1. Inspect the first CI run and correct every failure.
-2. Add explicit environment validation and health/readiness endpoints.
+1. Inspect the pull-request CI run and correct every failure.
+2. Commit the generated package lock after CI produces it.
 3. Establish authentication, onboarding, and server-side tenant/business context.
 4. Add PostgreSQL integration-test infrastructure and the first isolation tests.
 

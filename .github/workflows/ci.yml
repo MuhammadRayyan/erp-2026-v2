@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+env:
+  DATABASE_URL: postgresql://erp:erp@localhost:5432/erp
+  BETTER_AUTH_SECRET: 12345678901234567890123456789012
+  BETTER_AUTH_URL: http://localhost:3000
+  APP_URL: http://localhost:3000
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -17,8 +23,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-
       - run: npm install --no-audit --no-fund
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json
       - run: npm run db:generate
       - run: npm run lint
       - run: npm run typecheck
