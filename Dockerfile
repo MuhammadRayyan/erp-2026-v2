@@ -5,7 +5,11 @@ RUN npm ci --no-audit --no-fund
 
 FROM node:24-alpine AS build
 WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    DATABASE_URL=postgresql://erp:erp@localhost:5432/erp \
+    BETTER_AUTH_SECRET=build-time-placeholder-secret-1234567890 \
+    BETTER_AUTH_URL=http://localhost:3000 \
+    APP_URL=http://localhost:3000
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run db:generate && npm run build
