@@ -1,35 +1,34 @@
 # Progress
 
 Last updated: July 27, 2026
-Current branch: `phase-2-auth-ui`
+Current branch: `phase-2-tenant-admin-invitations`
 Current phase: Phase 2 — Identity and access foundation
 
 ## Verified state
 
 - Phase 1 application foundation merged with strict CI verification.
 - Phase 2 database, session, onboarding, and tenant-isolation backend merged through PR #2.
+- Authenticated Account Hub, business onboarding, and protected business workspaces merged through PR #3.
 - Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
 - Composite tenant keys prevent cross-tenant business memberships in PostgreSQL.
-- Sign-in and sign-up pages added with a consistent modern identity layout.
-- Account Hub is protected by live server-side sessions.
-- Business onboarding is explicit, validated, and idempotent.
-- Account Hub lists only active businesses available through active memberships.
-- Business workspaces now use business-specific URLs and live tenant/business context.
-- Legacy demo business routes redirect to the Account Hub.
-- Unit coverage added for the onboarding request contract.
+- The active slice adds an authoritative role/capability registry.
+- Tenant invitations use one-time random tokens stored only as SHA-256 digests.
+- Invitations are email-bound, expiring, and limited to explicit business/role grants.
+- Tenant owners receive a users-and-access administration page.
+- Invitation acceptance creates tenant and business memberships transactionally.
 
 ## Verification status
 
-GitHub Actions is the authoritative verification environment. This UI slice must pass strict `npm ci`, Prisma generation, migration deployment, lint, type checking, unit tests, PostgreSQL integration tests, and production build before merge.
+GitHub Actions is the authoritative verification environment. This slice must pass strict `npm ci`, Prisma generation, migration deployment, lint, type checking, unit tests, PostgreSQL integration tests, and production build before merge.
 
 ## Next priority
 
-1. Review and correct the authenticated UI CI result.
-2. Add invitation acceptance and account recovery delivery flows.
-3. Add the first authoritative role/capability checks to protected use cases and navigation.
-4. Add tenant administration for users and business assignments.
-5. Begin shared business setup and master-data foundations after Phase 2 closes.
+1. Verify and correct the tenant invitation and capability CI result.
+2. Add invitation delivery through the platform email adapter and password-recovery delivery.
+3. Add member disablement, role changes, invitation revocation, and owner-protection rules.
+4. Apply capability checks to business navigation and the first protected settings use cases.
+5. Close Phase 2 and begin shared business setup and master-data foundations.
 
 ## Active blockers
 
-- Authenticated UI verification pending through GitHub Actions.
+- Tenant invitation and role/capability verification pending through GitHub Actions.
