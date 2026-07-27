@@ -37,6 +37,12 @@
 - Dedicated Docker migration image target and migration-before-web Compose service.
 - Database, Prisma Studio, and infrastructure helper scripts.
 - Optional validated SMTP configuration for the platform email adapter.
+- Nodemailer-backed platform SMTP adapter.
+- Email delivery for tenant invitations without exposing invitation tokens to the browser.
+- Better Auth forgot-password and reset-password delivery.
+- One-hour password reset links with revocation of existing sessions after reset.
+- Modern forgot-password and reset-password pages.
+- HTML escaping coverage for dynamic platform email values.
 
 ### Changed
 
@@ -50,3 +56,4 @@
 - Business settings queries now use tenant-scoped composite identity.
 - Docker dependency installation now uses the committed lockfile and `npm ci`.
 - Full Docker startup now waits for PostgreSQL health and successful migration deployment before starting the web service.
+- Tenant invitation creation now reports delivery status instead of returning a reusable secret link.
