@@ -26,14 +26,19 @@ export function BusinessShell({
     businessName: string;
     tenantName: string;
     roleKey: string;
+    planName: string;
+    enabledFeatures: string[];
   };
   user: { name: string; email: string };
 }) {
+  const enabledFeatures = new Set(context.enabledFeatures);
   const visibleGroups = groups
     .map((group) => ({
       ...group,
       entries: modulesByGroup(group.key).filter(
-        (entry) => entry.status === "foundation" && hasBusinessCapability(context.roleKey, entry.permission),
+        (entry) => entry.status === "foundation"
+          && hasBusinessCapability(context.roleKey, entry.permission)
+          && enabledFeatures.has(entry.entitlement),
       ),
     }))
     .filter((group) => group.entries.length > 0);
@@ -60,12 +65,12 @@ export function BusinessShell({
             </div>
           ))}
         </nav>
-        <p className="mt-8 px-3 text-xs leading-5 text-[var(--muted)]">Additional modules appear only after their phase is implemented and the role is entitled to use them.</p>
+        <p className="mt-8 px-3 text-xs leading-5 text-[var(--muted)]">Modules appear only when implemented, permitted by the active role, and enabled by the tenant plan.</p>
       </aside>
       <div>
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{context.tenantName} · {context.roleKey.replace("business.", "")}</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{context.tenantName} · {context.roleKey.replace("business.", "")} · {context.planName}</p>
             <strong>{context.businessName}</strong>
           </div>
           <div className="flex items-center gap-3">
