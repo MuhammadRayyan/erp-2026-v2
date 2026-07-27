@@ -20,22 +20,77 @@ enum MembershipStatus {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  displayName String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions    Session[]
+  accounts    Account[]
   memberships TenantMembership[]
+  onboarding  OnboardingOperation[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Account {
+  id                    String    @id
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
 }
 
 model Tenant {
   id          String       @id @default(cuid())
+  slug        String       @unique
   name        String
   status      TenantStatus @default(ACTIVE)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   memberships TenantMembership[]
   businesses  Business[]
+  onboarding  OnboardingOperation[]
 }
 
 model TenantMembership {
@@ -48,7 +103,7 @@ model TenantMembership {
   updatedAt DateTime         @updatedAt
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businessMemberships BusinessMembership[]
+  businesses BusinessMembership[]
 
   @@unique([tenantId, userId])
   @@index([userId, status])
@@ -57,6 +112,7 @@ model TenantMembership {
 model Business {
   id           String   @id @default(cuid())
   tenantId     String
+  slug         String
   legalName    String
   tradingName  String?
   countryCode  String   @default("AE")
@@ -66,21 +122,39 @@ model Business {
   updatedAt    DateTime @updatedAt
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   memberships  BusinessMembership[]
+  onboarding   OnboardingOperation[]
 
+  @@unique([tenantId, id])
+  @@unique([tenantId, slug])
   @@index([tenantId])
 }
 
 model BusinessMembership {
-  id                 String           @id @default(cuid())
-  businessId         String
-  tenantMembershipId String
-  roleKey            String
-  status             MembershipStatus @default(ACTIVE)
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  business           Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  tenantMembership   TenantMembership @relation(fields: [tenantMembershipId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  tenantId   String
+  businessId String
+  userId     String
+  roleKey    String
+  status     MembershipStatus @default(ACTIVE)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  business   Business         @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+  tenantUser TenantMembership @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
 
-  @@unique([businessId, tenantMembershipId])
-  @@index([tenantMembershipId, status])
+  @@unique([businessId, userId])
+  @@index([tenantId, userId, status])
+}
+
+model OnboardingOperation {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique
+  userId         String
+  tenantId       String
+  businessId     String
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  business       Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
 }

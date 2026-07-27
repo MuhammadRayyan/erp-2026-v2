@@ -1,34 +1,35 @@
 # Progress
 
 Last updated: July 27, 2026
-Current branch: `main`
+Current branch: `phase-2-identity-access`
 Current phase: Phase 2 — Identity and access foundation
 
 ## Verified state
 
 - Repository initialized without rewriting history.
 - Durable project context, phased roadmap, decisions, and continuation workflow added.
-- Next.js route areas established for Account Hub, Business Workspace, and Platform Administration.
-- Shared design tokens, navigation shell, module registry, and representative dashboard/settings pages added.
-- Initial Prisma tenant, business, tenant-membership, and business-membership schema added.
-- Environment validation and a non-cached health endpoint added.
-- Docker and GitHub Actions verification definitions added.
-- npm lockfile generated and committed.
-- Strict GitHub Actions verification passed with `npm ci`, Prisma generation, lint, type checking, unit tests, and production build.
-- Phase 1 verification history was merged through pull request without squashing or rewriting commits.
+- Phase 1 application foundation merged with strict CI verification.
+- Prisma 7 PostgreSQL runtime adapter and singleton database client implemented.
+- Better Auth configured for PostgreSQL-backed revocable sessions.
+- Authentication handler and browser client added.
+- Explicit idempotent owner onboarding implemented.
+- Tenant membership and business membership separated.
+- Composite tenant keys prevent cross-tenant business memberships at the database level.
+- Server-side business access context requires active user, business membership, and active tenant.
+- Initial migration and PostgreSQL integration tests added.
 
 ## Verification status
 
-Local dependency installation is unavailable in the authoring environment, so GitHub Actions is the authoritative verification environment. Phase 1 is verified and merged.
+GitHub Actions is the authoritative verification environment. Phase 2 CI must confirm dependency lock update, migration deployment, lint, type checking, unit tests, PostgreSQL integration tests, and production build before merge.
 
 ## Next priority
 
-1. Add the Prisma 7 PostgreSQL runtime adapter and singleton database client.
-2. Establish maintained authentication with database-backed sessions.
-3. Implement explicit onboarding rather than read-time business creation.
-4. Create the server-side session, tenant, and business data-access boundary.
-5. Add PostgreSQL integration-test infrastructure and tenant/business isolation tests.
+1. Review and correct the Phase 2 CI result.
+2. Restore reproducible `npm ci` after the dependency lock is updated.
+3. Add sign-in, sign-up/invitation, and explicit onboarding UI flows.
+4. Protect Account Hub and Business Workspace through server-side session checks.
+5. Add role/capability checks on the first protected application use cases.
 
 ## Active blockers
 
-- None for the completed Phase 1 foundation.
+- Phase 2 verification and lockfile update pending through GitHub Actions.
