@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { serverEnv } from "@/lib/server-env";
+import { sendPlatformEmail } from "@/modules/communication/server/platform-email";
 import { getRequestSession } from "@/modules/identity/server/session";
 import { createInvitationRequestSchema } from "@/modules/tenancy/contracts/invitation-request";
 import {
@@ -50,14 +52,45 @@ export async function POST(
       businessGrants: body.businessGrants,
     });
 
-    return NextResponse.json(
-      {
+    const invitationUrl = `${serverEnv.APP_URL}/invitations/${result.token}`;
+    const grants = result.invitation.businessGrants
+      .map((grant) => `${grant.business.legalName}: ${grant.roleKey.replace("business.", "")}`)
+      .join("\n");
+
+    try {
+      const delivery = await sendPlatformEmail({
+        to: result.invitation.email,
+        subject: `Invitation to ${result.invitation.tenant.name}`,
+        text: `${result.invitation.invitedBy.name} invited you to ${result.invitation.tenant.name}.\n\nBusiness access:\n${grants}\n\nAccept within ${body.expiresInDays} days: ${invitationUrl}`,
+        html: `<p><strong>${result.invitation.invitedBy.name}</strong> invited you to <strong>${result.invitation.tenant.name}</strong>.</p><p>Accept this invitation within ${body.expiresInDays} days:</p><p><a href="${invitationUrl}">Accept invitation</a></p>`,
+      });
+
+      return NextResponse.json(
+        {
+          invitationId: result.invitation.id,
+          expiresAt: result.invitation.expiresAt,
+          deliveryStatus: "sent",
+          messageId: delivery.messageId,
+        },
+        { status: 201 },
+      );
+    } catch (deliveryError) {
+      console.error("Invitation email delivery failed", {
         invitationId: result.invitation.id,
-        invitationToken: result.token,
-        expiresAt: result.invitation.expiresAt,
-      },
-      { status: 201 },
-    );
+        tenantId,
+        error: deliveryError instanceof Error ? deliveryError.message : "Unknown email error",
+      });
+
+      return NextResponse.json(
+        {
+          invitationId: result.invitation.id,
+          expiresAt: result.invitation.expiresAt,
+          deliveryStatus: "failed",
+          message: "The invitation was created, but the email could not be sent. Check SMTP settings and retry.",
+        },
+        { status: 502 },
+      );
+    }
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ message: "Check the invitation details.", issues: error.issues }, { status: 400 });
