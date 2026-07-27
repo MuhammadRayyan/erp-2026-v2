@@ -43,6 +43,10 @@
 - One-hour password reset links with revocation of existing sessions after reset.
 - Modern forgot-password and reset-password pages.
 - HTML escaping coverage for dynamic platform email values.
+- Tenant-owner controls for member disablement and reactivation.
+- Per-business role changes using the authoritative role registry.
+- Pending invitation revocation.
+- Owner-protection and session-revocation integration tests.
 
 ### Changed
 
@@ -57,3 +61,4 @@
 - Docker dependency installation now uses the committed lockfile and `npm ci`.
 - Full Docker startup now waits for PostgreSQL health and successful migration deployment before starting the web service.
 - Tenant invitation creation now reports delivery status instead of returning a reusable secret link.
+- Disabling a tenant member now disables their business grants and removes active sessions atomically.
