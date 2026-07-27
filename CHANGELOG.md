@@ -16,3 +16,5 @@
 - Environment contract validation and unit tests.
 - Non-cached health endpoint for deployment checks.
 - CI environment configuration and generated lockfile artifact.
+- Generated Prisma client excluded from source linting.
+- CI now preserves the generated npm lockfile on the verification branch.

@@ -27,4 +27,4 @@ Local dependency installation was unavailable in the authoring environment. Lint
 
 ## Active blockers
 
-- CI result pending for the foundation commit.
+- First CI run passed dependency installation and Prisma generation, then failed at lint. The lint boundary and lockfile workflow are being corrected.

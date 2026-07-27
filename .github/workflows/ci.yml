@@ -6,11 +6,11 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   DATABASE_URL: postgresql://erp:erp@localhost:5432/erp
-  BETTER_AUTH_SECRET: 12345678901234567890123456789012
+  BETTER_AUTH_SECRET: "12345678901234567890123456789012"
   BETTER_AUTH_URL: http://localhost:3000
   APP_URL: http://localhost:3000
 
@@ -20,14 +20,23 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - run: npm install --no-audit --no-fund
-      - uses: actions/upload-artifact@v4
-        with:
-          name: package-lock
-          path: package-lock.json
+      - name: Commit generated package lock
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: add generated package lock"
+          git push origin HEAD:${{ github.head_ref }}
       - run: npm run db:generate
       - run: npm run lint
       - run: npm run typecheck
