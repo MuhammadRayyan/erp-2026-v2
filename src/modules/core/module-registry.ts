@@ -1,3 +1,5 @@
+import type { BusinessCapability } from "@/modules/access/roles";
+
 export type ModuleGroup = "work" | "finance" | "operations" | "insights" | "settings";
 
 export type ErpModule = {
@@ -7,7 +9,7 @@ export type ErpModule = {
   href: string;
   description: string;
   entitlement: string;
-  permission: string;
+  permission: BusinessCapability;
   phase: number;
   status: "foundation" | "planned";
 };
