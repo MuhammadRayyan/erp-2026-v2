@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { Card } from "@/components/ui/card";
-import { requireBusinessPageCapability } from "@/modules/access/server/business-page";
+import { requireBusinessPageAccess } from "@/modules/access/server/business-page";
 
 export default async function SettingsPage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = await params;
 
   let access;
   try {
-    access = await requireBusinessPageCapability(businessId, "settings.view");
+    access = await requireBusinessPageAccess(businessId, "settings.view", "core.settings");
   } catch {
     notFound();
   }
