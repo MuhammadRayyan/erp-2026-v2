@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { MembershipStatus } from "../../src/generated/prisma/client";
 import { db } from "../../src/lib/db";
+import { hasBusinessCapability } from "../../src/modules/access/roles";
 import { resolveBusinessAccessContext } from "../../src/modules/tenancy/server/context";
+import {
+  acceptTenantInvitation,
+  createTenantInvitation,
+} from "../../src/modules/tenancy/server/invitations";
 import { onboardOwner } from "../../src/modules/tenancy/server/onboarding";
 
 async function createUser(label: string) {
@@ -110,5 +115,81 @@ describe("identity and business access foundation", () => {
         },
       }),
     ).rejects.toThrow();
+  });
+
+  it("accepts a tenant invitation only for the invited email and granted business", async () => {
+    const owner = await createUser("invite-owner");
+    const invited = await createUser("invite-member");
+    const wrongUser = await createUser("invite-wrong");
+    const onboarding = await onboardOwner({
+      idempotencyKey: testKey("onboarding-invite"),
+      userId: owner.id,
+      tenantName: "Invitation Tenant",
+      businessLegalName: "Invitation Business LLC",
+    });
+
+    const created = await createTenantInvitation({
+      actorUserId: owner.id,
+      tenantId: onboarding.tenantId,
+      email: invited.email,
+      expiresInDays: 7,
+      businessGrants: [{ businessId: onboarding.businessId, roleKey: "business.accountant" }],
+    });
+
+    await expect(
+      acceptTenantInvitation({
+        userId: wrongUser.id,
+        userEmail: wrongUser.email,
+        token: created.token,
+      }),
+    ).rejects.toThrow("INVITATION_EMAIL_MISMATCH");
+
+    const accepted = await acceptTenantInvitation({
+      userId: invited.id,
+      userEmail: invited.email,
+      token: created.token,
+    });
+
+    expect(accepted.businessGrants).toHaveLength(1);
+    expect(
+      await resolveBusinessAccessContext({
+        userId: invited.id,
+        businessId: onboarding.businessId,
+      }),
+    ).toMatchObject({ roleKey: "business.accountant" });
+  });
+
+  it("prevents a tenant owner from granting a business from another tenant", async () => {
+    const firstOwner = await createUser("grant-first");
+    const secondOwner = await createUser("grant-second");
+    const first = await onboardOwner({
+      idempotencyKey: testKey("grant-first"),
+      userId: firstOwner.id,
+      tenantName: "Grant First",
+      businessLegalName: "Grant First LLC",
+    });
+    const second = await onboardOwner({
+      idempotencyKey: testKey("grant-second"),
+      userId: secondOwner.id,
+      tenantName: "Grant Second",
+      businessLegalName: "Grant Second LLC",
+    });
+
+    await expect(
+      createTenantInvitation({
+        actorUserId: firstOwner.id,
+        tenantId: first.tenantId,
+        email: `cross-${randomUUID()}@example.com`,
+        expiresInDays: 7,
+        businessGrants: [{ businessId: second.businessId, roleKey: "business.viewer" }],
+      }),
+    ).rejects.toThrow("INVALID_BUSINESS_GRANT");
+  });
+
+  it("maps practical roles to capabilities without granting management by default", () => {
+    expect(hasBusinessCapability("business.accountant", "accounting.manage")).toBe(true);
+    expect(hasBusinessCapability("business.viewer", "accounting.manage")).toBe(false);
+    expect(hasBusinessCapability("business.technician", "settings.manage")).toBe(false);
+    expect(hasBusinessCapability("unknown-role", "dashboard.view")).toBe(false);
   });
 });
