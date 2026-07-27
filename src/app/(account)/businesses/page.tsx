@@ -27,7 +27,14 @@ export default async function BusinessesPage() {
           tradingName: true,
           countryCode: true,
           baseCurrency: true,
-          tenant: { select: { name: true } },
+          tenant: {
+            select: {
+              name: true,
+              subscription: {
+                select: { plan: { select: { name: true } } },
+              },
+            },
+          },
         },
       },
     },
@@ -47,7 +54,7 @@ export default async function BusinessesPage() {
         <div>
           <p className="text-sm font-medium text-[var(--brand)]">Account Hub</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">Your businesses</h1>
-          <p className="mt-2 max-w-2xl text-[var(--muted)]">Open a workspace or create another legal entity when your plan allows it.</p>
+          <p className="mt-2 max-w-2xl text-[var(--muted)]">Open a workspace or create another legal entity when your tenant plan allows it.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {ownedTenants.map(([tenantId, tenantName]) => (
@@ -56,7 +63,7 @@ export default async function BusinessesPage() {
             </Link>
           ))}
           <Link href="/businesses/new" className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white transition hover:bg-[var(--brand-strong)]">
-            <Plus size={18} /> New business
+            <Plus size={18} /> New account & business
           </Link>
         </div>
       </div>
@@ -65,7 +72,7 @@ export default async function BusinessesPage() {
         <Card className="mt-8 border-dashed p-10 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--brand)]"><Building2 size={24} /></div>
           <h2 className="mt-5 text-xl font-semibold">Create your first business</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">Your account is ready. Create a business to establish the accounting, user-access, and operational boundary.</p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">Your account is ready. Create a tenant and business to establish the subscription, accounting, user-access, and operational boundary.</p>
           <Link href="/businesses/new" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white">Start business setup <span aria-hidden>→</span></Link>
         </Card>
       ) : (
@@ -80,6 +87,7 @@ export default async function BusinessesPage() {
                 <h2 className="mt-5 text-xl font-semibold">{business.tradingName || business.legalName}</h2>
                 {business.tradingName && <p className="mt-1 text-sm text-[var(--muted)]">{business.legalName}</p>}
                 <p className="mt-2 text-sm text-[var(--muted)]">{business.tenant.name} · {business.countryCode}</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">Plan: {business.tenant.subscription?.plan.name ?? "Unavailable"}</p>
                 <div className="mt-5 flex justify-between text-sm"><span>{business.baseCurrency} base currency</span><span className="text-[var(--brand)]">Open →</span></div>
               </Card>
             </Link>
