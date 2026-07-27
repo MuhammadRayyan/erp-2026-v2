@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 27, 2026
-Current branch: `main`
+Current branch: `phase-3-business-profile`
 Current phase: Phase 3 — Shared business foundations
 
 ## Verified state
@@ -15,14 +15,18 @@ Current phase: Phase 3 — Shared business foundations
 - Member disablement revokes active sessions and business grants atomically.
 - The internal-unlimited plan uses the same normalized subscription and entitlement path intended for future commercial plans.
 - PostgreSQL integration coverage verifies onboarding, tenant isolation, invitations, owner protection, role updates, session revocation, entitlement resolution, overrides, and usage limits.
+- The active Phase 3 slice adds a tenant-scoped one-to-one business profile for industry, legal/license, document language, fiscal, and UAE VAT registration settings.
+- Existing businesses receive a backfilled default profile; new onboarding creates the profile atomically.
+- Registered VAT profiles require a 15-digit TRN and VAT effective date at both application and database boundaries.
+- Profile updates require settings management capability and the core settings entitlement; view-only roles remain read-only.
 
 ## Verification status
 
-PR #9 passed strict `npm ci`, Prisma generation, migration deployment, lint, type checking, unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
+GitHub Actions is the authoritative verification environment. This slice must pass strict `npm ci`, Prisma generation, migration deployment, lint, type checking, unit tests, PostgreSQL integration tests, production build, Compose validation, and both Docker image builds before merge.
 
 ## Next priority
 
-1. Add the Phase 3 business-profile foundation for legal identity, industry profile, UAE VAT registration state, fiscal settings, and protected updates.
+1. Verify and correct the business-profile migration, validation, API, UI, and access tests.
 2. Add shared parties and contacts.
 3. Add items, services, units, and default account/tax classifications.
 4. Add private file and audit/history foundations required by master data.
@@ -30,4 +34,4 @@ PR #9 passed strict `npm ci`, Prisma generation, migration deployment, lint, typ
 
 ## Active blockers
 
-- None for the completed Phase 1 and Phase 2 foundations.
+- Business-profile foundation verification pending through GitHub Actions.
