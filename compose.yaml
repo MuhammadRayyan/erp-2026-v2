@@ -10,19 +10,46 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  web:
-    build: .
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  migrate:
+    build:
+      context: .
+      target: migrate
     environment:
       DATABASE_URL: postgresql://erp:erp@db:5432/erp
-      BETTER_AUTH_SECRET: local-development-secret-change-before-remote-use
-      BETTER_AUTH_URL: http://localhost:3000
-      APP_URL: http://localhost:3000
     depends_on:
       db:
         condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql://erp:erp@db:5432/erp
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-development-secret-change-before-remote-use}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      EMAIL_FROM: ERP 2026 <no-reply@localhost>
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     ports:
       - "3000:3000"
 
