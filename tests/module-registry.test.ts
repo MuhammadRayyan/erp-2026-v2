@@ -8,10 +8,10 @@ describe("module registry", () => {
   });
 
   it("declares permission and entitlement for every module", () => {
-    for (const module of moduleRegistry) {
-      expect(module.permission).toMatch(/^[a-z]+\.[a-z]+$/);
-      expect(module.entitlement).toMatch(/^[a-z]+\.[a-z]+$/);
-      expect(module.href.startsWith("/")).toBe(true);
+    for (const entry of moduleRegistry) {
+      expect(entry.permission).toMatch(/^[a-z]+\.[a-z]+$/);
+      expect(entry.entitlement).toMatch(/^[a-z]+\.[a-z]+$/);
+      expect(entry.href.startsWith("/")).toBe(true);
     }
   });
 });
