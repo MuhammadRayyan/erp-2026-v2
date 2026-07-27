@@ -1,30 +1,321 @@
 # ERP 2026 V2
 
-A structured UAE-first ERP for owner-operated and small businesses. The initial product targets technical services, automotive workshops, civil/architectural services, and general service/trading workflows.
+A structured UAE-first ERP for owner-operated and small businesses. The product is being developed phase by phase for technical services, automotive workshops, civil/architectural services, and general service or trading businesses.
 
-## Current status
+## Current project status
 
-Phase 1 foundation is in progress. The repository now contains the target route boundaries, shared UI shell, module registry, initial tenancy schema, Docker configuration, CI workflow, and durable project context.
+Phase 2 — Identity and Access Foundation.
 
-## Local foundation
+Implemented and verified foundations include:
 
-Requirements:
+- Next.js 16 App Router and React 19;
+- PostgreSQL 16 and Prisma 7;
+- Better Auth with database-backed sessions;
+- tenant and business isolation;
+- explicit owner onboarding;
+- authenticated Account Hub and business workspaces;
+- tenant access administration and secure invitations;
+- business roles and capability-aware navigation;
+- Docker and GitHub Actions verification.
 
-- Node.js 24 LTS
-- npm
-- Docker with Compose
+See `PROGRESS.md` for the exact current state and next work.
 
-Create `.env` from `.env.example`, then install dependencies and run the application. PostgreSQL can be started through `compose.yaml`.
+## Technology requirements
 
-## Verification
+Install these before running the project locally:
 
-The standard verification command is:
+- Node.js 24 LTS;
+- npm 11 or the npm version bundled with Node.js 24;
+- Docker Desktop or Docker Engine with Docker Compose;
+- Git.
 
-`npm run verify`
+Windows development is best through WSL2 with Docker Desktop integration, although the project also works directly on Linux and macOS.
 
-GitHub Actions runs Prisma generation, linting, type checking, unit tests, and a production build on pushes and pull requests.
+## First-time setup — recommended local development
 
-## Context reading order
+This mode runs PostgreSQL and Mailpit in Docker while Next.js runs directly on the host. It provides the fastest hot reload and does not rebuild a container after each code change.
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/MuhammadRayyan/erp-2026-v2.git
+cd erp-2026-v2
+```
+
+### 2. Create the environment file
+
+```bash
+cp .env.example .env
+```
+
+Generate a private authentication secret of at least 32 characters. One suitable command is:
+
+```bash
+openssl rand -base64 32
+```
+
+Replace `BETTER_AUTH_SECRET` in `.env` with the generated value. Never commit `.env`.
+
+### 3. Install dependencies
+
+```bash
+npm ci
+```
+
+Use `npm ci` for a clean reproducible installation. Use `npm install <package>` only when intentionally adding or changing dependencies and commit the resulting lockfile.
+
+### 4. Start local infrastructure
+
+```bash
+docker compose up -d db mailpit
+```
+
+Services:
+
+- PostgreSQL: `localhost:5432`
+- Mailpit web interface: `http://localhost:8025`
+- Mailpit SMTP: `localhost:1025`
+
+Check service health:
+
+```bash
+docker compose ps
+```
+
+### 5. Generate Prisma Client
+
+```bash
+npm run db:generate
+```
+
+### 6. Apply database migrations
+
+For normal first-time setup or a shared branch:
+
+```bash
+npm run db:deploy
+```
+
+When intentionally creating a new migration during development:
+
+```bash
+npm run db:migrate -- --name meaningful_migration_name
+```
+
+Do not use `prisma db push` as the normal project workflow. Schema changes must be represented by reviewed migrations.
+
+### 7. Start the application
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+Create an account, create the first tenant and business through onboarding, and enter the business workspace from the Account Hub.
+
+## Full Docker setup
+
+This mode builds and runs the complete web application in Docker. It is useful for clean-environment verification and deployment-like testing.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Docker Compose will:
+
+1. start PostgreSQL;
+2. wait for PostgreSQL health;
+3. apply committed Prisma migrations once;
+4. start the application;
+5. start Mailpit for local email inspection.
+
+Open:
+
+- ERP: `http://localhost:3000`
+- Mailpit: `http://localhost:8025`
+
+Stop services without deleting data:
+
+```bash
+docker compose down
+```
+
+Stop services and permanently remove the local PostgreSQL volume only when a full reset is intentional:
+
+```bash
+docker compose down -v
+```
+
+**Warning:** `-v` deletes the local database volume.
+
+## Environment variables
+
+| Variable | Required | Local example | Purpose |
+|---|---:|---|---|
+| `DATABASE_URL` | Yes | `postgresql://erp:erp@localhost:5432/erp` | PostgreSQL connection used by Prisma and the application |
+| `BETTER_AUTH_SECRET` | Yes | Generated private value | Signs and protects authentication data; minimum 32 characters |
+| `BETTER_AUTH_URL` | Yes | `http://localhost:3000` | Better Auth base URL |
+| `APP_URL` | Yes | `http://localhost:3000` | Canonical application origin and trusted browser origin |
+| `SMTP_HOST` | No initially | `localhost` | SMTP server for invitation and recovery delivery |
+| `SMTP_PORT` | No initially | `1025` | SMTP port |
+| `SMTP_SECURE` | No initially | `false` | Use implicit TLS for SMTP |
+| `SMTP_USER` | No | empty | SMTP username |
+| `SMTP_PASSWORD` | No | empty | SMTP password |
+| `EMAIL_FROM` | No initially | `ERP 2026 <no-reply@localhost>` | Platform identity sender |
+
+For Docker Compose, service-to-service hostnames differ from host development: PostgreSQL is `db` and Mailpit is `mailpit`. The Compose configuration supplies those values to containers.
+
+## Database commands
+
+```bash
+npm run db:generate       # Generate Prisma Client
+npm run db:migrate        # Create and apply a development migration
+npm run db:deploy         # Apply existing migrations without creating new ones
+npm run db:studio         # Open Prisma Studio
+```
+
+Migration rules:
+
+- never edit a migration that has already been shared or applied;
+- add a new forward migration instead;
+- inspect generated SQL before committing;
+- commit schema and migration together;
+- run integration tests after every structural database change;
+- back up important local or hosted data before destructive changes.
+
+## Running tests and verification
+
+### Unit tests
+
+```bash
+npm run test
+```
+
+### PostgreSQL integration tests
+
+Start PostgreSQL and apply migrations first:
+
+```bash
+docker compose up -d db
+npm run db:deploy
+npm run test:integration
+```
+
+Integration tests use the configured `DATABASE_URL`. Do not point tests at a production or valuable database.
+
+### Watch mode
+
+```bash
+npm run test:watch
+```
+
+### Individual quality checks
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+### Complete local verification
+
+```bash
+npm run verify
+```
+
+The full verification requires a reachable migrated PostgreSQL database and runs:
+
+1. lint;
+2. TypeScript checking;
+3. unit tests;
+4. PostgreSQL integration tests;
+5. production build.
+
+GitHub Actions runs the same core gate for pull requests and `main`.
+
+## Health and troubleshooting
+
+Application health endpoint:
+
+```text
+GET /api/health
+```
+
+Useful commands:
+
+```bash
+docker compose ps
+docker compose logs -f db
+docker compose logs -f web
+docker compose logs -f migrate
+docker compose logs -f mailpit
+```
+
+Common problems:
+
+### PostgreSQL connection refused
+
+- confirm `docker compose ps` shows `db` as healthy;
+- confirm host development uses `localhost`, not `db`, in `DATABASE_URL`;
+- confirm port `5432` is not occupied by another local PostgreSQL instance.
+
+### Authentication configuration error
+
+- confirm `BETTER_AUTH_SECRET` is at least 32 characters;
+- confirm `BETTER_AUTH_URL` and `APP_URL` match the URL opened in the browser;
+- restart the development server after changing `.env`.
+
+### Prisma Client missing or stale
+
+```bash
+npm run db:generate
+```
+
+Restart the development server afterward.
+
+### Database schema is behind
+
+```bash
+npm run db:deploy
+```
+
+### Clean dependency reinstall
+
+```bash
+rm -rf node_modules .next
+npm ci
+npm run db:generate
+```
+
+## Project structure
+
+```text
+prisma/                       Database schema and ordered migrations
+src/app/                      Next.js routes, layouts, and HTTP handlers
+src/components/               Shared UI and layout components
+src/lib/                      Infrastructure configuration and adapters
+src/modules/                  Domain and application modules
+tests/                        Unit and PostgreSQL integration tests
+.github/workflows/            CI verification
+*.md                          Durable product and development context
+```
+
+Route handlers remain thin. Domain modules own business rules, authorization, transactions, and tests.
+
+## Development workflow
+
+1. Read `PROGRESS.md` and the relevant phase.
+2. Inspect the current branch, migrations, and tests.
+3. Create one coherent implementation slice.
+4. Update or add migrations when needed.
+5. Run relevant local checks.
+6. Open a pull request and require the full CI gate to pass.
+7. Merge without rewriting or deleting history.
+8. Update context files after meaningful work.
+
+## Project context reading order
 
 1. `PROJECT_PLAN.md`
 2. `IMPLEMENTATION_BASELINE.md`
@@ -39,8 +330,8 @@ GitHub Actions runs Prisma generation, linting, type checking, unit tests, and a
 11. `FUTURE_DEVELOPMENTS.md`
 12. `RESEARCH_REFERENCES.md`
 
-The repository and verified runtime behavior are the source of truth. Context files describe the target direction and must be updated after meaningful work.
+The repository, migrations, tests, and verified runtime behavior are the source of truth. Context files describe the accepted direction and must stay synchronized with implementation.
 
-## Minimal continuation prompt
+## Continuation prompt
 
-> Read all project context Markdown files in their stated order. Inspect the repository, branch, Git history, schema, migrations, tests, and running behavior. Correct stale context before continuing. Proceed with the highest-priority incomplete phase while preserving accounting integrity, tenant and business isolation, RBAC, entitlements, migrations, tests, consistent UI patterns, backups, and documentation.
+> Read all project context Markdown files in their stated order. Inspect the repository, branch, Git history, schema, migrations, tests, Docker configuration, and running behavior. Correct stale context before continuing. Proceed with the highest-priority incomplete phase while preserving accounting integrity, tenant and business isolation, RBAC, entitlements, migrations, tests, consistent UI patterns, backups, and documentation.
