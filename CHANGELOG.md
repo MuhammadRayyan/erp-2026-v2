@@ -31,6 +31,7 @@
 - Email-bound, expiring tenant invitations with one-time hashed tokens.
 - Business-specific invitation grants and transactional acceptance.
 - Integration coverage for invitation email matching, cross-tenant grant rejection, and role capabilities.
+- Reusable server-side business page capability guard.
 
 ### Changed
 
@@ -39,3 +40,6 @@
 - Demo business navigation was replaced by authenticated business-specific URLs.
 - Legacy static workspace URLs now redirect to the Account Hub.
 - Account Hub now exposes tenant access administration only to tenant owners.
+- Business navigation now displays only implemented modules permitted by the active role.
+- Dashboard and business settings now enforce capabilities on the server.
+- Business settings queries now use tenant-scoped composite identity.

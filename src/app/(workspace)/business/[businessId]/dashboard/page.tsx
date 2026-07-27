@@ -1,5 +1,6 @@
 import { ArrowUpRight, CircleAlert, FileText, WalletCards } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { requireBusinessPageCapability } from "@/modules/access/server/business-page";
 
 const metrics = [
   { label: "Cash position", value: "AED 0.00", icon: WalletCards },
@@ -8,7 +9,10 @@ const metrics = [
   { label: "Exceptions", value: "0", icon: CircleAlert },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage({ params }: { params: Promise<{ businessId: string }> }) {
+  const { businessId } = await params;
+  await requireBusinessPageCapability(businessId, "dashboard.view");
+
   return (
     <div>
       <p className="text-sm font-medium text-[var(--brand)]">Business overview</p>
@@ -35,7 +39,8 @@ export default function DashboardPage() {
             <li>✓ Explicit business onboarding</li>
             <li>✓ Tenant-safe business membership</li>
             <li>✓ Live business workspace context</li>
-            <li>○ Role capability enforcement</li>
+            <li>✓ Role capability enforcement</li>
+            <li>○ Shared business setup</li>
             <li>○ Accounting kernel</li>
           </ul>
         </Card>
