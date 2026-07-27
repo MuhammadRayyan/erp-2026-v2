@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { Building2, Plus } from "lucide-react";
+import { Building2, Plus, Users } from "lucide-react";
 import { MembershipStatus, TenantStatus } from "@/generated/prisma/client";
 import { Card } from "@/components/ui/card";
 import { db } from "@/lib/db";
@@ -17,7 +17,9 @@ export default async function BusinessesPage() {
     },
     orderBy: { business: { legalName: "asc" } },
     select: {
+      tenantId: true,
       roleKey: true,
+      tenantUser: { select: { isOwner: true } },
       business: {
         select: {
           id: true,
@@ -31,6 +33,14 @@ export default async function BusinessesPage() {
     },
   });
 
+  const ownedTenants = Array.from(
+    new Map(
+      memberships
+        .filter((membership) => membership.tenantUser.isOwner)
+        .map((membership) => [membership.tenantId, membership.business.tenant.name]),
+    ),
+  );
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -39,9 +49,16 @@ export default async function BusinessesPage() {
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">Your businesses</h1>
           <p className="mt-2 max-w-2xl text-[var(--muted)]">Open a workspace or create another legal entity when your plan allows it.</p>
         </div>
-        <Link href="/businesses/new" className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white transition hover:bg-[var(--brand-strong)]">
-          <Plus size={18} /> New business
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {ownedTenants.map(([tenantId, tenantName]) => (
+            <Link key={tenantId} href={`/tenants/${tenantId}/users`} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium transition hover:border-[var(--brand)]">
+              <Users size={18} /> Manage {tenantName}
+            </Link>
+          ))}
+          <Link href="/businesses/new" className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white transition hover:bg-[var(--brand-strong)]">
+            <Plus size={18} /> New business
+          </Link>
+        </div>
       </div>
 
       {memberships.length === 0 ? (
