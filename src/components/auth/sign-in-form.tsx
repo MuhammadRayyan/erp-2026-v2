@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
@@ -46,7 +47,10 @@ export function SignInForm() {
         />
       </label>
       <label className="block">
-        <span className="text-sm font-medium">Password</span>
+        <span className="flex items-center justify-between gap-3 text-sm font-medium">
+          Password
+          <Link href="/forgot-password" className="font-semibold text-[var(--brand)]">Forgot password?</Link>
+        </span>
         <input
           name="password"
           type="password"
