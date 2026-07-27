@@ -1,0 +1,111 @@
+import { createHash } from "node:crypto";
+import { MembershipStatus } from "@/generated/prisma/client";
+import { db } from "@/lib/db";
+import { z } from "zod";
+
+const onboardingSchema = z.object({
+  idempotencyKey: z.string().min(16).max(200),
+  userId: z.string().min(1),
+  tenantName: z.string().trim().min(2).max(120),
+  businessLegalName: z.string().trim().min(2).max(160),
+  businessTradingName: z.string().trim().max(160).optional(),
+  countryCode: z.string().length(2).default("AE"),
+  baseCurrency: z.string().length(3).default("AED"),
+  timezone: z.string().min(1).default("Asia/Dubai"),
+});
+
+type OnboardingInput = z.input<typeof onboardingSchema>;
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "business";
+}
+
+function stableSuffix(key: string) {
+  return createHash("sha256").update(key).digest("hex").slice(0, 10);
+}
+
+export async function onboardOwner(rawInput: OnboardingInput) {
+  const input = onboardingSchema.parse(rawInput);
+  const existing = await db.onboardingOperation.findUnique({
+    where: { idempotencyKey: input.idempotencyKey },
+  });
+
+  if (existing) {
+    if (existing.userId !== input.userId) {
+      throw new Error("IDEMPOTENCY_KEY_CONFLICT");
+    }
+
+    return existing;
+  }
+
+  const suffix = stableSuffix(input.idempotencyKey);
+
+  try {
+    return await db.$transaction(
+      async (transaction) => {
+        const tenant = await transaction.tenant.create({
+          data: {
+            name: input.tenantName,
+            slug: `${slugify(input.tenantName)}-${suffix}`,
+          },
+        });
+
+        await transaction.tenantMembership.create({
+          data: {
+            tenantId: tenant.id,
+            userId: input.userId,
+            isOwner: true,
+            status: MembershipStatus.ACTIVE,
+          },
+        });
+
+        const business = await transaction.business.create({
+          data: {
+            tenantId: tenant.id,
+            slug: `${slugify(input.businessLegalName)}-${suffix}`,
+            legalName: input.businessLegalName,
+            tradingName: input.businessTradingName,
+            countryCode: input.countryCode,
+            baseCurrency: input.baseCurrency,
+            timezone: input.timezone,
+          },
+        });
+
+        await transaction.businessMembership.create({
+          data: {
+            tenantId: tenant.id,
+            businessId: business.id,
+            userId: input.userId,
+            roleKey: "business.owner",
+            status: MembershipStatus.ACTIVE,
+          },
+        });
+
+        return transaction.onboardingOperation.create({
+          data: {
+            idempotencyKey: input.idempotencyKey,
+            userId: input.userId,
+            tenantId: tenant.id,
+            businessId: business.id,
+          },
+        });
+      },
+      { isolationLevel: "Serializable" },
+    );
+  } catch (error) {
+    const completed = await db.onboardingOperation.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+    });
+
+    if (completed?.userId === input.userId) {
+      return completed;
+    }
+
+    throw error;
+  }
+}
