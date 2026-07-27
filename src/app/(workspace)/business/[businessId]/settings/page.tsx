@@ -1,10 +1,25 @@
+import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { Card } from "@/components/ui/card";
+import { requireBusinessPageCapability } from "@/modules/access/server/business-page";
 
 export default async function SettingsPage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = await params;
+
+  let access;
+  try {
+    access = await requireBusinessPageCapability(businessId, "settings.view");
+  } catch {
+    notFound();
+  }
+
   const business = await db.business.findUnique({
-    where: { id: businessId },
+    where: {
+      tenantId_id: {
+        tenantId: access.context.tenantId,
+        id: businessId,
+      },
+    },
     select: {
       legalName: true,
       tradingName: true,
@@ -15,7 +30,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ busin
   });
 
   if (!business) {
-    return null;
+    notFound();
   }
 
   return (
