@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { getRequestSession } from "@/modules/identity/server/session";
+import { onboardingRequestSchema } from "@/modules/tenancy/contracts/onboarding-request";
 import { onboardOwner } from "@/modules/tenancy/server/onboarding";
 
 export async function POST(request: Request) {
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = onboardingRequestSchema.parse(await request.json());
     const operation = await onboardOwner({
       idempotencyKey,
       userId: session.user.id,
@@ -33,10 +35,20 @@ export async function POST(request: Request) {
       businessId: operation.businessId,
     });
   } catch (error) {
-    console.error("Onboarding failed", error);
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { message: "Check the business details and try again.", issues: error.issues },
+        { status: 400 },
+      );
+    }
+
+    console.error("Onboarding failed", {
+      userId: session.user.id,
+      error: error instanceof Error ? error.message : "Unknown onboarding error",
+    });
     return NextResponse.json(
-      { message: "Check the business details and try again." },
-      { status: 400 },
+      { message: "The business could not be created. Try again." },
+      { status: 409 },
     );
   }
 }
