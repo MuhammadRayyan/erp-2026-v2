@@ -26,6 +26,11 @@
 - Explicit business onboarding UI and validated request contract.
 - Business-specific protected workspace routes and live workspace identity.
 - Sign-out controls and empty-business onboarding state.
+- Authoritative business-role and capability registry.
+- Tenant owner users-and-access administration page.
+- Email-bound, expiring tenant invitations with one-time hashed tokens.
+- Business-specific invitation grants and transactional acceptance.
+- Integration coverage for invitation email matching, cross-tenant grant rejection, and role capabilities.
 
 ### Changed
 
@@ -33,3 +38,4 @@
 - CI now provisions PostgreSQL, deploys migrations, and runs integration tests.
 - Demo business navigation was replaced by authenticated business-specific URLs.
 - Legacy static workspace URLs now redirect to the Account Hub.
+- Account Hub now exposes tenant access administration only to tenant owners.
