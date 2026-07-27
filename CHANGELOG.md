@@ -32,6 +32,11 @@
 - Business-specific invitation grants and transactional acceptance.
 - Integration coverage for invitation email matching, cross-tenant grant rejection, and role capabilities.
 - Reusable server-side business page capability guard.
+- Complete first-time setup, local development, Docker, environment, database, migration, testing, and troubleshooting guide.
+- Mailpit service for local invitation and password-recovery email inspection.
+- Dedicated Docker migration image target and migration-before-web Compose service.
+- Database, Prisma Studio, and infrastructure helper scripts.
+- Optional validated SMTP configuration for the platform email adapter.
 
 ### Changed
 
@@ -43,3 +48,5 @@
 - Business navigation now displays only implemented modules permitted by the active role.
 - Dashboard and business settings now enforce capabilities on the server.
 - Business settings queries now use tenant-scoped composite identity.
+- Docker dependency installation now uses the committed lockfile and `npm ci`.
+- Full Docker startup now waits for PostgreSQL health and successful migration deployment before starting the web service.

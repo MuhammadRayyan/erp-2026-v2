@@ -17,7 +17,7 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -46,3 +46,9 @@ jobs:
       - run: npm run test
       - run: npm run test:integration
       - run: npm run build
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+      - name: Build migration image
+        run: docker build --target migrate -t erp-2026-v2:migrate .
+      - name: Build runtime image
+        run: docker build --target runtime -t erp-2026-v2:runtime .
