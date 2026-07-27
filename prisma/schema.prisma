@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  displayName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  memberships TenantMembership[]
+}
+
+model Tenant {
+  id          String       @id @default(cuid())
+  name        String
+  status      TenantStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships TenantMembership[]
+  businesses  Business[]
+}
+
+model TenantMembership {
+  id        String           @id @default(cuid())
+  tenantId  String
+  userId    String
+  status    MembershipStatus @default(INVITED)
+  isOwner   Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessMemberships BusinessMembership[]
+
+  @@unique([tenantId, userId])
+  @@index([userId, status])
+}
+
+model Business {
+  id           String   @id @default(cuid())
+  tenantId     String
+  legalName    String
+  tradingName  String?
+  countryCode  String   @default("AE")
+  baseCurrency String   @default("AED")
+  timezone     String   @default("Asia/Dubai")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  memberships  BusinessMembership[]
+
+  @@index([tenantId])
+}
+
+model BusinessMembership {
+  id                 String           @id @default(cuid())
+  businessId         String
+  tenantMembershipId String
+  roleKey            String
+  status             MembershipStatus @default(ACTIVE)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  business           Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tenantMembership   TenantMembership @relation(fields: [tenantMembershipId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, tenantMembershipId])
+  @@index([tenantMembershipId, status])
+}

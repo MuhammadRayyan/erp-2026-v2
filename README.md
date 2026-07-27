@@ -1,10 +1,30 @@
 # ERP 2026 V2
 
-A structured, UAE-first ERP for owner-operated and small businesses. The initial product targets technical services, automotive workshops, civil/architectural services, and general trading/service workflows.
+A structured UAE-first ERP for owner-operated and small businesses. The initial product targets technical services, automotive workshops, civil/architectural services, and general service/trading workflows.
 
 ## Current status
 
-Phase 0/1 foundation is being established. Read the project context before making changes:
+Phase 1 foundation is in progress. The repository now contains the target route boundaries, shared UI shell, module registry, initial tenancy schema, Docker configuration, CI workflow, and durable project context.
+
+## Local foundation
+
+Requirements:
+
+- Node.js 24 LTS
+- npm
+- Docker with Compose
+
+Create `.env` from `.env.example`, then install dependencies and run the application. PostgreSQL can be started through `compose.yaml`.
+
+## Verification
+
+The standard verification command is:
+
+`npm run verify`
+
+GitHub Actions runs Prisma generation, linting, type checking, unit tests, and a production build on pushes and pull requests.
+
+## Context reading order
 
 1. `PROJECT_PLAN.md`
 2. `IMPLEMENTATION_BASELINE.md`
@@ -19,7 +39,7 @@ Phase 0/1 foundation is being established. Read the project context before makin
 11. `FUTURE_DEVELOPMENTS.md`
 12. `RESEARCH_REFERENCES.md`
 
-The repository and verified runtime behavior are the source of truth. Context files describe the target direction and must be updated after meaningful implementation work.
+The repository and verified runtime behavior are the source of truth. Context files describe the target direction and must be updated after meaningful work.
 
 ## Minimal continuation prompt
 
