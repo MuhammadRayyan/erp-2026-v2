@@ -52,6 +52,11 @@
 - Tenant entitlement resolver with boolean feature and numeric/unlimited limit handling.
 - Transactional, tenant-locked user-limit enforcement for invitation creation.
 - Entitlement override and plan-resolution integration tests.
+- Tenant-scoped business profile for industry, legal/license, document language, fiscal, and UAE VAT registration settings.
+- Backfill migration and atomic onboarding creation for business profiles.
+- Registered-VAT validation at application and PostgreSQL constraint boundaries.
+- Protected business-profile API and modern editable/read-only settings experience.
+- Integration coverage for profile defaults, valid VAT setup, invalid registration, and role protection.
 
 ### Changed
 
@@ -68,3 +73,4 @@
 - Tenant invitation creation now reports delivery status instead of returning a reusable secret link.
 - Disabling a tenant member now disables their business grants and removes active sessions atomically.
 - Account Hub business cards now show the resolved tenant plan.
+- Business settings now provide structured profile editing instead of a static summary-only screen.
