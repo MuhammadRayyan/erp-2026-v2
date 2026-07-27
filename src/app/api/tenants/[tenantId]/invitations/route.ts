@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { serverEnv } from "@/lib/server-env";
-import { sendPlatformEmail } from "@/modules/communication/server/platform-email";
+import { escapeEmailHtml, sendPlatformEmail } from "@/modules/communication/server/platform-email";
 import { getRequestSession } from "@/modules/identity/server/session";
 import { createInvitationRequestSchema } from "@/modules/tenancy/contracts/invitation-request";
 import {
@@ -56,13 +56,15 @@ export async function POST(
     const grants = result.invitation.businessGrants
       .map((grant) => `${grant.business.legalName}: ${grant.roleKey.replace("business.", "")}`)
       .join("\n");
+    const inviterName = escapeEmailHtml(result.invitation.invitedBy.name);
+    const tenantName = escapeEmailHtml(result.invitation.tenant.name);
 
     try {
       const delivery = await sendPlatformEmail({
         to: result.invitation.email,
         subject: `Invitation to ${result.invitation.tenant.name}`,
         text: `${result.invitation.invitedBy.name} invited you to ${result.invitation.tenant.name}.\n\nBusiness access:\n${grants}\n\nAccept within ${body.expiresInDays} days: ${invitationUrl}`,
-        html: `<p><strong>${result.invitation.invitedBy.name}</strong> invited you to <strong>${result.invitation.tenant.name}</strong>.</p><p>Accept this invitation within ${body.expiresInDays} days:</p><p><a href="${invitationUrl}">Accept invitation</a></p>`,
+        html: `<p><strong>${inviterName}</strong> invited you to <strong>${tenantName}</strong>.</p><p>Accept this invitation within ${body.expiresInDays} days:</p><p><a href="${invitationUrl}">Accept invitation</a></p>`,
       });
 
       return NextResponse.json(
