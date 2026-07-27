@@ -3,6 +3,10 @@ import { afterAll, describe, expect, it } from "vitest";
 import { MembershipStatus } from "../../src/generated/prisma/client";
 import { db } from "../../src/lib/db";
 import { hasBusinessCapability } from "../../src/modules/access/roles";
+import {
+  requireTenantCapacity,
+  resolveTenantEntitlements,
+} from "../../src/modules/entitlements/server/resolve";
 import { resolveBusinessAccessContext } from "../../src/modules/tenancy/server/context";
 import {
   acceptTenantInvitation,
@@ -48,6 +52,7 @@ describe("identity and business access foundation", () => {
     expect(await db.onboardingOperation.count({ where: { idempotencyKey: input.idempotencyKey } })).toBe(1);
     expect(await db.tenantMembership.count({ where: { tenantId: first.tenantId, userId: user.id } })).toBe(1);
     expect(await db.businessMembership.count({ where: { businessId: first.businessId, userId: user.id } })).toBe(1);
+    expect(await db.tenantSubscription.count({ where: { tenantId: first.tenantId } })).toBe(1);
   });
 
   it("resolves access only through active tenant and business membership", async () => {
@@ -69,6 +74,7 @@ describe("identity and business access foundation", () => {
       tenantId: onboarding.tenantId,
       businessId: onboarding.businessId,
       roleKey: "business.owner",
+      planKey: "internal-unlimited",
     });
 
     await db.businessMembership.update({
@@ -184,6 +190,41 @@ describe("identity and business access foundation", () => {
         businessGrants: [{ businessId: second.businessId, roleKey: "business.viewer" }],
       }),
     ).rejects.toThrow("INVALID_BUSINESS_GRANT");
+  });
+
+  it("resolves plan features and applies tenant overrides", async () => {
+    const owner = await createUser("entitlement-owner");
+    const onboarding = await onboardOwner({
+      idempotencyKey: testKey("entitlement-onboarding"),
+      userId: owner.id,
+      tenantName: "Entitlement Tenant",
+      businessLegalName: "Entitlement Business LLC",
+    });
+
+    const initial = await resolveTenantEntitlements(onboarding.tenantId);
+    expect(initial.plan.key).toBe("internal-unlimited");
+    expect(initial.enabledFeatures.has("core.dashboard")).toBe(true);
+    expect(initial.limits.get("limit.users")).toBeNull();
+
+    const settingsFeature = await db.featureDefinition.findUniqueOrThrow({ where: { key: "core.settings" } });
+    const usersLimit = await db.featureDefinition.findUniqueOrThrow({ where: { key: "limit.users" } });
+    await db.tenantEntitlementOverride.createMany({
+      data: [
+        { tenantId: onboarding.tenantId, featureId: settingsFeature.id, enabled: false },
+        { tenantId: onboarding.tenantId, featureId: usersLimit.id, limitValue: 1 },
+      ],
+    });
+
+    const overridden = await resolveTenantEntitlements(onboarding.tenantId);
+    expect(overridden.enabledFeatures.has("core.settings")).toBe(false);
+    expect(overridden.limits.get("limit.users")).toBe(1);
+    await expect(
+      requireTenantCapacity({
+        tenantId: onboarding.tenantId,
+        limitKey: "limit.users",
+        currentUsage: 1,
+      }),
+    ).rejects.toThrow("TENANT_LIMIT_REACHED");
   });
 
   it("maps practical roles to capabilities without granting management by default", () => {
