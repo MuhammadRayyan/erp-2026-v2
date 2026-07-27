@@ -13,18 +13,20 @@ Current phase: Phase 1 — Application foundation
 - Initial Prisma tenant, business, tenant-membership, and business-membership schema added.
 - Docker and GitHub Actions verification definitions added.
 - Environment validation and a health endpoint added on the verification branch.
+- CI dependency installation and Prisma client generation pass.
 
 ## Verification status
 
-Local dependency installation was unavailable in the authoring environment. Lint, typecheck, tests, Prisma generation, and production build must be verified by GitHub Actions after the foundation commit.
+Local dependency installation is unavailable in the authoring environment. GitHub Actions is the authoritative verification environment for this phase.
 
 ## Next priority
 
-1. Inspect the pull-request CI run and correct every failure.
-2. Commit the generated package lock after CI produces it.
-3. Establish authentication, onboarding, and server-side tenant/business context.
-4. Add PostgreSQL integration-test infrastructure and the first isolation tests.
+1. Capture and correct the exact lint failure.
+2. Verify typecheck, unit tests, and production build.
+3. Merge the verified foundation without rewriting history.
+4. Establish authentication, onboarding, and server-side tenant/business context.
+5. Add PostgreSQL integration-test infrastructure and the first isolation tests.
 
 ## Active blockers
 
-- First CI run passed dependency installation and Prisma generation, then failed at lint. The lint boundary and lockfile workflow are being corrected.
+- Lint failure is being captured as an Actions artifact for exact diagnosis.

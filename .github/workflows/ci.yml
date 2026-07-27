@@ -29,7 +29,7 @@ jobs:
       - name: Commit generated package lock
         if: github.event_name == 'pull_request'
         run: |
-          if git diff --quiet -- package-lock.json; then
+          if [ -z "$(git status --porcelain -- package-lock.json)" ]; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -38,7 +38,18 @@ jobs:
           git commit -m "chore: add generated package lock"
           git push origin HEAD:${{ github.head_ref }}
       - run: npm run db:generate
-      - run: npm run lint
+      - name: Capture lint output
+        id: lint
+        continue-on-error: true
+        run: npm run lint 2>&1 | tee lint-output.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-output
+          path: lint-output.txt
+      - name: Enforce lint result
+        if: steps.lint.outcome == 'failure'
+        run: exit 1
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
