@@ -6,13 +6,17 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   DATABASE_URL: postgresql://erp:erp@localhost:5432/erp
   BETTER_AUTH_SECRET: "12345678901234567890123456789012"
   BETTER_AUTH_URL: http://localhost:3000
   APP_URL: http://localhost:3000
+  SMTP_HOST: localhost
+  SMTP_PORT: 1025
+  SMTP_SECURE: "false"
+  EMAIL_FROM: ERP 2026 <no-reply@localhost>
 
 jobs:
   verify:
@@ -34,11 +38,23 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
+      - name: Commit generated package lock
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: update package lock for SMTP delivery"
+          git push origin HEAD:${{ github.head_ref }}
       - run: npm run db:generate
       - run: npm run db:deploy
       - run: npm run lint
