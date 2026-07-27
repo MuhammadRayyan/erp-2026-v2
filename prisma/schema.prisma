@@ -19,6 +19,13 @@ enum MembershipStatus {
   DISABLED
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 model User {
   id            String   @id
   name          String
@@ -28,10 +35,12 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions    Session[]
-  accounts    Account[]
-  memberships TenantMembership[]
-  onboarding  OnboardingOperation[]
+  sessions             Session[]
+  accounts             Account[]
+  memberships          TenantMembership[]
+  onboarding           OnboardingOperation[]
+  invitationsSent      TenantInvitation[] @relation("InvitationSender")
+  invitationsAccepted  TenantInvitation[] @relation("InvitationAcceptor")
 }
 
 model Session {
@@ -91,6 +100,7 @@ model Tenant {
   memberships TenantMembership[]
   businesses  Business[]
   onboarding  OnboardingOperation[]
+  invitations TenantInvitation[]
 }
 
 model TenantMembership {
@@ -110,19 +120,20 @@ model TenantMembership {
 }
 
 model Business {
-  id           String   @id @default(cuid())
-  tenantId     String
-  slug         String
-  legalName    String
-  tradingName  String?
-  countryCode  String   @default("AE")
-  baseCurrency String   @default("AED")
-  timezone     String   @default("Asia/Dubai")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  memberships  BusinessMembership[]
-  onboarding   OnboardingOperation[]
+  id               String   @id @default(cuid())
+  tenantId         String
+  slug             String
+  legalName        String
+  tradingName      String?
+  countryCode      String   @default("AE")
+  baseCurrency     String   @default("AED")
+  timezone         String   @default("Asia/Dubai")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  memberships      BusinessMembership[]
+  onboarding       OnboardingOperation[]
+  invitationGrants BusinessInvitationGrant[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, slug])
@@ -143,6 +154,40 @@ model BusinessMembership {
 
   @@unique([businessId, userId])
   @@index([tenantId, userId, status])
+}
+
+model TenantInvitation {
+  id               String            @id @default(cuid())
+  tenantId         String
+  email            String
+  tokenDigest      String            @unique
+  status           InvitationStatus  @default(PENDING)
+  expiresAt        DateTime
+  invitedByUserId  String
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy        User              @relation("InvitationSender", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?             @relation("InvitationAcceptor", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+  businessGrants   BusinessInvitationGrant[]
+
+  @@index([tenantId, status, expiresAt])
+  @@index([email, status])
+}
+
+model BusinessInvitationGrant {
+  id           String           @id @default(cuid())
+  invitationId String
+  tenantId     String
+  businessId   String
+  roleKey      String
+  invitation   TenantInvitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  business     Business         @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([invitationId, businessId])
+  @@index([tenantId, businessId])
 }
 
 model OnboardingOperation {
