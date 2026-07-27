@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { serverEnv } from "@/lib/server-env";
 import { escapeEmailHtml, sendPlatformEmail } from "@/modules/communication/server/platform-email";
+import { requireTenantFeature } from "@/modules/entitlements/server/resolve";
 import { getRequestSession } from "@/modules/identity/server/session";
 import { createInvitationRequestSchema } from "@/modules/tenancy/contracts/invitation-request";
 import {
@@ -20,6 +21,7 @@ export async function GET(
 
   try {
     const { tenantId } = await context.params;
+    await requireTenantFeature(tenantId, "users.manage");
     const administration = await listTenantAccessAdministration({
       actorUserId: session.user.id,
       tenantId,
@@ -27,7 +29,7 @@ export async function GET(
     return NextResponse.json(administration);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown access error";
-    const status = message === "TENANT_OWNER_REQUIRED" ? 403 : 404;
+    const status = message === "TENANT_OWNER_REQUIRED" || message === "TENANT_FEATURE_DISABLED" ? 403 : 404;
     return NextResponse.json({ message: "Tenant access administration is unavailable." }, { status });
   }
 }
@@ -99,7 +101,10 @@ export async function POST(
     }
 
     const message = error instanceof Error ? error.message : "Unknown invitation error";
-    const status = message === "TENANT_OWNER_REQUIRED" ? 403 : 409;
-    return NextResponse.json({ message: "The invitation could not be created." }, { status });
+    const status = message === "TENANT_OWNER_REQUIRED" || message === "TENANT_FEATURE_DISABLED" ? 403 : 409;
+    const responseMessage = message === "TENANT_LIMIT_REACHED"
+      ? "The tenant user limit has been reached."
+      : "The invitation could not be created.";
+    return NextResponse.json({ message: responseMessage }, { status });
   }
 }

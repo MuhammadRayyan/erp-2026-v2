@@ -1,5 +1,6 @@
 import { MembershipStatus, TenantStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { resolveTenantEntitlements } from "@/modules/entitlements/server/resolve";
 
 export type BusinessAccessContext = {
   userId: string;
@@ -8,6 +9,9 @@ export type BusinessAccessContext = {
   roleKey: string;
   tenantName: string;
   businessName: string;
+  planKey: string;
+  planName: string;
+  enabledFeatures: string[];
 };
 
 export async function resolveBusinessAccessContext(input: {
@@ -49,14 +53,22 @@ export async function resolveBusinessAccessContext(input: {
     return null;
   }
 
-  return {
-    userId: input.userId,
-    tenantId: membership.tenantId,
-    businessId: membership.businessId,
-    roleKey: membership.roleKey,
-    tenantName: membership.business.tenant.name,
-    businessName: membership.business.legalName,
-  };
+  try {
+    const entitlements = await resolveTenantEntitlements(membership.tenantId);
+    return {
+      userId: input.userId,
+      tenantId: membership.tenantId,
+      businessId: membership.businessId,
+      roleKey: membership.roleKey,
+      tenantName: membership.business.tenant.name,
+      businessName: membership.business.legalName,
+      planKey: entitlements.plan.key,
+      planName: entitlements.plan.name,
+      enabledFeatures: Array.from(entitlements.enabledFeatures),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function requireBusinessAccessContext(input: {

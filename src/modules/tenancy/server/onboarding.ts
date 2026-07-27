@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { MembershipStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { INTERNAL_UNLIMITED_PLAN_KEY } from "@/modules/entitlements/catalog";
 import { z } from "zod";
 
 const onboardingSchema = z.object({
@@ -48,10 +49,26 @@ export async function onboardOwner(rawInput: OnboardingInput) {
   try {
     return await db.$transaction(
       async (transaction) => {
+        const plan = await transaction.plan.findUnique({
+          where: { key: INTERNAL_UNLIMITED_PLAN_KEY },
+          select: { id: true, active: true },
+        });
+
+        if (!plan?.active) {
+          throw new Error("DEFAULT_PLAN_UNAVAILABLE");
+        }
+
         const tenant = await transaction.tenant.create({
           data: {
             name: input.tenantName,
             slug: `${slugify(input.tenantName)}-${suffix}`,
+          },
+        });
+
+        await transaction.tenantSubscription.create({
+          data: {
+            tenantId: tenant.id,
+            planId: plan.id,
           },
         });
 

@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { InvitationStatus, MembershipStatus, TenantStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getBusinessRole } from "@/modules/access/roles";
+import { requireTenantUserInvitationCapacityInTransaction } from "@/modules/entitlements/server/usage";
 
 function digestToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -57,6 +58,12 @@ export async function createTenantInvitation(input: {
   const expiresAt = new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000);
 
   const invitation = await db.$transaction(async (transaction) => {
+    await requireTenantUserInvitationCapacityInTransaction(
+      transaction,
+      input.tenantId,
+      normalizedEmail,
+    );
+
     await transaction.tenantInvitation.updateMany({
       where: {
         tenantId: input.tenantId,
