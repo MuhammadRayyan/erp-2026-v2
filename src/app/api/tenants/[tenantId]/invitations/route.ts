@@ -3,7 +3,6 @@ import { ZodError } from "zod";
 import { serverEnv } from "@/lib/server-env";
 import { escapeEmailHtml, sendPlatformEmail } from "@/modules/communication/server/platform-email";
 import { requireTenantFeature } from "@/modules/entitlements/server/resolve";
-import { requireTenantUserInvitationCapacity } from "@/modules/entitlements/server/usage";
 import { getRequestSession } from "@/modules/identity/server/session";
 import { createInvitationRequestSchema } from "@/modules/tenancy/contracts/invitation-request";
 import {
@@ -47,7 +46,6 @@ export async function POST(
   try {
     const { tenantId } = await context.params;
     const body = createInvitationRequestSchema.parse(await request.json());
-    await requireTenantUserInvitationCapacity(tenantId, body.email);
     const result = await createTenantInvitation({
       actorUserId: session.user.id,
       tenantId,
