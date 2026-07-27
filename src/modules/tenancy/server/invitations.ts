@@ -81,7 +81,13 @@ export async function createTenantInvitation(input: {
           })),
         },
       },
-      include: { businessGrants: true },
+      include: {
+        tenant: { select: { name: true } },
+        invitedBy: { select: { name: true, email: true } },
+        businessGrants: {
+          include: { business: { select: { legalName: true } } },
+        },
+      },
     });
   });
 

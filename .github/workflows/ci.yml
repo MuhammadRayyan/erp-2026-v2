@@ -13,6 +13,10 @@ env:
   BETTER_AUTH_SECRET: "12345678901234567890123456789012"
   BETTER_AUTH_URL: http://localhost:3000
   APP_URL: http://localhost:3000
+  SMTP_HOST: localhost
+  SMTP_PORT: 1025
+  SMTP_SECURE: "false"
+  EMAIL_FROM: ERP 2026 <no-reply@localhost>
 
 jobs:
   verify:
