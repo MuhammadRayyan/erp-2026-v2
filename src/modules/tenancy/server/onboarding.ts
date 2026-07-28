@@ -108,6 +108,18 @@ export async function onboardOwner(rawInput: OnboardingInput) {
           ],
         });
 
+        await transaction.numberSequence.createMany({
+          data: [
+            { tenantId: tenant.id, businessId: business.id, key: "QUOTATION", label: "Quotation", prefixTemplate: "Q-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
+            { tenantId: tenant.id, businessId: business.id, key: "SALES_ORDER", label: "Sales order", prefixTemplate: "SO-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
+            { tenantId: tenant.id, businessId: business.id, key: "SALES_INVOICE", label: "Sales invoice", prefixTemplate: "INV-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
+            { tenantId: tenant.id, businessId: business.id, key: "PURCHASE_ORDER", label: "Purchase order", prefixTemplate: "PO-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
+            { tenantId: tenant.id, businessId: business.id, key: "SUPPLIER_INVOICE", label: "Supplier invoice", prefixTemplate: "BILL-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
+            { tenantId: tenant.id, businessId: business.id, key: "RECEIPT", label: "Receipt", prefixTemplate: "RCPT-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
+            { tenantId: tenant.id, businessId: business.id, key: "PAYMENT", label: "Payment", prefixTemplate: "PAY-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
+          ],
+        });
+
         await transaction.businessMembership.create({
           data: {
             tenantId: tenant.id,
