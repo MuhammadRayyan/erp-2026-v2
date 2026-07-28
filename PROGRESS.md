@@ -1,7 +1,7 @@
 # Progress
 
-Last updated: July 28, 2026
-Current branch: `main`
+Last updated: July 29, 2026
+Current branch: `phase-3-email-outbox`
 Current phase: Phase 3 — Shared business foundations
 
 ## Verified state
@@ -32,12 +32,28 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #20 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests for all supported field types and isolation boundaries, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The email-outbox slice is implemented on `phase-3-email-outbox` and must pass the same strict gate before merge.
+
+## Current implementation slice
+
+- Durable queued records for tenant invitations, password resets, and future system email.
+- Transactional invitation creation and enqueueing.
+- Idempotent queue writes with correlation metadata and explicit expiry.
+- PostgreSQL `FOR UPDATE SKIP LOCKED` claiming for safe concurrent workers.
+- Bounded exponential retries, attempt budgets, stale-lock recovery, and terminal states.
+- Payload scrubbing after sent, failed, expired, or cancelled outcomes.
+- Secret-protected internal processing endpoint.
+- Host-development worker command and lightweight Docker Compose worker service.
+- Tenant-owner visibility into invitation delivery state and retry count.
+- Invitation acceptance and revocation cancellation for undelivered messages.
+- Unit and PostgreSQL integration coverage for retry timing, idempotency, concurrency, expiry, failure, payload scrubbing, and delivery visibility.
+
 ## Next priority
 
-1. Add durable queued email records and the PostgreSQL outbox worker foundation.
-2. Reassess Phase 3 completion after the outbox foundation is verified.
-3. Begin the Phase 4 accounting kernel only after all shared foundations are complete and documented.
+1. Verify and merge the durable email outbox foundation.
+2. Reassess Phase 3 completion and close any remaining shared-foundation gaps.
+3. Begin the Phase 4 accounting kernel only after Phase 3 is explicitly complete and documented.
 
 ## Active blockers
 
-- None for the verified custom-field foundation.
+- CI verification is pending for the email-outbox foundation.
