@@ -28,7 +28,7 @@ async function ownerContext(label: string) {
     businessName: `${label} Business LLC`,
     planKey: "internal-unlimited",
     planName: "Internal Unlimited",
-    enabledFeatures: new Set(["parties.core"]),
+    enabledFeatures: ["parties.core"],
   };
 }
 
