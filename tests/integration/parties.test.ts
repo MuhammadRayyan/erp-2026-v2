@@ -12,6 +12,7 @@ import {
   setPrimaryContact,
   updateParty,
 } from "../../src/modules/parties/server/parties";
+import { listPartyDuplicateReviews, reviewPartyDuplicate, scanPartyDuplicates } from "../../src/modules/parties/server/duplicates";
 import { onboardOwner } from "../../src/modules/tenancy/server/onboarding";
 
 async function ownerContext(label: string) {
@@ -74,15 +75,45 @@ describe("parties and contacts", () => {
     expect(detail.addresses.find((item) => item.id === site.id)?.isDefault).toBe(true);
   });
 
+  it("enforces one primary contact and one default address per type", async () => {
+    const { context, party } = await sampleParty("party-invariants");
+    await expect(db.partyContact.create({ data: { tenantId: context.tenantId, businessId: context.businessId, partyId: party.id, name: "Second Primary", isPrimary: true } })).rejects.toThrow();
+    await expect(db.partyAddress.create({ data: { tenantId: context.tenantId, businessId: context.businessId, partyId: party.id, type: "BILLING", line1: "Second Billing", isDefault: true } })).rejects.toThrow();
+  });
+
+  it("detects exact and similar duplicates and persists review decisions", async () => {
+    const context = await ownerContext("party-duplicates");
+    const first = await createParty(context, { type: "ORGANIZATION", roles: ["CUSTOMER"], legalName: "Atlas Technical Services LLC", email: "billing@atlas.example", phone: "+971 50 123 4567", taxRegistrationNumber: "100000000000003" });
+    const second = await createParty(context, { type: "ORGANIZATION", roles: ["SUPPLIER"], legalName: "Atlas Technical Service L.L.C.", email: "BILLING@atlas.example", phone: "971501234567", taxRegistrationNumber: "100000000000003" });
+    const unrelated = await createParty(context, { type: "ORGANIZATION", roles: ["CUSTOMER"], legalName: "Completely Different Trading LLC" });
+
+    const scan = await scanPartyDuplicates(context);
+    expect(scan.candidatesFound).toBeGreaterThanOrEqual(1);
+    const reviews = await listPartyDuplicateReviews(context);
+    const review = reviews.find((item) => [item.firstPartyId, item.secondPartyId].includes(first.id) && [item.firstPartyId, item.secondPartyId].includes(second.id));
+    expect(review).toBeDefined();
+    expect(review?.evidence).toMatchObject({ exactEmail: true, exactPhone: true, exactTrn: true });
+    expect(reviews.some((item) => item.firstPartyId === unrelated.id || item.secondPartyId === unrelated.id)).toBe(false);
+
+    await reviewPartyDuplicate(context, review!.id, "CONFIRMED");
+    const confirmed = await listPartyDuplicateReviews(context);
+    expect(confirmed.find((item) => item.id === review!.id)?.status).toBe("CONFIRMED");
+  });
+
+  it("denies duplicate review management to a read-only role", async () => {
+    const context = await ownerContext("party-duplicate-viewer");
+    await expect(scanPartyDuplicates({ ...context, roleKey: "business.viewer" })).rejects.toThrow("BUSINESS_CAPABILITY_DENIED");
+  });
+
   it("denies party management to a read-only role", async () => {
     const context = await ownerContext("party-viewer");
     await expect(createParty({ ...context, roleKey: "business.viewer" }, { type: "INDIVIDUAL", roles: ["CUSTOMER"], firstName: "Read Only" })).rejects.toThrow("BUSINESS_CAPABILITY_DENIED");
   });
 
-  it("prevents cross-tenant detail access and related updates", async () => {
+  it("returns a stable not-found error for missing or out-of-scope parties", async () => {
     const first = await sampleParty("party-first");
     const second = await ownerContext("party-second");
-    await expect(getParty(second, first.party.id)).rejects.toThrow();
+    await expect(getParty(second, first.party.id)).rejects.toThrow("PARTY_NOT_FOUND");
     await expect(addPartyContact(second, first.party.id, { name: "Invalid Contact", isPrimary: true })).rejects.toThrow("PARTY_NOT_FOUND");
   });
 
