@@ -15,8 +15,8 @@ async function ownerContext(label: string) {
 describe("reusable exports", () => {
   it("exports a filtered party register and persists checksum and audit metadata", async () => {
     const context = await ownerContext("export-parties");
-    await createParty(context, { type: "ORGANIZATION", legalName: "=Formula Customer", firstName: null, lastName: null, email: "customer@example.com", phone: null, taxRegistrationNumber: null, notes: null, roles: ["CUSTOMER"] });
-    await createParty(context, { type: "ORGANIZATION", legalName: "Supplier Only", firstName: null, lastName: null, email: "supplier@example.com", phone: null, taxRegistrationNumber: null, notes: null, roles: ["SUPPLIER"] });
+    await createParty(context, { type: "ORGANIZATION", legalName: "=Formula Customer", email: "customer@example.com", roles: ["CUSTOMER"] });
+    await createParty(context, { type: "ORGANIZATION", legalName: "Supplier Only", email: "supplier@example.com", roles: ["SUPPLIER"] });
 
     const result = await generateExport(context, "parties", { role: "CUSTOMER" });
     const csv = result.bytes.toString("utf8");
@@ -34,8 +34,8 @@ describe("reusable exports", () => {
   it("exports filtered catalog rows with exact decimal text", async () => {
     const context = await ownerContext("export-catalog");
     const unit = await db.unitOfMeasure.findFirstOrThrow({ where: { tenantId: context.tenantId, businessId: context.businessId, code: "HOUR" } });
-    await createCatalogItem(context, { type: "SERVICE", sku: "CONSULT", name: "Consulting", description: null, unitId: unit.id, salesEnabled: true, purchaseEnabled: false, defaultSalesPrice: "125.5000", defaultPurchasePrice: null, salesAccountClassKey: "SERVICE_REVENUE", purchaseAccountClassKey: "SERVICE_COST", defaultSalesTaxCategory: "STANDARD_RATE", defaultPurchaseTaxCategory: "UNSPECIFIED" });
-    await createCatalogItem(context, { type: "PRODUCT", sku: "PART", name: "Spare Part", description: null, unitId: unit.id, salesEnabled: true, purchaseEnabled: true, defaultSalesPrice: "20.0000", defaultPurchasePrice: "10.0000", salesAccountClassKey: "PRODUCT_REVENUE", purchaseAccountClassKey: "INVENTORY_PURCHASE", defaultSalesTaxCategory: "STANDARD_RATE", defaultPurchaseTaxCategory: "STANDARD_RATE" });
+    await createCatalogItem(context, { type: "SERVICE", sku: "CONSULT", name: "Consulting", unitId: unit.id, salesEnabled: true, purchaseEnabled: false, defaultSalesPrice: "125.5000", salesAccountClassKey: "SERVICE_REVENUE", purchaseAccountClassKey: "DIRECT_EXPENSE", defaultSalesTaxCategory: "STANDARD_RATE", defaultPurchaseTaxCategory: "UNSPECIFIED" });
+    await createCatalogItem(context, { type: "PRODUCT", sku: "PART", name: "Spare Part", unitId: unit.id, salesEnabled: true, purchaseEnabled: true, defaultSalesPrice: "20.0000", defaultPurchasePrice: "10.0000", salesAccountClassKey: "SALES_REVENUE", purchaseAccountClassKey: "INVENTORY_PURCHASES", defaultSalesTaxCategory: "STANDARD_RATE", defaultPurchaseTaxCategory: "STANDARD_RATE" });
 
     const result = await generateExport(context, "catalog", { type: "SERVICE", status: "ACTIVE" });
     const csv = result.bytes.toString("utf8");
