@@ -41,50 +41,62 @@ export async function createParty(context: BusinessAccessContext, rawInput: Crea
     ? input.legalName!
     : [input.firstName, input.lastName].filter(Boolean).join(" ");
 
-  return db.party.create({
-    data: {
-      tenantId: context.tenantId,
-      businessId: context.businessId,
-      type: input.type,
-      displayName,
-      legalName: input.legalName,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      email: input.email,
-      phone: input.phone,
-      taxRegistrationNumber: input.taxRegistrationNumber,
-      notes: input.notes,
-      searchText: normalizeSearch([
+  return db.$transaction(async (transaction) => {
+    const party = await transaction.party.create({
+      data: {
+        tenantId: context.tenantId,
+        businessId: context.businessId,
+        type: input.type,
         displayName,
-        input.legalName,
-        input.firstName,
-        input.lastName,
-        input.email,
-        input.phone,
-        input.taxRegistrationNumber,
-      ]),
-      roles: {
-        create: Array.from(new Set(input.roles)).map((role) => ({
-          tenantId: context.tenantId,
-          businessId: context.businessId,
-          role,
-        })),
+        legalName: input.legalName,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email,
+        phone: input.phone,
+        taxRegistrationNumber: input.taxRegistrationNumber,
+        notes: input.notes,
+        searchText: normalizeSearch([
+          displayName,
+          input.legalName,
+          input.firstName,
+          input.lastName,
+          input.email,
+          input.phone,
+          input.taxRegistrationNumber,
+        ]),
       },
-      contacts: input.contact ? {
-        create: {
+    });
+
+    await transaction.partyRole.createMany({
+      data: Array.from(new Set(input.roles)).map((role) => ({
+        tenantId: context.tenantId,
+        businessId: context.businessId,
+        partyId: party.id,
+        role,
+      })),
+    });
+
+    if (input.contact) {
+      await transaction.partyContact.create({
+        data: {
           tenantId: context.tenantId,
           businessId: context.businessId,
+          partyId: party.id,
           name: input.contact.name,
           jobTitle: input.contact.jobTitle,
           email: input.contact.email,
           phone: input.contact.phone,
           isPrimary: true,
         },
-      } : undefined,
-      addresses: input.address ? {
-        create: {
+      });
+    }
+
+    if (input.address) {
+      await transaction.partyAddress.create({
+        data: {
           tenantId: context.tenantId,
           businessId: context.businessId,
+          partyId: party.id,
           type: input.address.type,
           line1: input.address.line1,
           line2: input.address.line2,
@@ -94,8 +106,12 @@ export async function createParty(context: BusinessAccessContext, rawInput: Crea
           countryCode: input.address.countryCode,
           isDefault: true,
         },
-      } : undefined,
-    },
-    include: { roles: true, contacts: true, addresses: true },
+      });
+    }
+
+    return transaction.party.findUniqueOrThrow({
+      where: { id: party.id },
+      include: { roles: true, contacts: true, addresses: true },
+    });
   });
 }
