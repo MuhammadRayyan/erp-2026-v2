@@ -100,6 +100,14 @@ export async function onboardOwner(rawInput: OnboardingInput) {
           },
         });
 
+        await transaction.unitOfMeasure.createMany({
+          data: [
+            { tenantId: tenant.id, businessId: business.id, code: "EA", name: "Each", symbol: "ea", dimension: "COUNT", decimalPlaces: 0 },
+            { tenantId: tenant.id, businessId: business.id, code: "HOUR", name: "Hour", symbol: "hr", dimension: "TIME", decimalPlaces: 2 },
+            { tenantId: tenant.id, businessId: business.id, code: "DAY", name: "Day", symbol: "day", dimension: "TIME", decimalPlaces: 2 },
+          ],
+        });
+
         await transaction.businessMembership.create({
           data: {
             tenantId: tenant.id,
