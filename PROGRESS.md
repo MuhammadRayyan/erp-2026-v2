@@ -27,13 +27,15 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #12 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The duplicate-review and integrity-fix slice is implemented on `phase-3-party-duplicate-review` and must pass the same gate before merge.
+
 ## Next priority
 
-1. Add duplicate detection and future merge preparation for parties.
+1. Verify and merge party duplicate detection, persisted review decisions, primary/default uniqueness, serialized related-record updates, and stable not-found behavior.
 2. Add items, services, units, and default account/tax classifications.
 3. Add private file and audit/history foundations required by master data.
 4. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- None for the verified party detail and lifecycle slice.
+- CI verification is pending for the duplicate-review and integrity-fix slice.
