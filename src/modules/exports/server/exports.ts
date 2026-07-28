@@ -16,6 +16,10 @@ function exportFileName(datasetKey: string) {
   return `${datasetKey}-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
 }
 
+export function assertExportRowLimit(rowCount: number) {
+  if (rowCount > EXPORT_ROW_LIMIT) throw new Error("EXPORT_ROW_LIMIT_EXCEEDED");
+}
+
 export async function generateExport(context: BusinessAccessContext, datasetKey: string, rawFilters: unknown) {
   requireBusinessCapability(context, "exports.run");
   await requireTenantFeature(context.tenantId, "exports.core");
@@ -23,7 +27,7 @@ export async function generateExport(context: BusinessAccessContext, datasetKey:
   requireBusinessCapability(context, dataset.capability);
   const filters = dataset.parseFilters(rawFilters);
   const rows = await dataset.load(context, filters);
-  if (rows.length > EXPORT_ROW_LIMIT) throw new Error("EXPORT_ROW_LIMIT_EXCEEDED");
+  assertExportRowLimit(rows.length);
 
   const csv = serializeCsv(dataset.headers, rows);
   const bytes = Buffer.from(csv, "utf8");
