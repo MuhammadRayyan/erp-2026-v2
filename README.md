@@ -19,6 +19,7 @@ Implemented and verified foundations include:
 - business profile and UAE VAT registration settings;
 - shared customer and supplier parties with contacts, addresses, and duplicate review;
 - products, services, units, lifecycle controls, and staged imports;
+- typed custom fields for parties and catalog items;
 - private files, attachment links, audit history, and coordinated backup guidance;
 - concurrency-safe reusable document numbering and immutable allocation history;
 - controlled filtered CSV exports with checksums and audit history;
