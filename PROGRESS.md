@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 28, 2026
-Current branch: `phase-3-custom-fields`
+Current branch: `main`
 Current phase: Phase 3 — Shared business foundations
 
 ## Verified state
@@ -18,6 +18,7 @@ Current phase: Phase 3 — Shared business foundations
 - Private file metadata, adapter-based local storage, authenticated upload/download, attachment links, audit history, backup guidance, and tenant isolation merged and verified through PR #17.
 - Reusable document numbering, configurable sequences, locked idempotent allocation, immutable formatted history, void preservation, settings UI, and concurrency coverage merged and verified through PR #18.
 - Reusable controlled CSV exports, filtered party and catalog adapters, immutable run metadata, checksums, audit events, and tenant isolation merged and verified through PR #19.
+- Typed custom-field definitions and values for parties and catalog items, settings administration, target locking, audit events, and tenant isolation merged and verified through PR #20.
 - Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
 - Prisma uses a multi-file schema layout so bounded domains can evolve without one oversized schema file.
 - Composite tenant keys protect operational master data, imports, private files, numbering, exports, custom-field definitions, and custom-field values in PostgreSQL.
@@ -25,31 +26,18 @@ Current phase: Phase 3 — Shared business foundations
 - Private objects remain outside PostgreSQL and the public web root; PostgreSQL stores metadata, scope, hashes, and append-only audit events.
 - Number allocations use explicit effective dates, stable idempotency keys, PostgreSQL row locking, stored numeric and formatted values, and never reuse voided identifiers.
 - CSV exports require dedicated export permission plus dataset view permission, fail above 5,000 rows, neutralize spreadsheet formulas, and retain metadata and checksums without retaining generated payloads.
+- Custom-field keys and value types are immutable; operational values use typed columns, required fields are enforced during save, and used select options cannot be removed.
 
 ## Verification status
 
-PR #19 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
-
-The custom-field slice is implemented on `phase-3-custom-fields` and must pass the same strict gate before merge.
-
-## Current implementation slice
-
-- Business-scoped custom-field definitions for parties and catalog items.
-- Immutable entity keys and value types with editable labels, descriptions, ordering, required state, activation, and select options.
-- Dedicated text, decimal, date, and boolean value columns rather than arbitrary operational JSON.
-- Composite definition/value scope and database target validation for tenant isolation.
-- Required-value enforcement, exact decimal strings, date-only values, select-option validation, and option-in-use protection.
-- Target-row locking and transactional replacement of active field values.
-- Settings administration plus reusable read/write controls on party and catalog details.
-- Definition and value audit events.
-- Unit and PostgreSQL integration coverage for all six types, RBAC, entitlements, target validation, and cross-tenant rejection.
+PR #20 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests for all supported field types and isolation boundaries, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
 ## Next priority
 
-1. Verify and merge custom-field definitions and values.
-2. Add durable queued email records and the PostgreSQL outbox worker foundation.
-3. Reassess Phase 3 completion and begin the Phase 4 accounting kernel only after all shared foundations are verified.
+1. Add durable queued email records and the PostgreSQL outbox worker foundation.
+2. Reassess Phase 3 completion after the outbox foundation is verified.
+3. Begin the Phase 4 accounting kernel only after all shared foundations are complete and documented.
 
 ## Active blockers
 
-- CI verification is pending for the custom-field foundation.
+- None for the verified custom-field foundation.
