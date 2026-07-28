@@ -16,7 +16,7 @@ Current phase: Phase 3 — Shared business foundations
 - Catalog detail editing, item activation, safe unit lifecycle controls, and unit-row serialization merged and verified through PR #15.
 - Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
 - Prisma uses a multi-file schema layout so bounded domains can evolve without one oversized schema file.
-- Composite tenant keys prevent cross-tenant business memberships, parties, contacts, addresses, party roles, duplicate-review pairs, catalog records, and units in PostgreSQL.
+- Composite tenant keys prevent cross-tenant business memberships, parties, contacts, addresses, party roles, duplicate-review pairs, catalog records, units, and catalog-import batches in PostgreSQL.
 - Business navigation and protected pages require implementation status, user capability, and tenant entitlement.
 - Tenant invitations use one-time hashed tokens, SMTP delivery, explicit business grants, transactional acceptance, and tenant-locked user-limit enforcement.
 - Member disablement revokes active sessions and business grants atomically.
@@ -35,13 +35,15 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #15 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The staged catalog-import slice is implemented on `phase-3-catalog-imports` and must pass the same gate before merge.
+
 ## Next priority
 
-1. Add catalog import preparation and duplicate/SKU conflict handling.
+1. Verify and merge staged catalog CSV preview, conflict resolution, and transactional commit.
 2. Add private file and audit/history foundations required by master data.
-3. Add reusable numbering, import/export, and custom-field foundations.
+3. Add reusable numbering, export, and custom-field foundations.
 4. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- None for the verified catalog detail and lifecycle foundation.
+- CI verification is pending for the catalog-import slice.
