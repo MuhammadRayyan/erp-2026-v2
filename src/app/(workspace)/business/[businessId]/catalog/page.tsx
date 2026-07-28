@@ -42,12 +42,12 @@ export default async function CatalogPage({
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Items and services</h1>
         <p className="mt-2 max-w-3xl text-[var(--muted)]">Reusable products, services, units, exact default prices, and preparatory account and tax classifications.</p>
       </div>
-      <form className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">{canManage && <Link href={`/business/${businessId}/catalog/imports`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Import CSV</Link>}<form className="flex flex-wrap gap-2">
         <input name="q" defaultValue={filters.q} placeholder="Search SKU, name, or description" className="min-w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
         <select name="type" defaultValue={filters.type ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All types</option><option value="PRODUCT">Products</option><option value="SERVICE">Services</option></select>
         <select name="status" defaultValue={filters.status ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select>
         <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Filter</button>
-      </form>
+      </form></div>
     </div>
 
     {canManage && <CatalogCreateForms businessId={businessId} units={units.filter((unit) => unit.active).map((unit) => ({ id: unit.id, code: unit.code, name: unit.name, symbol: unit.symbol, dimension: unit.dimension, decimalPlaces: unit.decimalPlaces }))} />}
