@@ -6,8 +6,11 @@ import {
   catalogItemStatusSchema,
   createCatalogItemSchema,
   createUnitSchema,
+  unitStatusSchema,
+  updateCatalogItemSchema,
   type CreateCatalogItemInput,
   type CreateUnitInput,
+  type UpdateCatalogItemInput,
 } from "@/modules/catalog/contracts/catalog";
 
 function normalizeSearch(values: Array<string | null | undefined>) {
@@ -17,14 +20,6 @@ function normalizeSearch(values: Array<string | null | undefined>) {
 async function requireCatalog(context: BusinessAccessContext, capability: "catalog.view" | "catalog.manage") {
   requireBusinessCapability(context, capability);
   await requireTenantFeature(context.tenantId, "catalog.core");
-}
-
-async function requireScopedUnit(context: BusinessAccessContext, unitId: string) {
-  const unit = await db.unitOfMeasure.findFirst({
-    where: { id: unitId, tenantId: context.tenantId, businessId: context.businessId, active: true },
-  });
-  if (!unit) throw new Error("CATALOG_UNIT_NOT_FOUND");
-  return unit;
 }
 
 export async function listUnits(context: BusinessAccessContext) {
@@ -51,6 +46,26 @@ export async function createUnit(context: BusinessAccessContext, rawInput: Creat
   });
 }
 
+export async function setUnitStatus(context: BusinessAccessContext, unitId: string, rawInput: unknown) {
+  await requireCatalog(context, "catalog.manage");
+  const { active } = unitStatusSchema.parse(rawInput);
+  return db.$transaction(async (transaction) => {
+    const locked = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "UnitOfMeasure"
+      WHERE "id" = ${unitId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    if (!locked[0]) throw new Error("CATALOG_UNIT_NOT_FOUND");
+    if (!active) {
+      const inUse = await transaction.catalogItem.count({
+        where: { tenantId: context.tenantId, businessId: context.businessId, unitId, status: "ACTIVE" },
+      });
+      if (inUse > 0) throw new Error("CATALOG_UNIT_IN_USE");
+    }
+    return transaction.unitOfMeasure.update({ where: { id: unitId }, data: { active } });
+  });
+}
+
 export async function listCatalogItems(
   context: BusinessAccessContext,
   options: { query?: string; type?: "PRODUCT" | "SERVICE"; status?: "ACTIVE" | "INACTIVE" } = {},
@@ -71,30 +86,82 @@ export async function listCatalogItems(
   });
 }
 
+export async function getCatalogItem(context: BusinessAccessContext, itemId: string) {
+  await requireCatalog(context, "catalog.view");
+  const item = await db.catalogItem.findFirst({
+    where: { id: itemId, tenantId: context.tenantId, businessId: context.businessId },
+    include: { unit: true },
+  });
+  if (!item) throw new Error("CATALOG_ITEM_NOT_FOUND");
+  return item;
+}
+
 export async function createCatalogItem(context: BusinessAccessContext, rawInput: CreateCatalogItemInput) {
   await requireCatalog(context, "catalog.manage");
   const input = createCatalogItemSchema.parse(rawInput);
-  await requireScopedUnit(context, input.unitId);
-  return db.catalogItem.create({
-    data: {
-      tenantId: context.tenantId,
-      businessId: context.businessId,
-      type: input.type,
-      sku: input.sku,
-      name: input.name,
-      description: input.description,
-      unitId: input.unitId,
-      salesEnabled: input.salesEnabled,
-      purchaseEnabled: input.purchaseEnabled,
-      defaultSalesPrice: input.defaultSalesPrice,
-      defaultPurchasePrice: input.defaultPurchasePrice,
-      salesAccountClassKey: input.salesAccountClassKey,
-      purchaseAccountClassKey: input.purchaseAccountClassKey,
-      defaultSalesTaxCategory: input.defaultSalesTaxCategory,
-      defaultPurchaseTaxCategory: input.defaultPurchaseTaxCategory,
-      searchText: normalizeSearch([input.sku, input.name, input.description]),
-    },
-    include: { unit: true },
+  return db.$transaction(async (transaction) => {
+    const unit = await transaction.$queryRaw<Array<{ id: string; active: boolean }>>`
+      SELECT "id", "active" FROM "UnitOfMeasure"
+      WHERE "id" = ${input.unitId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    if (!unit[0]?.active) throw new Error("CATALOG_UNIT_NOT_FOUND");
+    return transaction.catalogItem.create({
+      data: {
+        tenantId: context.tenantId,
+        businessId: context.businessId,
+        type: input.type,
+        sku: input.sku,
+        name: input.name,
+        description: input.description,
+        unitId: input.unitId,
+        salesEnabled: input.salesEnabled,
+        purchaseEnabled: input.purchaseEnabled,
+        defaultSalesPrice: input.defaultSalesPrice,
+        defaultPurchasePrice: input.defaultPurchasePrice,
+        salesAccountClassKey: input.salesAccountClassKey,
+        purchaseAccountClassKey: input.purchaseAccountClassKey,
+        defaultSalesTaxCategory: input.defaultSalesTaxCategory,
+        defaultPurchaseTaxCategory: input.defaultPurchaseTaxCategory,
+        searchText: normalizeSearch([input.sku, input.name, input.description]),
+      },
+      include: { unit: true },
+    });
+  });
+}
+
+export async function updateCatalogItem(context: BusinessAccessContext, itemId: string, rawInput: UpdateCatalogItemInput) {
+  await requireCatalog(context, "catalog.manage");
+  const input = updateCatalogItemSchema.parse(rawInput);
+  return db.$transaction(async (transaction) => {
+    const item = await transaction.catalogItem.findFirst({ where: { id: itemId, tenantId: context.tenantId, businessId: context.businessId } });
+    if (!item) throw new Error("CATALOG_ITEM_NOT_FOUND");
+    const unit = await transaction.$queryRaw<Array<{ id: string; active: boolean }>>`
+      SELECT "id", "active" FROM "UnitOfMeasure"
+      WHERE "id" = ${input.unitId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    if (!unit[0]?.active) throw new Error("CATALOG_UNIT_NOT_FOUND");
+    return transaction.catalogItem.update({
+      where: { id: itemId },
+      data: {
+        type: input.type,
+        sku: input.sku,
+        name: input.name,
+        description: input.description,
+        unitId: input.unitId,
+        salesEnabled: input.salesEnabled,
+        purchaseEnabled: input.purchaseEnabled,
+        defaultSalesPrice: input.defaultSalesPrice,
+        defaultPurchasePrice: input.defaultPurchasePrice,
+        salesAccountClassKey: input.salesAccountClassKey,
+        purchaseAccountClassKey: input.purchaseAccountClassKey,
+        defaultSalesTaxCategory: input.defaultSalesTaxCategory,
+        defaultPurchaseTaxCategory: input.defaultPurchaseTaxCategory,
+        searchText: normalizeSearch([input.sku, input.name, input.description]),
+      },
+      include: { unit: true },
+    });
   });
 }
 
