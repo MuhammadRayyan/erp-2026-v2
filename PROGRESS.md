@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 28, 2026
-Current branch: `phase-3-numbering-foundation`
+Current branch: `main`
 Current phase: Phase 3 — Shared business foundations
 
 ## Verified state
@@ -16,6 +16,7 @@ Current phase: Phase 3 — Shared business foundations
 - Catalog detail editing, item activation, safe unit lifecycle controls, and unit-row serialization merged and verified through PR #15.
 - Staged catalog CSV preview, persisted row decisions, explicit conflict resolution, and transactional create/update commit merged and verified through PR #16.
 - Private file metadata, adapter-based local storage, authenticated upload/download, attachment links, audit history, backup guidance, and tenant isolation merged and verified through PR #17.
+- Reusable document numbering, configurable sequences, locked idempotent allocation, immutable formatted history, void preservation, settings UI, and concurrency coverage merged and verified through PR #18.
 - Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
 - Prisma uses a multi-file schema layout so bounded domains can evolve without one oversized schema file.
 - Composite tenant keys protect operational master data, import batches, stored-file metadata, file attachments, numbering sequences, and allocations in PostgreSQL.
@@ -23,31 +24,18 @@ Current phase: Phase 3 — Shared business foundations
 - Private objects remain outside PostgreSQL and the public web root; PostgreSQL stores metadata, scope, hashes, and append-only audit events.
 - Local and Docker storage use generated opaque keys, allowlisted formats, byte-signature checks, size limits, SHA-256 hashes, and private non-root storage paths.
 - PostgreSQL and private-file backups must be created and restored as one coordinated dataset.
+- Number allocations use explicit effective dates, stable idempotency keys, PostgreSQL row locking, stored numeric and formatted values, and never reuse voided identifiers.
 
 ## Verification status
 
-PR #17 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
-
-The reusable numbering slice is implemented on `phase-3-numbering-foundation` and must pass the same strict gate before merge.
-
-## Current implementation slice
-
-- Business-scoped configurable document sequences with annual, monthly, or no reset.
-- Default quotation, sales order, sales invoice, purchase order, supplier invoice, receipt, and payment sequences for existing and newly onboarded businesses.
-- Explicit effective dates and supported `{YYYY}`, `{YY}`, and `{MM}` format tokens.
-- PostgreSQL row locking and in-lock idempotency checks for concurrency-safe allocation.
-- Immutable stored formatted values, numeric values, period keys, references, and audit events.
-- Voided numbers remain historical and are never returned to the available pool.
-- Protected numbering settings and recent allocation history under business settings.
-- PostgreSQL integration coverage for onboarding defaults, concurrency, idempotency, resets, voiding, configuration changes, RBAC, and tenant isolation.
+PR #18 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests including concurrent allocation, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
 ## Next priority
 
-1. Verify and merge reusable numbering and sequence foundations.
-2. Add reusable export foundations.
-3. Add custom-field definitions and values.
-4. Add durable queued email records when the PostgreSQL outbox worker is introduced.
+1. Add reusable export foundations.
+2. Add custom-field definitions and values.
+3. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- CI verification is pending for the numbering foundation.
+- None for the verified numbering foundation.
