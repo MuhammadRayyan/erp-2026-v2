@@ -50,23 +50,28 @@ function errorText(error: unknown) {
 }
 
 async function recoverStaleAndExpired(now: Date, staleBefore: Date) {
-  await db.$transaction([
-    db.emailOutbox.updateMany({
-      where: { status: EmailOutboxStatus.PROCESSING, lockedAt: { lt: staleBefore }, attempts: { lt: db.emailOutbox.fields.maxAttempts } },
-      data: { status: EmailOutboxStatus.RETRY, lockedAt: null, lockedBy: null, availableAt: now, lastError: "STALE_WORKER_LOCK_RECOVERED" },
-    }),
-    db.emailOutbox.updateMany({
-      where: { status: EmailOutboxStatus.PROCESSING, lockedAt: { lt: staleBefore }, attempts: { gte: db.emailOutbox.fields.maxAttempts } },
-      data: { status: EmailOutboxStatus.FAILED, failedAt: now, textBody: null, htmlBody: null, lockedAt: null, lockedBy: null, lastError: "STALE_FINAL_ATTEMPT" },
-    }),
-    db.emailOutbox.updateMany({
+  await db.$transaction(async (transaction) => {
+    await transaction.$executeRaw`
+      UPDATE "EmailOutbox"
+      SET "status" = 'RETRY', "lockedAt" = NULL, "lockedBy" = NULL,
+          "availableAt" = ${now}, "lastError" = 'STALE_WORKER_LOCK_RECOVERED', "updatedAt" = ${now}
+      WHERE "status" = 'PROCESSING' AND "lockedAt" < ${staleBefore} AND "attempts" < "maxAttempts"
+    `;
+    await transaction.$executeRaw`
+      UPDATE "EmailOutbox"
+      SET "status" = 'FAILED', "failedAt" = ${now}, "textBody" = NULL, "htmlBody" = NULL,
+          "lockedAt" = NULL, "lockedBy" = NULL, "lastError" = 'STALE_FINAL_ATTEMPT', "updatedAt" = ${now}
+      WHERE "status" = 'PROCESSING' AND "lockedAt" < ${staleBefore} AND "attempts" >= "maxAttempts"
+    `;
+    await transaction.emailOutbox.updateMany({
       where: { status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] }, expiresAt: { lte: now } },
       data: { status: EmailOutboxStatus.EXPIRED, textBody: null, htmlBody: null, lockedAt: null, lockedBy: null, lastError: "MESSAGE_EXPIRED" },
-    }),
-  ]);
+    });
+  });
 }
 
-async function claimBatch(workerId: string, batchSize: number, now: Date) {
+async function claimBatch(workerId: string, batchSize: number, now: Date, tenantId?: string) {
+  const scopedTenantId = tenantId ?? null;
   return db.$transaction(async (transaction) => transaction.$queryRaw<Array<EmailOutbox>>`
     WITH candidates AS (
       SELECT "id"
@@ -75,6 +80,7 @@ async function claimBatch(workerId: string, batchSize: number, now: Date) {
         AND "attempts" < "maxAttempts"
         AND "availableAt" <= ${now}
         AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
+        AND (${scopedTenantId}::text IS NULL OR "tenantId" = ${scopedTenantId})
       ORDER BY "createdAt" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT ${batchSize}
@@ -109,13 +115,13 @@ async function markFailedAttempt(message: EmailOutbox, error: unknown) {
   });
 }
 
-export async function processEmailOutboxBatch(options?: { workerId?: string; batchSize?: number; staleAfterMs?: number; send?: EmailSender }) {
+export async function processEmailOutboxBatch(options?: { workerId?: string; batchSize?: number; staleAfterMs?: number; tenantId?: string; send?: EmailSender }) {
   const workerId = options?.workerId ?? `worker-${randomUUID()}`;
   const batchSize = Math.min(Math.max(options?.batchSize ?? 10, 1), 50);
   const sender = options?.send ?? sendPlatformEmail;
   const now = new Date();
   await recoverStaleAndExpired(now, new Date(now.getTime() - (options?.staleAfterMs ?? 10 * 60 * 1000)));
-  const messages = await claimBatch(workerId, batchSize, now);
+  const messages = await claimBatch(workerId, batchSize, now, options?.tenantId);
   let sent = 0;
   let retried = 0;
   let failed = 0;
