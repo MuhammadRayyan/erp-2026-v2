@@ -77,5 +77,6 @@ export async function readPrivateFile(context: BusinessAccessContext, fileId: st
   const storage = privateStorage();
   if (storage.provider !== file.storageProvider) throw new Error("FILE_STORAGE_PROVIDER_MISMATCH");
   const bytes = await storage.read(file.storageKey);
+  await appendAuditEvent({ context, eventType: "FILE_DOWNLOADED", entityType: "STORED_FILE", entityId: file.id, summary: `Downloaded ${file.safeName}`, metadata: { sha256: file.sha256, sizeBytes: file.sizeBytes } });
   return { file, bytes };
 }
