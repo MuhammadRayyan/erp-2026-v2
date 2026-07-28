@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 28, 2026
-Current branch: `main`
+Current branch: `phase-3-files-audit`
 Current phase: Phase 3 — Shared business foundations
 
 ## Verified state
@@ -17,7 +17,7 @@ Current phase: Phase 3 — Shared business foundations
 - Staged catalog CSV preview, persisted row decisions, explicit conflict resolution, and transactional create/update commit merged and verified through PR #16.
 - Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
 - Prisma uses a multi-file schema layout so bounded domains can evolve without one oversized schema file.
-- Composite tenant keys prevent cross-tenant business memberships, parties, contacts, addresses, party roles, duplicate-review pairs, catalog records, units, and catalog-import batches in PostgreSQL.
+- Composite tenant keys prevent cross-tenant business memberships, parties, contacts, addresses, party roles, duplicate-review pairs, catalog records, units, catalog-import batches, stored-file metadata, and file attachments in PostgreSQL.
 - Business navigation and protected pages require implementation status, user capability, and tenant entitlement.
 - Tenant invitations use one-time hashed tokens, SMTP delivery, explicit business grants, transactional acceptance, and tenant-locked user-limit enforcement.
 - Member disablement revokes active sessions and business grants atomically.
@@ -37,12 +37,24 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #16 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The private-files and audit-history slice is implemented on `phase-3-files-audit` and must pass the same gate before merge.
+
+## Current implementation slice
+
+- Private local storage adapter with generated opaque keys, non-public paths, traversal protection, and non-root Docker persistence.
+- Extension, MIME type, size, and byte-signature validation for PDF, PNG, JPEG, WebP, CSV, DOCX, and XLSX.
+- SHA-256 content hashing and tenant/business-scoped file metadata.
+- Attachment links, authenticated upload/download APIs, no-store responses, and audit events.
+- Files & History workspace with RBAC, entitlement checks, upload controls, private downloads, checksums, and recent activity.
+- Coordinated PostgreSQL and private-file backup/restore instructions.
+- Unit and PostgreSQL integration coverage for validation, storage, RBAC, entitlements, audit events, and tenant isolation.
+
 ## Next priority
 
-1. Add private file metadata, storage adapter boundaries, and audit/history foundations required by master data.
+1. Verify and merge private files and audit/history foundations.
 2. Add reusable numbering, export, and custom-field foundations.
 3. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- None for the verified catalog and staged-import foundations.
+- CI verification is pending for the private-files and audit-history slice.
