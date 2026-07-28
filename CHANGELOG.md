@@ -75,6 +75,10 @@
 - Preparatory account-class and tax-category defaults for future document posting.
 - Default Each, Hour, and Day units for existing and newly onboarded businesses.
 - Protected catalog API, role capabilities, tenant entitlement, workspace page, and integration tests.
+- Protected catalog detail pages and editable product/service defaults.
+- Item activation and deactivation controls.
+- Unit activation controls with active-item usage protection.
+- Integration coverage for catalog editing, lifecycle changes, inactive-unit rejection, RBAC, and tenant isolation.
 
 ### Changed
 
@@ -96,3 +100,4 @@
 - Party register cards now open direct, protected detail URLs.
 - Primary-contact and default-address updates now serialize on the party row before changing flags.
 - Missing or out-of-scope party details now use a stable `PARTY_NOT_FOUND` error for correct 404 responses.
+- Catalog creation, editing, and unit lifecycle operations now lock unit rows to prevent races with deactivation.
