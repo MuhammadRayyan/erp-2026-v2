@@ -1,0 +1,66 @@
+enum StorageProvider {
+  LOCAL
+  S3
+}
+
+enum StoredFileStatus {
+  AVAILABLE
+  QUARANTINED
+  DELETED
+}
+
+model StoredFile {
+  id              String           @id @default(cuid())
+  tenantId        String
+  businessId      String
+  storageProvider StorageProvider
+  storageKey      String
+  originalName    String
+  safeName        String
+  extension       String
+  contentType     String
+  sizeBytes       Int
+  sha256          String
+  status          StoredFileStatus @default(AVAILABLE)
+  uploadedById    String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  attachments     FileAttachment[]
+
+  @@unique([tenantId, businessId, id])
+  @@unique([storageProvider, storageKey])
+  @@index([tenantId, businessId, status, createdAt])
+  @@index([tenantId, businessId, sha256])
+}
+
+model FileAttachment {
+  id         String     @id @default(cuid())
+  tenantId   String
+  businessId String
+  fileId     String
+  entityType String
+  entityId   String
+  label      String?
+  createdAt  DateTime   @default(now())
+  file       StoredFile @relation(fields: [tenantId, businessId, fileId], references: [tenantId, businessId, id], onDelete: Cascade)
+
+  @@unique([tenantId, businessId, fileId, entityType, entityId])
+  @@index([tenantId, businessId, entityType, entityId])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  businessId  String
+  actorUserId String?
+  eventType   String
+  entityType  String
+  entityId    String
+  summary     String
+  metadata    Json
+  occurredAt  DateTime @default(now())
+
+  @@index([tenantId, businessId, occurredAt])
+  @@index([tenantId, businessId, entityType, entityId, occurredAt])
+  @@index([tenantId, businessId, actorUserId, occurredAt])
+}
