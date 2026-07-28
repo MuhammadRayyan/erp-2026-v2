@@ -66,6 +66,10 @@
 - Protected party detail pages with editable identity, roles, notes, and lifecycle state.
 - Multiple party contacts and typed addresses with primary/default selection.
 - Integration coverage for party editing, lifecycle changes, related records, and cross-tenant detail denial.
+- PostgreSQL trigram duplicate detection using exact TRN, email, and normalized phone evidence.
+- Persisted duplicate-review queue with confirmed and dismissed decisions.
+- Side-by-side duplicate review interface without automatic merging or deletion.
+- PostgreSQL partial unique indexes for one primary contact and one default address per type.
 
 ### Changed
 
@@ -85,3 +89,5 @@
 - Business settings now provide structured profile editing instead of a static summary-only screen.
 - README project status now reflects Phase 3 rather than the completed Phase 2.
 - Party register cards now open direct, protected detail URLs.
+- Primary-contact and default-address updates now serialize on the party row before changing flags.
+- Missing or out-of-scope party details now use a stable `PARTY_NOT_FOUND` error for correct 404 responses.
