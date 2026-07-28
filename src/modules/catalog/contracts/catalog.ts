@@ -42,7 +42,10 @@ export const createCatalogItemSchema = z.object({
   }
 });
 
+export const updateCatalogItemSchema = createCatalogItemSchema;
 export const catalogItemStatusSchema = z.object({ status: z.enum(["ACTIVE", "INACTIVE"]) });
+export const unitStatusSchema = z.object({ active: z.boolean() });
 
 export type CreateUnitInput = z.input<typeof createUnitSchema>;
 export type CreateCatalogItemInput = z.input<typeof createCatalogItemSchema>;
+export type UpdateCatalogItemInput = z.input<typeof updateCatalogItemSchema>;
