@@ -43,7 +43,7 @@ FOREIGN KEY ("tenantId", "businessId") REFERENCES "Business"("tenantId", "id") O
 
 ALTER TABLE "CatalogImportBatch"
 ADD CONSTRAINT "CatalogImportBatch_createdById_fkey"
-FOREIGN KEY ("createdById") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 ALTER TABLE "CatalogImportRow"
 ADD CONSTRAINT "CatalogImportRow_batch_scope_fkey"
