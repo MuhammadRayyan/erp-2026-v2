@@ -17,6 +17,7 @@ export type ErpModule = {
 export const moduleRegistry: readonly ErpModule[] = [
   { key: "dashboard", label: "Dashboard", group: "work", href: "/business/dashboard", description: "Business position and work queues", entitlement: "core.dashboard", permission: "dashboard.view", phase: 1, status: "foundation" },
   { key: "parties", label: "Customers & Suppliers", group: "work", href: "/business/parties", description: "Shared parties, contacts, addresses, and commercial roles", entitlement: "parties.core", permission: "parties.view", phase: 3, status: "foundation" },
+  { key: "catalog", label: "Items & Services", group: "work", href: "/business/catalog", description: "Products, services, units, prices, and default classifications", entitlement: "catalog.core", permission: "catalog.view", phase: 3, status: "foundation" },
   { key: "sales", label: "Sales", group: "work", href: "/business/sales", description: "Quote-to-cash workflows", entitlement: "sales.core", permission: "sales.view", phase: 7, status: "planned" },
   { key: "purchases", label: "Purchases", group: "work", href: "/business/purchases", description: "Procure-to-pay workflows", entitlement: "purchases.core", permission: "purchases.view", phase: 8, status: "planned" },
   { key: "banking", label: "Banking", group: "finance", href: "/business/banking", description: "Cash, statements, and reconciliation", entitlement: "banking.core", permission: "banking.view", phase: 9, status: "planned" },
