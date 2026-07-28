@@ -88,7 +88,7 @@ export async function createCustomFieldDefinition(context: BusinessAccessContext
         required: input.required,
         active: input.active,
         sortOrder: input.sortOrder,
-        options: input.valueType === "SELECT" ? input.options! : Prisma.JsonNull,
+        options: input.valueType === "SELECT" ? input.options! : Prisma.DbNull,
       },
     });
     await appendAuditEvent({ transaction, context, eventType: "CUSTOM_FIELD_DEFINITION_CREATED", entityType: "CUSTOM_FIELD_DEFINITION", entityId: definition.id, summary: `Created custom field ${definition.label}`, metadata: { key: definition.key, target: definition.entityType, valueType: definition.valueType } });
@@ -114,7 +114,7 @@ export async function updateCustomFieldDefinition(context: BusinessAccessContext
     } else if (input.options) throw new Error("CUSTOM_FIELD_OPTIONS_NOT_ALLOWED");
     const definition = await transaction.customFieldDefinition.update({
       where: { id: definitionId },
-      data: { label: input.label, description: input.description, required: input.required, active: input.active, sortOrder: input.sortOrder, options: existing.valueType === "SELECT" ? input.options! : Prisma.JsonNull },
+      data: { label: input.label, description: input.description, required: input.required, active: input.active, sortOrder: input.sortOrder, options: existing.valueType === "SELECT" ? input.options! : Prisma.DbNull },
     });
     await appendAuditEvent({ transaction, context, eventType: "CUSTOM_FIELD_DEFINITION_UPDATED", entityType: "CUSTOM_FIELD_DEFINITION", entityId: definition.id, summary: `Updated custom field ${definition.label}`, metadata: { active: definition.active, required: definition.required, sortOrder: definition.sortOrder } });
     return definition;
