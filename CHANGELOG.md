@@ -70,6 +70,11 @@
 - Persisted duplicate-review queue with confirmed and dismissed decisions.
 - Side-by-side duplicate review interface without automatic merging or deletion.
 - PostgreSQL partial unique indexes for one primary contact and one default address per type.
+- Tenant-scoped products, services, and units of measure.
+- Exact decimal default sales and purchase prices.
+- Preparatory account-class and tax-category defaults for future document posting.
+- Default Each, Hour, and Day units for existing and newly onboarded businesses.
+- Protected catalog API, role capabilities, tenant entitlement, workspace page, and integration tests.
 
 ### Changed
 
