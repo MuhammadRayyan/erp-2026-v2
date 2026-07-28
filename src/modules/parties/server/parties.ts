@@ -33,6 +33,15 @@ async function requirePartyFeature(context: BusinessAccessContext, capability: "
   await requireTenantFeature(context.tenantId, "parties.core");
 }
 
+async function lockParty(transaction: Parameters<Parameters<typeof db.$transaction>[0]>[0], context: BusinessAccessContext, partyId: string) {
+  const rows = await transaction.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "Party"
+    WHERE "id" = ${partyId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+    FOR UPDATE
+  `;
+  if (rows.length === 0) throw new Error("PARTY_NOT_FOUND");
+}
+
 export async function listParties(context: BusinessAccessContext, options: { query?: string; role?: "CUSTOMER" | "SUPPLIER" } = {}) {
   await requirePartyFeature(context, "parties.view");
   const query = options.query?.trim().toLowerCase();
@@ -51,10 +60,12 @@ export async function listParties(context: BusinessAccessContext, options: { que
 
 export async function getParty(context: BusinessAccessContext, partyId: string) {
   await requirePartyFeature(context, "parties.view");
-  return db.party.findFirstOrThrow({
+  const party = await db.party.findFirst({
     where: { id: partyId, tenantId: context.tenantId, businessId: context.businessId },
     include: { roles: { orderBy: { role: "asc" } }, contacts: { orderBy: [{ isPrimary: "desc" }, { name: "asc" }] }, addresses: { orderBy: [{ isDefault: "desc" }, { type: "asc" }, { line1: "asc" }] } },
   });
+  if (!party) throw new Error("PARTY_NOT_FOUND");
+  return party;
 }
 
 export async function createParty(context: BusinessAccessContext, rawInput: CreatePartyInput) {
@@ -91,6 +102,7 @@ export async function updateParty(context: BusinessAccessContext, partyId: strin
   const input = updatePartySchema.parse(rawInput);
   const displayName = displayNameFor(input);
   return db.$transaction(async (transaction) => {
+    await lockParty(transaction, context, partyId);
     await transaction.party.update({
       where: { id: partyId },
       data: {
@@ -121,9 +133,9 @@ export async function setPartyStatus(context: BusinessAccessContext, partyId: st
 
 export async function addPartyContact(context: BusinessAccessContext, partyId: string, rawInput: CreateContactInput) {
   await requirePartyFeature(context, "parties.manage");
-  await assertPartyScope(context, partyId);
   const input = createContactSchema.parse(rawInput);
   return db.$transaction(async (transaction) => {
+    await lockParty(transaction, context, partyId);
     if (input.isPrimary) await transaction.partyContact.updateMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId }, data: { isPrimary: false } });
     return transaction.partyContact.create({ data: { tenantId: context.tenantId, businessId: context.businessId, partyId, ...input } });
   });
@@ -131,10 +143,10 @@ export async function addPartyContact(context: BusinessAccessContext, partyId: s
 
 export async function setPrimaryContact(context: BusinessAccessContext, partyId: string, contactId: string) {
   await requirePartyFeature(context, "parties.manage");
-  await assertPartyScope(context, partyId);
-  const contact = await db.partyContact.findFirst({ where: { id: contactId, tenantId: context.tenantId, businessId: context.businessId, partyId } });
-  if (!contact) throw new Error("PARTY_CONTACT_NOT_FOUND");
   return db.$transaction(async (transaction) => {
+    await lockParty(transaction, context, partyId);
+    const contact = await transaction.partyContact.findFirst({ where: { id: contactId, tenantId: context.tenantId, businessId: context.businessId, partyId } });
+    if (!contact) throw new Error("PARTY_CONTACT_NOT_FOUND");
     await transaction.partyContact.updateMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId }, data: { isPrimary: false } });
     return transaction.partyContact.update({ where: { id: contactId }, data: { isPrimary: true } });
   });
@@ -142,9 +154,9 @@ export async function setPrimaryContact(context: BusinessAccessContext, partyId:
 
 export async function addPartyAddress(context: BusinessAccessContext, partyId: string, rawInput: CreateAddressInput) {
   await requirePartyFeature(context, "parties.manage");
-  await assertPartyScope(context, partyId);
   const input = createAddressSchema.parse(rawInput);
   return db.$transaction(async (transaction) => {
+    await lockParty(transaction, context, partyId);
     if (input.isDefault) await transaction.partyAddress.updateMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId, type: input.type }, data: { isDefault: false } });
     return transaction.partyAddress.create({ data: { tenantId: context.tenantId, businessId: context.businessId, partyId, ...input } });
   });
@@ -152,10 +164,10 @@ export async function addPartyAddress(context: BusinessAccessContext, partyId: s
 
 export async function setDefaultAddress(context: BusinessAccessContext, partyId: string, addressId: string) {
   await requirePartyFeature(context, "parties.manage");
-  await assertPartyScope(context, partyId);
-  const address = await db.partyAddress.findFirst({ where: { id: addressId, tenantId: context.tenantId, businessId: context.businessId, partyId } });
-  if (!address) throw new Error("PARTY_ADDRESS_NOT_FOUND");
   return db.$transaction(async (transaction) => {
+    await lockParty(transaction, context, partyId);
+    const address = await transaction.partyAddress.findFirst({ where: { id: addressId, tenantId: context.tenantId, businessId: context.businessId, partyId } });
+    if (!address) throw new Error("PARTY_ADDRESS_NOT_FOUND");
     await transaction.partyAddress.updateMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId, type: address.type }, data: { isDefault: false } });
     return transaction.partyAddress.update({ where: { id: addressId }, data: { isDefault: true } });
   });
