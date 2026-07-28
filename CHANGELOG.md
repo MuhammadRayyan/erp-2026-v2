@@ -57,6 +57,12 @@
 - Registered-VAT validation at application and PostgreSQL constraint boundaries.
 - Protected business-profile API and modern editable/read-only settings experience.
 - Integration coverage for profile defaults, valid VAT setup, invalid registration, and role protection.
+- Multi-file Prisma schema organization for bounded domain models.
+- Shared parties for organizations and individuals with customer, supplier, or dual roles.
+- Primary party contacts and billing, delivery, site, or other addresses.
+- Tenant-safe party search by name, email, phone, or TRN.
+- Protected parties API, register page, creation form, capability definitions, and entitlement.
+- PostgreSQL tests for dual roles, search, read-only denial, and cross-tenant rejection.
 
 ### Changed
 

@@ -1,0 +1,99 @@
+enum PartyType {
+  ORGANIZATION
+  INDIVIDUAL
+}
+
+enum PartyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PartyRoleKey {
+  CUSTOMER
+  SUPPLIER
+}
+
+enum PartyAddressType {
+  BILLING
+  DELIVERY
+  SITE
+  OTHER
+}
+
+model Party {
+  id                    String      @id @default(cuid())
+  tenantId              String
+  businessId            String
+  type                  PartyType
+  status                PartyStatus @default(ACTIVE)
+  displayName           String
+  legalName             String?
+  firstName             String?
+  lastName              String?
+  email                 String?
+  phone                 String?
+  taxRegistrationNumber String?
+  notes                 String?
+  searchText            String
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  roles                 PartyRole[]
+  contacts              PartyContact[]
+  addresses             PartyAddress[]
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status, displayName])
+  @@index([tenantId, businessId, taxRegistrationNumber])
+}
+
+model PartyRole {
+  id         String       @id @default(cuid())
+  tenantId   String
+  businessId String
+  partyId    String
+  role       PartyRoleKey
+  createdAt  DateTime     @default(now())
+  party      Party        @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade)
+
+  @@unique([partyId, role])
+  @@index([tenantId, businessId, role])
+}
+
+model PartyContact {
+  id         String   @id @default(cuid())
+  tenantId   String
+  businessId String
+  partyId    String
+  name       String
+  jobTitle   String?
+  email      String?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  party      Party    @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade)
+
+  @@index([tenantId, businessId, partyId])
+  @@index([tenantId, businessId, email])
+}
+
+model PartyAddress {
+  id          String           @id @default(cuid())
+  tenantId    String
+  businessId  String
+  partyId     String
+  type        PartyAddressType
+  label       String?
+  line1       String
+  line2       String?
+  city        String?
+  emirate     String?
+  postalCode  String?
+  countryCode String           @default("AE")
+  isDefault   Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  party       Party            @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade)
+
+  @@index([tenantId, businessId, partyId, type])
+}
