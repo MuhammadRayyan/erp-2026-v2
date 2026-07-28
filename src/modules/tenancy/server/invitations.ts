@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { EmailOutboxCategory, InvitationStatus, MembershipStatus, TenantStatus } from "@/generated/prisma/client";
+import { EmailOutboxCategory, EmailOutboxStatus, InvitationStatus, MembershipStatus, TenantStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { serverEnv } from "@/lib/server-env";
 import { getBusinessRole } from "@/modules/access/roles";
@@ -42,10 +42,25 @@ export async function createTenantInvitation(input: {
 
   const invitation = await db.$transaction(async (transaction) => {
     await requireTenantUserInvitationCapacityInTransaction(transaction, input.tenantId, normalizedEmail);
-    await transaction.tenantInvitation.updateMany({
+    const superseded = await transaction.tenantInvitation.findMany({
       where: { tenantId: input.tenantId, email: normalizedEmail, status: InvitationStatus.PENDING },
-      data: { status: InvitationStatus.REVOKED },
+      select: { id: true },
     });
+    const supersededIds = superseded.map((row) => row.id);
+    if (supersededIds.length > 0) {
+      await transaction.tenantInvitation.updateMany({
+        where: { id: { in: supersededIds } },
+        data: { status: InvitationStatus.REVOKED },
+      });
+      await transaction.emailOutbox.updateMany({
+        where: {
+          correlationType: "TENANT_INVITATION",
+          correlationId: { in: supersededIds },
+          status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] },
+        },
+        data: { status: EmailOutboxStatus.CANCELLED, textBody: null, htmlBody: null, lastError: "INVITATION_SUPERSEDED" },
+      });
+    }
 
     const created = await transaction.tenantInvitation.create({
       data: {
@@ -91,6 +106,10 @@ export async function acceptTenantInvitation(input: { userId: string; userEmail:
     if (!invitation || invitation.status !== InvitationStatus.PENDING) throw new Error("INVITATION_INVALID");
     if (invitation.expiresAt.getTime() <= Date.now()) {
       await transaction.tenantInvitation.update({ where: { id: invitation.id }, data: { status: InvitationStatus.EXPIRED } });
+      await transaction.emailOutbox.updateMany({
+        where: { correlationType: "TENANT_INVITATION", correlationId: invitation.id, status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] } },
+        data: { status: EmailOutboxStatus.EXPIRED, textBody: null, htmlBody: null, lastError: "INVITATION_EXPIRED" },
+      });
       throw new Error("INVITATION_EXPIRED");
     }
     if (invitation.email !== normalizedEmail) throw new Error("INVITATION_EMAIL_MISMATCH");
@@ -109,8 +128,8 @@ export async function acceptTenantInvitation(input: { userId: string; userEmail:
       });
     }
     await transaction.emailOutbox.updateMany({
-      where: { correlationType: "TENANT_INVITATION", correlationId: invitation.id, status: { in: ["PENDING", "RETRY"] } },
-      data: { status: "CANCELLED", textBody: null, htmlBody: null, lastError: "INVITATION_ALREADY_ACCEPTED" },
+      where: { correlationType: "TENANT_INVITATION", correlationId: invitation.id, status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] } },
+      data: { status: EmailOutboxStatus.CANCELLED, textBody: null, htmlBody: null, lastError: "INVITATION_ALREADY_ACCEPTED" },
     });
     return transaction.tenantInvitation.update({
       where: { id: invitation.id },
