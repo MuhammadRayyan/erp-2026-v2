@@ -1,0 +1,60 @@
+enum NumberResetPolicy {
+  NEVER
+  YEARLY
+  MONTHLY
+}
+
+enum NumberAllocationStatus {
+  ALLOCATED
+  VOIDED
+}
+
+model NumberSequence {
+  id               String             @id @default(cuid())
+  tenantId         String
+  businessId       String
+  key              String
+  label            String
+  prefixTemplate   String             @default("")
+  suffixTemplate   String             @default("")
+  padding          Int                @default(5)
+  startValue       Int                @default(1)
+  nextValue        Int                @default(1)
+  resetPolicy      NumberResetPolicy  @default(YEARLY)
+  currentPeriodKey String?
+  active           Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  allocations      NumberAllocation[]
+
+  @@unique([tenantId, businessId, id])
+  @@unique([tenantId, businessId, key])
+  @@index([tenantId, businessId, active, label])
+}
+
+model NumberAllocation {
+  id             String                 @id @default(cuid())
+  tenantId       String
+  businessId     String
+  sequenceId     String
+  idempotencyKey String
+  effectiveDate  DateTime               @db.Date
+  periodKey      String
+  numericValue   Int
+  formattedValue String
+  status         NumberAllocationStatus @default(ALLOCATED)
+  referenceType  String?
+  referenceId    String?
+  allocatedById  String
+  voidedAt       DateTime?
+  voidedById     String?
+  voidReason     String?
+  createdAt      DateTime               @default(now())
+  sequence       NumberSequence         @relation(fields: [tenantId, businessId, sequenceId], references: [tenantId, businessId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, sequenceId, idempotencyKey])
+  @@unique([tenantId, businessId, sequenceId, formattedValue])
+  @@unique([tenantId, businessId, sequenceId, periodKey, numericValue])
+  @@index([tenantId, businessId, sequenceId, createdAt])
+  @@index([tenantId, businessId, referenceType, referenceId])
+}

@@ -71,3 +71,9 @@ Items and services may store exact default prices plus preparatory account-class
 **Status:** Accepted
 
 Store file metadata, attachment scope, hashes, and audit events in PostgreSQL while storing binary objects through a private adapter. Local development and Docker use a non-public local volume; a future S3-compatible adapter must preserve the same keys and authorization boundary. Uploads require allowlisted extensions and MIME types, byte-signature checks, size limits, generated opaque keys, and tenant/business authorization. Database and private-object backups must be created and restored as one coordinated dataset.
+
+## ADR-013 — Number allocations are locked, idempotent, and immutable
+
+**Status:** Accepted
+
+Each business owns explicit document sequences. A future business document must allocate its identifier inside the same PostgreSQL transaction that creates the document, after the calling module has enforced its own authorization. The allocator locks the sequence row, rechecks a stable idempotency key inside the lock, derives the reset period from an explicit effective date, stores the numeric and formatted values, and advances the sequence atomically. Formatting changes affect only future allocations. Voided identifiers remain in history and are never reused. Direct sequence administration remains protected by business settings permissions and audit events.

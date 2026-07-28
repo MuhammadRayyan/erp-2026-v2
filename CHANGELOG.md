@@ -87,6 +87,11 @@
 - Files & History workspace with RBAC, entitlement enforcement, checksums, attachments, and recent audit activity.
 - Coordinated PostgreSQL and private-file backup and restore guidance.
 - Unit and PostgreSQL integration coverage for private storage, audit history, RBAC, entitlements, and tenant isolation.
+- Business-scoped document sequences with configurable date tokens, padding, start values, reset periods, and activation.
+- Default quotation, order, invoice, receipt, payment, and supplier-document sequences for existing and newly onboarded businesses.
+- PostgreSQL-locked, idempotent number allocation with immutable formatted history and audit events.
+- Protected numbering settings with recent allocation history.
+- PostgreSQL integration coverage for allocation concurrency, retries, resets, voiding, RBAC, and tenant isolation.
 
 ### Changed
 
@@ -111,3 +116,4 @@
 - Catalog creation, editing, imports, and unit lifecycle operations now lock unit rows to prevent races with deactivation.
 - Unit and PostgreSQL integration suites now use distinct commands without shell-expanded test globs.
 - Private binary objects now remain outside PostgreSQL and the public web root behind a storage-adapter boundary.
+- Voided document numbers remain allocated permanently and sequence-format changes affect only future identifiers.

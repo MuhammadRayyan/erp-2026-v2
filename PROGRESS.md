@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 28, 2026
-Current branch: `main`
+Current branch: `phase-3-numbering-foundation`
 Current phase: Phase 3 — Shared business foundations
 
 ## Verified state
@@ -18,7 +18,7 @@ Current phase: Phase 3 — Shared business foundations
 - Private file metadata, adapter-based local storage, authenticated upload/download, attachment links, audit history, backup guidance, and tenant isolation merged and verified through PR #17.
 - Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
 - Prisma uses a multi-file schema layout so bounded domains can evolve without one oversized schema file.
-- Composite tenant keys protect operational master data, import batches, stored-file metadata, and file attachments in PostgreSQL.
+- Composite tenant keys protect operational master data, import batches, stored-file metadata, file attachments, numbering sequences, and allocations in PostgreSQL.
 - Business navigation and protected pages require implementation status, user capability, and tenant entitlement.
 - Private objects remain outside PostgreSQL and the public web root; PostgreSQL stores metadata, scope, hashes, and append-only audit events.
 - Local and Docker storage use generated opaque keys, allowlisted formats, byte-signature checks, size limits, SHA-256 hashes, and private non-root storage paths.
@@ -28,13 +28,26 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #17 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The reusable numbering slice is implemented on `phase-3-numbering-foundation` and must pass the same strict gate before merge.
+
+## Current implementation slice
+
+- Business-scoped configurable document sequences with annual, monthly, or no reset.
+- Default quotation, sales order, sales invoice, purchase order, supplier invoice, receipt, and payment sequences for existing and newly onboarded businesses.
+- Explicit effective dates and supported `{YYYY}`, `{YY}`, and `{MM}` format tokens.
+- PostgreSQL row locking and in-lock idempotency checks for concurrency-safe allocation.
+- Immutable stored formatted values, numeric values, period keys, references, and audit events.
+- Voided numbers remain historical and are never returned to the available pool.
+- Protected numbering settings and recent allocation history under business settings.
+- PostgreSQL integration coverage for onboarding defaults, concurrency, idempotency, resets, voiding, configuration changes, RBAC, and tenant isolation.
+
 ## Next priority
 
-1. Add reusable numbering and sequence foundations.
+1. Verify and merge reusable numbering and sequence foundations.
 2. Add reusable export foundations.
 3. Add custom-field definitions and values.
 4. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- None for the verified private-files and audit-history foundation.
+- CI verification is pending for the numbering foundation.

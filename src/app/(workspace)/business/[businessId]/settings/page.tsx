@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { BusinessProfileForm } from "@/components/business-settings/business-profile-form";
@@ -26,7 +27,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ busin
     <div>
       <p className="text-sm font-medium text-[var(--brand)]">Configuration</p>
       <h1 className="mt-1 text-3xl font-semibold tracking-tight">Business settings</h1>
-      <p className="mt-2 text-[var(--muted)]">Manage the business identity, localization, industry defaults, UAE VAT status, and fiscal foundation.</p>
+      <p className="mt-2 text-[var(--muted)]">Manage the business identity, localization, industry defaults, UAE VAT status, fiscal foundation, and document numbering.</p>
 
       <Card className="mt-7">
         <div className="mb-7 border-b border-[var(--border)] pb-6">
@@ -55,6 +56,12 @@ export default async function SettingsPage({ params }: { params: Promise<{ busin
           }}
         />
       </Card>
+
+      <Link href={`/business/${businessId}/settings/numbering`} className="mt-6 block rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition hover:border-[var(--brand)]">
+        <p className="text-sm font-medium text-[var(--brand)]">Document controls</p>
+        <h2 className="mt-1 text-lg font-semibold">Numbering and sequences</h2>
+        <p className="mt-2 text-sm text-[var(--muted)]">Configure prefixes, date tokens, padding, reset periods, activation, and review recent immutable allocations.</p>
+      </Link>
     </div>
   );
 }
