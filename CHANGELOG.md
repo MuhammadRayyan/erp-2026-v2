@@ -92,6 +92,13 @@
 - PostgreSQL-locked, idempotent number allocation with immutable formatted history and audit events.
 - Protected numbering settings with recent allocation history.
 - PostgreSQL integration coverage for allocation concurrency, retries, resets, voiding, RBAC, and tenant isolation.
+- Dedicated export entitlement and capability with dataset-specific view checks.
+- Reusable party and catalog CSV dataset adapters with explicit filters and deterministic columns.
+- Spreadsheet-safe UTF-8 CSV serialization with quoting, CRLF output, formula neutralization, and a 5,000-row hard ceiling.
+- POST-only authenticated CSV downloads with private no-store responses.
+- Immutable export-run metadata containing filters, actor, row count, file name, and SHA-256 checksum without retaining generated CSV payloads.
+- Export history workspace, append-only audit events, and filter-preserving controls on party and catalog registers.
+- Unit and PostgreSQL integration coverage for export filtering, checksums, exact decimal text, RBAC, entitlements, audit history, and tenant isolation.
 
 ### Changed
 
@@ -117,3 +124,4 @@
 - Unit and PostgreSQL integration suites now use distinct commands without shell-expanded test globs.
 - Private binary objects now remain outside PostgreSQL and the public web root behind a storage-adapter boundary.
 - Voided document numbers remain allocated permanently and sequence-format changes affect only future identifiers.
+- Viewer roles remain read-only and do not receive bulk export permission automatically.
