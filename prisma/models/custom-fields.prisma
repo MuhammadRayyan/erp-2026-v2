@@ -1,0 +1,58 @@
+enum CustomFieldEntityType {
+  PARTY
+  CATALOG_ITEM
+}
+
+enum CustomFieldValueType {
+  TEXT
+  LONG_TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+}
+
+model CustomFieldDefinition {
+  id          String                @id @default(cuid())
+  tenantId    String
+  businessId  String
+  entityType  CustomFieldEntityType
+  key         String
+  label       String
+  description String?
+  valueType   CustomFieldValueType
+  required    Boolean               @default(false)
+  active      Boolean               @default(true)
+  sortOrder   Int                   @default(0)
+  options     Json?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  values      CustomFieldValue[]
+
+  @@unique([tenantId, businessId, id])
+  @@unique([tenantId, businessId, id, entityType, valueType])
+  @@unique([tenantId, businessId, entityType, key])
+  @@index([tenantId, businessId, entityType, active, sortOrder])
+}
+
+model CustomFieldValue {
+  id              String                @id @default(cuid())
+  tenantId        String
+  businessId      String
+  definitionId    String
+  entityType      CustomFieldEntityType
+  valueType       CustomFieldValueType
+  entityId        String
+  textValue       String?
+  numberValue     Decimal?              @db.Decimal(19, 4)
+  dateValue       DateTime?             @db.Date
+  booleanValue    Boolean?
+  updatedByUserId String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  definition      CustomFieldDefinition @relation(fields: [tenantId, businessId, definitionId, entityType, valueType], references: [tenantId, businessId, id, entityType, valueType], onDelete: Cascade)
+
+  @@unique([tenantId, businessId, definitionId, entityId])
+  @@index([tenantId, businessId, entityType, entityId])
+  @@index([tenantId, businessId, definitionId])
+}

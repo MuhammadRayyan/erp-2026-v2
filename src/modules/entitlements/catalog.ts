@@ -3,6 +3,7 @@ export const booleanFeatureKeys = [
   "core.settings",
   "parties.core",
   "catalog.core",
+  "custom-fields.core",
   "files.core",
   "exports.core",
   "users.manage",

@@ -27,7 +27,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ busin
     <div>
       <p className="text-sm font-medium text-[var(--brand)]">Configuration</p>
       <h1 className="mt-1 text-3xl font-semibold tracking-tight">Business settings</h1>
-      <p className="mt-2 text-[var(--muted)]">Manage the business identity, localization, industry defaults, UAE VAT status, fiscal foundation, and document numbering.</p>
+      <p className="mt-2 text-[var(--muted)]">Manage the business identity, localization, industry defaults, UAE VAT status, fiscal foundation, document numbering, and custom fields.</p>
 
       <Card className="mt-7">
         <div className="mb-7 border-b border-[var(--border)] pb-6">
@@ -57,11 +57,18 @@ export default async function SettingsPage({ params }: { params: Promise<{ busin
         />
       </Card>
 
-      <Link href={`/business/${businessId}/settings/numbering`} className="mt-6 block rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition hover:border-[var(--brand)]">
-        <p className="text-sm font-medium text-[var(--brand)]">Document controls</p>
-        <h2 className="mt-1 text-lg font-semibold">Numbering and sequences</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">Configure prefixes, date tokens, padding, reset periods, activation, and review recent immutable allocations.</p>
-      </Link>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <Link href={`/business/${businessId}/settings/numbering`} className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition hover:border-[var(--brand)]">
+          <p className="text-sm font-medium text-[var(--brand)]">Document controls</p>
+          <h2 className="mt-1 text-lg font-semibold">Numbering and sequences</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Configure prefixes, date tokens, padding, reset periods, activation, and review recent immutable allocations.</p>
+        </Link>
+        <Link href={`/business/${businessId}/settings/custom-fields`} className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition hover:border-[var(--brand)]">
+          <p className="text-sm font-medium text-[var(--brand)]">Flexible master data</p>
+          <h2 className="mt-1 text-lg font-semibold">Custom fields</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">Define typed additional fields for customers, suppliers, products, and services.</p>
+        </Link>
+      </div>
     </div>
   );
 }

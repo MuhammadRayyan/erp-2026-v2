@@ -83,3 +83,9 @@ Each business owns explicit document sequences. A future business document must 
 **Status:** Accepted
 
 Generate current master-data exports synchronously because the initial deployment serves one owner or a small trusted team. Every export requires a dedicated export capability, the dataset's normal view permission, and the tenant export entitlement. Dataset adapters own explicit filter schemas and deterministic columns. CSV generation must neutralize spreadsheet formulas, use a hard row ceiling, fail rather than truncate, and return a private non-cacheable response. PostgreSQL stores only immutable run metadata, filters, actor, row count, file name, checksum, and audit event; generated CSV payloads are not retained. Move large or scheduled exports to the PostgreSQL outbox worker only after measured volume requires asynchronous processing.
+
+## ADR-015 — Custom fields use typed columns and module-owned permissions
+
+**Status:** Accepted
+
+Custom-field definitions are business-scoped and identify an immutable target entity, stable key, and immutable value type. Operational values use dedicated text, decimal, date, and boolean columns rather than arbitrary JSON. PostgreSQL composite keys bind each value to the definition's tenant, business, entity type, and value type, while target validation prevents cross-tenant or nonexistent owners. Definition administration requires business-settings management; reading and editing values reuse the owning module's normal view and manage capabilities. Required fields are enforced when values are saved. Select options already used by records cannot be removed, preserving historical meaning. Deactivation hides a field without deleting its stored values, and all definition/value changes create audit events.
