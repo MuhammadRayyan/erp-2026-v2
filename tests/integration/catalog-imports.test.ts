@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Prisma } from "../../src/generated/prisma/client";
 import { describe, expect, it } from "vitest";
 import { db } from "../../src/lib/db";
 import { commitCatalogImport, getCatalogImport, previewCatalogImport, resolveCatalogImportRow } from "../../src/modules/catalog/server/imports";
@@ -58,6 +59,6 @@ describe("catalog staged imports", () => {
     await expect(previewCatalogImport({ ...first, roleKey: "business.viewer" }, { sourceName: "viewer.csv", csv: csv([]) })).rejects.toThrow("BUSINESS_CAPABILITY_DENIED");
     const batch = await previewCatalogImport(first, { sourceName: "scope.csv", csv: csv(["SERVICE,IMP-005,Inspection,,HOUR,true,false,100,,SERVICE_REVENUE,DIRECT_EXPENSE,UNSPECIFIED,UNSPECIFIED"]) });
     await expect(getCatalogImport(second, batch.id)).rejects.toThrow("CATALOG_IMPORT_NOT_FOUND");
-    await expect(db.catalogImportRow.create({ data: { tenantId: second.tenantId, businessId: second.businessId, batchId: batch.id, rowNumber: 99, rawData: {}, normalizedData: null, action: "SKIP", existingItemId: null, issues: [] } })).rejects.toThrow();
+    await expect(db.catalogImportRow.create({ data: { tenantId: second.tenantId, businessId: second.businessId, batchId: batch.id, rowNumber: 99, rawData: {}, normalizedData: Prisma.JsonNull, action: "SKIP", existingItemId: null, issues: [] } })).rejects.toThrow();
   });
 });
