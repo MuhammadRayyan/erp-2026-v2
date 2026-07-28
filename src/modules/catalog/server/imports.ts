@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import type { BusinessAccessContext } from "@/modules/tenancy/server/context";
 import { db } from "@/lib/db";
 import { requireBusinessCapability } from "@/modules/access/server/authorize";
@@ -8,6 +9,7 @@ import { csvRecords } from "@/modules/catalog/imports/csv";
 const requiredHeaders = ["type", "sku", "name", "unit_code", "sales_enabled", "purchase_enabled", "sales_price", "purchase_price", "sales_account_class", "purchase_account_class", "sales_tax_category", "purchase_tax_category"] as const;
 
 type ImportAction = "CREATE" | "UPDATE" | "SKIP" | "CONFLICT" | "INVALID";
+type NormalizedCatalogRow = ReturnType<typeof createCatalogItemSchema.parse>;
 
 function bool(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -46,12 +48,12 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
     const issues: string[] = [];
     let action: ImportAction = "CREATE";
     let existingItemId: string | null = null;
-    let normalized: Record<string, unknown> | null = null;
+    let normalizedData: NormalizedCatalogRow | null = null;
     try {
       const sku = data.sku.trim().toUpperCase() || null;
       const unit = unitByCode.get(data.unit_code.trim().toUpperCase());
       if (!unit) throw new Error("Unknown or inactive unit code.");
-      normalized = createCatalogItemSchema.parse({
+      normalizedData = createCatalogItemSchema.parse({
         type: data.type.trim().toUpperCase(),
         sku,
         name: data.name,
@@ -80,7 +82,7 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
         }
       }
       if (!existingItemId) {
-        const nameMatch = itemByName.get(normalizedName(String(normalized.name)));
+        const nameMatch = itemByName.get(normalizedName(normalizedData.name));
         if (nameMatch) {
           action = "CONFLICT";
           existingItemId = nameMatch.id;
@@ -91,19 +93,33 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
       action = "INVALID";
       issues.push(error instanceof Error ? error.message : "Invalid row.");
     }
-    return { rowNumber, rawData: data, normalizedData: normalized, action, existingItemId, issues };
+    return { rowNumber, rawData: data, normalizedData, action, existingItemId, issues };
   });
 
-  return db.catalogImportBatch.create({
-    data: {
-      tenantId: context.tenantId,
-      businessId: context.businessId,
-      createdById: context.userId,
-      sourceName: input.sourceName.trim().slice(0, 160) || "catalog.csv",
-      totalRows: rows.length,
-      rows: { create: rows.map((row) => ({ tenantId: context.tenantId, businessId: context.businessId, ...row })) },
-    },
-    include: { rows: { orderBy: { rowNumber: "asc" } } },
+  return db.$transaction(async (transaction) => {
+    const batch = await transaction.catalogImportBatch.create({
+      data: {
+        tenantId: context.tenantId,
+        businessId: context.businessId,
+        createdById: context.userId,
+        sourceName: input.sourceName.trim().slice(0, 160) || "catalog.csv",
+        totalRows: rows.length,
+      },
+    });
+    await transaction.catalogImportRow.createMany({
+      data: rows.map((row) => ({
+        tenantId: context.tenantId,
+        businessId: context.businessId,
+        batchId: batch.id,
+        rowNumber: row.rowNumber,
+        rawData: row.rawData as Prisma.InputJsonValue,
+        normalizedData: row.normalizedData ? row.normalizedData as Prisma.InputJsonValue : Prisma.JsonNull,
+        action: row.action,
+        existingItemId: row.existingItemId,
+        issues: row.issues as Prisma.InputJsonValue,
+      })),
+    });
+    return transaction.catalogImportBatch.findUniqueOrThrow({ where: { id: batch.id }, include: { rows: { orderBy: { rowNumber: "asc" } } } });
   });
 }
 
@@ -166,7 +182,8 @@ export async function commitCatalogImport(context: BusinessAccessContext, batchI
         searchText: [data.sku, data.name, data.description].filter(Boolean).join(" ").toLowerCase(),
       };
       if (row.action === "UPDATE") {
-        await transaction.catalogItem.updateMany({ where: { id: row.existingItemId!, tenantId: context.tenantId, businessId: context.businessId }, data: values });
+        const updated = await transaction.catalogItem.updateMany({ where: { id: row.existingItemId!, tenantId: context.tenantId, businessId: context.businessId }, data: values });
+        if (updated.count !== 1) throw new Error("CATALOG_IMPORT_UPDATE_TARGET_MISSING");
       } else {
         await transaction.catalogItem.create({ data: { tenantId: context.tenantId, businessId: context.businessId, ...values } });
       }
