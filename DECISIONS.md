@@ -53,3 +53,9 @@ Implement essential web, financial, file, and backup security now; defer enterpr
 **Status:** Accepted
 
 Store feature definitions, plan assignments, tenant subscriptions, tenant overrides, and usage limits as normalized records. Permissions determine whether a user may act; entitlements determine whether the tenant has the feature; limits determine remaining capacity. The internal-unlimited plan uses the same resolver and enforcement path as future commercial plans.
+
+## ADR-010 — Duplicate review precedes party merging
+
+**Status:** Accepted
+
+Detect possible duplicate parties using tenant-scoped exact identifiers and PostgreSQL name similarity. Persist review evidence and explicit confirmed/dismissed decisions, but never merge, delete, or reassign references automatically. A future merge workflow must define a surviving party, preserve source identifiers and snapshots, move references transactionally, retain an audit trail, and remain reversible where financial records are involved.
