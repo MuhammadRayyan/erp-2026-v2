@@ -99,6 +99,10 @@
 - Immutable export-run metadata containing filters, actor, row count, file name, and SHA-256 checksum without retaining generated CSV payloads.
 - Export history workspace, append-only audit events, and filter-preserving controls on party and catalog registers.
 - Unit and PostgreSQL integration coverage for export filtering, checksums, exact decimal text, RBAC, entitlements, audit history, and tenant isolation.
+- Business-scoped custom-field definitions for parties and catalog items with text, long-text, decimal, date, boolean, and select types.
+- Typed custom-field values with composite definition scope, target validation, exact decimal storage, required-field checks, and append-only audit events.
+- Protected custom-field settings page and reusable read/write controls on party and catalog detail pages.
+- Unit and PostgreSQL integration coverage for typed values, select-option preservation, RBAC, entitlements, target locking, and tenant isolation.
 
 ### Changed
 
@@ -125,3 +129,4 @@
 - Private binary objects now remain outside PostgreSQL and the public web root behind a storage-adapter boundary.
 - Voided document numbers remain allocated permanently and sequence-format changes affect only future identifiers.
 - Viewer roles remain read-only and do not receive bulk export permission automatically.
+- Custom-field keys and value types remain immutable, while deactivation preserves existing values and used select options cannot be removed.
