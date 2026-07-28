@@ -14,6 +14,7 @@ Current phase: Phase 3 — Shared business foundations
 - Party duplicate detection, persisted review decisions, primary/default uniqueness constraints, serialized related-record updates, and stable not-found behavior merged and verified through PR #13.
 - Products, services, units, exact default prices, preparatory account/tax classifications, catalog RBAC, entitlement enforcement, and tenant isolation merged and verified through PR #14.
 - Catalog detail editing, item activation, safe unit lifecycle controls, and unit-row serialization merged and verified through PR #15.
+- Staged catalog CSV preview, persisted row decisions, explicit conflict resolution, and transactional create/update commit merged and verified through PR #16.
 - Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
 - Prisma uses a multi-file schema layout so bounded domains can evolve without one oversized schema file.
 - Composite tenant keys prevent cross-tenant business memberships, parties, contacts, addresses, party roles, duplicate-review pairs, catalog records, units, and catalog-import batches in PostgreSQL.
@@ -27,23 +28,21 @@ Current phase: Phase 3 — Shared business foundations
 - Duplicate review uses exact identifiers and trigram name similarity but never merges, deletes, or reassigns references automatically.
 - Catalog records support products and services, business-scoped SKU uniqueness, exact `DECIMAL(19,4)` prices, sales/purchase availability, units, preparatory account/tax defaults, protected editing, and active/inactive lifecycle state.
 - Existing and newly onboarded businesses receive Each, Hour, and Day units through migrations and the onboarding transaction.
-- Active catalog operations cannot commit against units being deactivated concurrently because creation, editing, and unit lifecycle changes lock the same unit row.
+- Active catalog operations cannot commit against units being deactivated concurrently because creation, editing, imports, and unit lifecycle changes lock the same unit row.
+- Catalog imports preserve source rows, normalized values, issues, decisions, and commit state; unresolved or invalid rows block commit.
 - Party and catalog operations require authoritative role capabilities plus their tenant entitlements.
 - Unit and PostgreSQL integration suites are separated reliably; the previous shell-expanded exclusion glob no longer runs integration files inside `npm run test`.
 
 ## Verification status
 
-PR #15 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
-
-The staged catalog-import slice is implemented on `phase-3-catalog-imports` and must pass the same gate before merge.
+PR #16 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
 ## Next priority
 
-1. Verify and merge staged catalog CSV preview, conflict resolution, and transactional commit.
-2. Add private file and audit/history foundations required by master data.
-3. Add reusable numbering, export, and custom-field foundations.
-4. Add durable queued email records when the PostgreSQL outbox worker is introduced.
+1. Add private file metadata, storage adapter boundaries, and audit/history foundations required by master data.
+2. Add reusable numbering, export, and custom-field foundations.
+3. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- CI verification is pending for the catalog-import slice.
+- None for the verified catalog and staged-import foundations.
