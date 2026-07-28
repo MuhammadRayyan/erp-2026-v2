@@ -18,6 +18,7 @@ export type QueueEmailInput = {
 };
 
 type DbClient = Prisma.TransactionClient | typeof db;
+type EmailSender = typeof sendPlatformEmail;
 
 export async function enqueueEmail(client: DbClient, input: QueueEmailInput) {
   return client.emailOutbox.upsert({
@@ -51,8 +52,12 @@ function errorText(error: unknown) {
 async function recoverStaleAndExpired(now: Date, staleBefore: Date) {
   await db.$transaction([
     db.emailOutbox.updateMany({
-      where: { status: EmailOutboxStatus.PROCESSING, lockedAt: { lt: staleBefore } },
+      where: { status: EmailOutboxStatus.PROCESSING, lockedAt: { lt: staleBefore }, attempts: { lt: db.emailOutbox.fields.maxAttempts } },
       data: { status: EmailOutboxStatus.RETRY, lockedAt: null, lockedBy: null, availableAt: now, lastError: "STALE_WORKER_LOCK_RECOVERED" },
+    }),
+    db.emailOutbox.updateMany({
+      where: { status: EmailOutboxStatus.PROCESSING, lockedAt: { lt: staleBefore }, attempts: { gte: db.emailOutbox.fields.maxAttempts } },
+      data: { status: EmailOutboxStatus.FAILED, failedAt: now, textBody: null, htmlBody: null, lockedAt: null, lockedBy: null, lastError: "STALE_FINAL_ATTEMPT" },
     }),
     db.emailOutbox.updateMany({
       where: { status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] }, expiresAt: { lte: now } },
@@ -62,46 +67,35 @@ async function recoverStaleAndExpired(now: Date, staleBefore: Date) {
 }
 
 async function claimBatch(workerId: string, batchSize: number, now: Date) {
-  return db.$transaction(async (transaction) => {
-    const rows = await transaction.$queryRaw<Array<EmailOutbox>>`
-      WITH candidates AS (
-        SELECT "id"
-        FROM "EmailOutbox"
-        WHERE "status" IN ('PENDING', 'RETRY')
-          AND "availableAt" <= ${now}
-          AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
-        ORDER BY "createdAt" ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT ${batchSize}
-      )
-      UPDATE "EmailOutbox" AS message
-      SET "status" = 'PROCESSING',
-          "attempts" = message."attempts" + 1,
-          "lockedAt" = ${now},
-          "lockedBy" = ${workerId},
-          "lastAttemptAt" = ${now},
-          "updatedAt" = ${now}
-      FROM candidates
-      WHERE message."id" = candidates."id"
-      RETURNING message.*
-    `;
-    return rows;
-  });
+  return db.$transaction(async (transaction) => transaction.$queryRaw<Array<EmailOutbox>>`
+    WITH candidates AS (
+      SELECT "id"
+      FROM "EmailOutbox"
+      WHERE "status" IN ('PENDING', 'RETRY')
+        AND "attempts" < "maxAttempts"
+        AND "availableAt" <= ${now}
+        AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
+      ORDER BY "createdAt" ASC
+      FOR UPDATE SKIP LOCKED
+      LIMIT ${batchSize}
+    )
+    UPDATE "EmailOutbox" AS message
+    SET "status" = 'PROCESSING',
+        "attempts" = message."attempts" + 1,
+        "lockedAt" = ${now},
+        "lockedBy" = ${workerId},
+        "lastAttemptAt" = ${now},
+        "updatedAt" = ${now}
+    FROM candidates
+    WHERE message."id" = candidates."id"
+    RETURNING message.*
+  `);
 }
 
 async function markSent(message: EmailOutbox, providerMessageId: string | undefined) {
   await db.emailOutbox.updateMany({
     where: { id: message.id, status: EmailOutboxStatus.PROCESSING, lockedBy: message.lockedBy },
-    data: {
-      status: EmailOutboxStatus.SENT,
-      sentAt: new Date(),
-      providerMessageId: providerMessageId ?? null,
-      textBody: null,
-      htmlBody: null,
-      lockedAt: null,
-      lockedBy: null,
-      lastError: null,
-    },
+    data: { status: EmailOutboxStatus.SENT, sentAt: new Date(), providerMessageId: providerMessageId ?? null, textBody: null, htmlBody: null, lockedAt: null, lockedBy: null, lastError: null },
   });
 }
 
@@ -110,28 +104,15 @@ async function markFailedAttempt(message: EmailOutbox, error: unknown) {
   await db.emailOutbox.updateMany({
     where: { id: message.id, status: EmailOutboxStatus.PROCESSING, lockedBy: message.lockedBy },
     data: terminal
-      ? {
-          status: EmailOutboxStatus.FAILED,
-          failedAt: new Date(),
-          textBody: null,
-          htmlBody: null,
-          lockedAt: null,
-          lockedBy: null,
-          lastError: errorText(error),
-        }
-      : {
-          status: EmailOutboxStatus.RETRY,
-          availableAt: new Date(Date.now() + retryDelayMilliseconds(message.attempts)),
-          lockedAt: null,
-          lockedBy: null,
-          lastError: errorText(error),
-        },
+      ? { status: EmailOutboxStatus.FAILED, failedAt: new Date(), textBody: null, htmlBody: null, lockedAt: null, lockedBy: null, lastError: errorText(error) }
+      : { status: EmailOutboxStatus.RETRY, availableAt: new Date(Date.now() + retryDelayMilliseconds(message.attempts)), lockedAt: null, lockedBy: null, lastError: errorText(error) },
   });
 }
 
-export async function processEmailOutboxBatch(options?: { workerId?: string; batchSize?: number; staleAfterMs?: number }) {
+export async function processEmailOutboxBatch(options?: { workerId?: string; batchSize?: number; staleAfterMs?: number; send?: EmailSender }) {
   const workerId = options?.workerId ?? `worker-${randomUUID()}`;
   const batchSize = Math.min(Math.max(options?.batchSize ?? 10, 1), 50);
+  const sender = options?.send ?? sendPlatformEmail;
   const now = new Date();
   await recoverStaleAndExpired(now, new Date(now.getTime() - (options?.staleAfterMs ?? 10 * 60 * 1000)));
   const messages = await claimBatch(workerId, batchSize, now);
@@ -142,12 +123,7 @@ export async function processEmailOutboxBatch(options?: { workerId?: string; bat
   for (const message of messages) {
     try {
       if (!message.textBody && !message.htmlBody) throw new Error("EMAIL_PAYLOAD_MISSING");
-      const result = await sendPlatformEmail({
-        to: message.recipient,
-        subject: message.subject,
-        text: message.textBody ?? "",
-        html: message.htmlBody ?? undefined,
-      });
+      const result = await sender({ to: message.recipient, subject: message.subject, text: message.textBody ?? "", html: message.htmlBody ?? undefined });
       await markSent(message, result.messageId);
       sent += 1;
     } catch (error) {
@@ -158,15 +134,4 @@ export async function processEmailOutboxBatch(options?: { workerId?: string; bat
   }
 
   return { claimed: messages.length, sent, retried, failed };
-}
-
-export async function cancelQueuedEmail(correlationType: string, correlationId: string) {
-  return db.emailOutbox.updateMany({
-    where: {
-      correlationType,
-      correlationId,
-      status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] },
-    },
-    data: { status: EmailOutboxStatus.CANCELLED, textBody: null, htmlBody: null, lastError: "CORRELATION_CANCELLED" },
-  });
 }
