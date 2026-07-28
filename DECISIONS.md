@@ -59,3 +59,9 @@ Store feature definitions, plan assignments, tenant subscriptions, tenant overri
 **Status:** Accepted
 
 Detect possible duplicate parties using tenant-scoped exact identifiers and PostgreSQL name similarity. Persist review evidence and explicit confirmed/dismissed decisions, but never merge, delete, or reassign references automatically. A future merge workflow must define a surviving party, preserve source identifiers and snapshots, move references transactionally, retain an audit trail, and remain reversible where financial records are involved.
+
+## ADR-011 — Catalog defaults are classifications, not postings
+
+**Status:** Accepted
+
+Items and services may store exact default prices plus preparatory account-class and tax-category keys before the accounting and VAT kernels exist. These defaults never create journal entries, determine statutory VAT by themselves, or bypass document-time validation. Future sales and purchase documents must snapshot the resolved classifications and pass them through the central accounting and VAT engines.
