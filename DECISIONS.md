@@ -65,3 +65,9 @@ Detect possible duplicate parties using tenant-scoped exact identifiers and Post
 **Status:** Accepted
 
 Items and services may store exact default prices plus preparatory account-class and tax-category keys before the accounting and VAT kernels exist. These defaults never create journal entries, determine statutory VAT by themselves, or bypass document-time validation. Future sales and purchase documents must snapshot the resolved classifications and pass them through the central accounting and VAT engines.
+
+## ADR-012 — Private objects remain outside PostgreSQL and the public web root
+
+**Status:** Accepted
+
+Store file metadata, attachment scope, hashes, and audit events in PostgreSQL while storing binary objects through a private adapter. Local development and Docker use a non-public local volume; a future S3-compatible adapter must preserve the same keys and authorization boundary. Uploads require allowlisted extensions and MIME types, byte-signature checks, size limits, generated opaque keys, and tenant/business authorization. Database and private-object backups must be created and restored as one coordinated dataset.
