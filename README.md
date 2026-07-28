@@ -18,6 +18,7 @@ Implemented and verified foundations include:
 - business roles, capabilities, plans, entitlements, and usage limits;
 - business profile and UAE VAT registration settings;
 - shared customer and supplier parties with contacts and addresses;
+- products, services, units, lifecycle controls, and staged imports;
 - Docker and GitHub Actions verification.
 
 See `PROGRESS.md` for the exact current state and next work.
@@ -131,7 +132,8 @@ Docker Compose will:
 2. wait for PostgreSQL health;
 3. apply committed Prisma migrations once;
 4. start the application;
-5. start Mailpit for local email inspection.
+5. start Mailpit for local email inspection;
+6. mount a private file volume at `/app/storage/private`.
 
 Open:
 
@@ -144,13 +146,13 @@ Stop services without deleting data:
 docker compose down
 ```
 
-Stop services and permanently remove the local PostgreSQL volume only when a full reset is intentional:
+Stop services and permanently remove the local PostgreSQL and private-file volumes only when a full reset is intentional:
 
 ```bash
 docker compose down -v
 ```
 
-**Warning:** `-v` deletes the local database volume.
+**Warning:** `-v` deletes both the local database and private-file volume.
 
 ## Environment variables
 
@@ -166,8 +168,11 @@ docker compose down -v
 | `SMTP_USER` | No | empty | SMTP username |
 | `SMTP_PASSWORD` | No | empty | SMTP password |
 | `EMAIL_FROM` | No initially | `ERP 2026 <no-reply@localhost>` | Platform identity sender |
+| `FILE_STORAGE_PROVIDER` | Yes for files | `local` | Private object-storage adapter; local is implemented, S3 is reserved |
+| `FILE_STORAGE_ROOT` | Yes for local files | `./storage/private` | Non-public private storage directory |
+| `FILE_MAX_BYTES` | No | `10485760` | Maximum accepted upload size in bytes; hard maximum is 50 MiB |
 
-For Docker Compose, service-to-service hostnames differ from host development: PostgreSQL is `db` and Mailpit is `mailpit`. The Compose configuration supplies those values to containers.
+For Docker Compose, service-to-service hostnames differ from host development: PostgreSQL is `db`, Mailpit is `mailpit`, and private files use `/app/storage/private`. The Compose configuration supplies those values to containers.
 
 ## Database commands
 
@@ -186,6 +191,39 @@ Migration rules:
 - commit schema and migration together;
 - run integration tests after every structural database change;
 - back up important local or hosted data before destructive changes.
+
+## Backups and restore
+
+PostgreSQL metadata and private file objects form one logical dataset. Back up and restore them as a coordinated pair from the same maintenance window.
+
+### Host-development backup
+
+```bash
+mkdir -p backups
+pg_dump "$DATABASE_URL" --format=custom --file="backups/erp-$(date +%Y%m%d-%H%M%S).dump"
+tar -czf "backups/private-files-$(date +%Y%m%d-%H%M%S).tar.gz" storage/private
+```
+
+### Docker backup
+
+```bash
+mkdir -p backups
+docker compose exec -T db pg_dump -U erp -d erp --format=custom > "backups/erp-$(date +%Y%m%d-%H%M%S).dump"
+docker run --rm -v erp-2026-v2_private_files:/data -v "$PWD/backups:/backup" alpine sh -c 'tar -czf /backup/private-files.tar.gz -C /data .'
+```
+
+Confirm the actual Compose volume name with `docker volume ls`; Compose may prefix it with the checkout directory name.
+
+### Restore rules
+
+1. stop application writes;
+2. restore PostgreSQL to the intended database;
+3. restore the matching private-file archive into `FILE_STORAGE_ROOT` or the Docker private-files volume;
+4. run `npm run db:deploy`;
+5. start the application;
+6. verify file downloads and recent audit history.
+
+Never restore a database dump without its matching private-file archive. Never restore private files alone over newer database metadata. Test restoration periodically on a disposable environment.
 
 ## Running tests and verification
 
@@ -259,6 +297,13 @@ Common problems:
 - confirm `BETTER_AUTH_URL` and `APP_URL` match the URL opened in the browser;
 - restart the development server after changing `.env`.
 
+### Private file storage is not writable
+
+- confirm `FILE_STORAGE_ROOT` exists or its parent can be created;
+- confirm the runtime user has read/write permission;
+- in Docker, confirm the `private_files` volume is mounted;
+- do not place private files under `public/`.
+
 ### Prisma Client missing or stale
 
 ```bash
@@ -289,6 +334,7 @@ src/app/                      Next.js routes, layouts, and HTTP handlers
 src/components/               Shared UI and layout components
 src/lib/                      Infrastructure configuration and adapters
 src/modules/                  Domain and application modules
+storage/private/              Local non-public file objects; never commit
 tests/                        Unit and PostgreSQL integration tests
 .github/workflows/            CI verification
 *.md                          Durable product and development context
