@@ -1,0 +1,75 @@
+enum CatalogItemType {
+  PRODUCT
+  SERVICE
+}
+
+enum CatalogItemStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UnitDimension {
+  COUNT
+  LENGTH
+  AREA
+  VOLUME
+  MASS
+  TIME
+  OTHER
+}
+
+enum CatalogTaxCategory {
+  UNSPECIFIED
+  STANDARD_RATE
+  ZERO_RATED
+  EXEMPT
+  OUT_OF_SCOPE
+}
+
+model UnitOfMeasure {
+  id            String        @id @default(cuid())
+  tenantId      String
+  businessId    String
+  code          String
+  name          String
+  symbol        String?
+  dimension     UnitDimension @default(OTHER)
+  decimalPlaces Int           @default(2)
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         CatalogItem[]
+
+  @@unique([tenantId, businessId, id])
+  @@unique([tenantId, businessId, code])
+  @@index([tenantId, businessId, active, name])
+}
+
+model CatalogItem {
+  id                         String             @id @default(cuid())
+  tenantId                   String
+  businessId                 String
+  type                       CatalogItemType
+  status                     CatalogItemStatus  @default(ACTIVE)
+  sku                        String?
+  name                       String
+  description                String?
+  unitId                     String
+  salesEnabled               Boolean            @default(true)
+  purchaseEnabled            Boolean            @default(true)
+  defaultSalesPrice          Decimal?           @db.Decimal(19, 4)
+  defaultPurchasePrice       Decimal?           @db.Decimal(19, 4)
+  salesAccountClassKey       String
+  purchaseAccountClassKey    String
+  defaultSalesTaxCategory    CatalogTaxCategory @default(UNSPECIFIED)
+  defaultPurchaseTaxCategory CatalogTaxCategory @default(UNSPECIFIED)
+  searchText                 String
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  unit                       UnitOfMeasure      @relation(fields: [tenantId, businessId, unitId], references: [tenantId, businessId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@unique([tenantId, businessId, sku])
+  @@index([tenantId, businessId, status, type, name])
+  @@index([tenantId, businessId, unitId])
+}
