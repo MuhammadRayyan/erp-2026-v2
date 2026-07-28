@@ -55,6 +55,10 @@ export async function POST(request: Request, context: { params: Promise<{ busine
     if (error instanceof ZodError) {
       return NextResponse.json({ message: "Check the catalog details.", issues: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ message: "The catalog change could not be saved." }, { status: statusFor(error) });
+    const message = error instanceof Error ? error.message : "CATALOG_CHANGE_FAILED";
+    const responseMessage = message === "CATALOG_UNIT_IN_USE"
+      ? "Deactivate or move active catalog items before deactivating this unit."
+      : "The catalog change could not be saved.";
+    return NextResponse.json({ message: responseMessage }, { status: statusFor(error) });
   }
 }
