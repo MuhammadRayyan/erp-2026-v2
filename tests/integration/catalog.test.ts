@@ -55,11 +55,13 @@ describe("catalog foundation", () => {
     await expect(createCatalogItem(first, productInput(secondUnit.id))).rejects.toThrow("CATALOG_UNIT_NOT_FOUND");
   });
 
-  it("enforces catalog management capability and entitlement", async () => {
+  it("enforces catalog management capability and database entitlement", async () => {
     const context = await ownerContext("catalog-access");
     const unit = (await listUnits(context))[0];
     await expect(createCatalogItem({ ...context, roleKey: "business.viewer" }, productInput(unit.id))).rejects.toThrow("BUSINESS_CAPABILITY_DENIED");
-    await expect(listCatalogItems({ ...context, enabledFeatures: [] })).rejects.toThrow("TENANT_FEATURE_DISABLED");
+    const feature = await db.featureDefinition.findUniqueOrThrow({ where: { key: "catalog.core" } });
+    await db.tenantEntitlementOverride.create({ data: { tenantId: context.tenantId, featureId: feature.id, enabled: false, reason: "Integration test" } });
+    await expect(listCatalogItems(context)).rejects.toThrow("TENANT_FEATURE_DISABLED");
   });
 
   it("enforces SKU uniqueness and service revenue classification", async () => {
