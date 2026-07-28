@@ -30,13 +30,16 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #13 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The catalog-foundation slice is implemented on `phase-3-catalog-foundation` and must pass the same gate before merge.
+
 ## Next priority
 
-1. Add items, services, units, and default account/tax classifications.
-2. Add private file and audit/history foundations required by master data.
-3. Add reusable numbering, import/export, and custom-field foundations.
-4. Add durable queued email records when the PostgreSQL outbox worker is introduced.
+1. Verify and merge products, services, units, exact prices, and preparatory account/tax classifications.
+2. Add catalog detail/editing, lifecycle controls, and import preparation.
+3. Add private file and audit/history foundations required by master data.
+4. Add reusable numbering, import/export, and custom-field foundations.
+5. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- None for the verified parties and duplicate-review foundation.
+- CI verification is pending for the catalog-foundation slice.
