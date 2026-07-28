@@ -103,6 +103,13 @@
 - Typed custom-field values with composite definition scope, target validation, exact decimal storage, required-field checks, and append-only audit events.
 - Protected custom-field settings page and reusable read/write controls on party and catalog detail pages.
 - Unit and PostgreSQL integration coverage for typed values, select-option preservation, RBAC, entitlements, target locking, and tenant isolation.
+- Durable PostgreSQL email outbox records for invitations, password resets, and future system email.
+- Transactional invitation creation and delivery enqueueing with idempotency and correlation metadata.
+- Concurrent-safe worker claiming with `FOR UPDATE SKIP LOCKED`, stale-lock recovery, bounded retries, expiry, and attempt budgets.
+- Payload scrubbing after sent, failed, expired, or cancelled outcomes.
+- Secret-protected internal processing endpoint, host worker command, and Docker Compose worker service.
+- Tenant-owner visibility into invitation delivery status and retry attempts.
+- Unit and PostgreSQL integration coverage for queue idempotency, concurrent workers, retries, failures, expiry, and payload scrubbing.
 
 ### Changed
 
@@ -130,3 +137,5 @@
 - Voided document numbers remain allocated permanently and sequence-format changes affect only future identifiers.
 - Viewer roles remain read-only and do not receive bulk export permission automatically.
 - Custom-field keys and value types remain immutable, while deactivation preserves existing values and used select options cannot be removed.
+- Invitation and password-reset requests now persist delivery work before returning instead of depending on synchronous or fire-and-forget SMTP calls.
+- Invitation acceptance and revocation cancel undelivered correlated email records.

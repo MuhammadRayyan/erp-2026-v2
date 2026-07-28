@@ -45,6 +45,9 @@ services:
       SMTP_PORT: 1025
       SMTP_SECURE: "false"
       EMAIL_FROM: ERP 2026 <no-reply@localhost>
+      OUTBOX_WORKER_SECRET: ${OUTBOX_WORKER_SECRET:-local-outbox-worker-secret-change-123456789}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-10}
+      OUTBOX_POLL_SECONDS: ${OUTBOX_POLL_SECONDS:-5}
       FILE_STORAGE_PROVIDER: local
       FILE_STORAGE_ROOT: /app/storage/private
       FILE_MAX_BYTES: ${FILE_MAX_BYTES:-10485760}
@@ -57,6 +60,23 @@ services:
       - "3000:3000"
     volumes:
       - private_files:/app/storage/private
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    environment:
+      OUTBOX_WORKER_URL: http://web:3000/api/internal/outbox/process
+      OUTBOX_WORKER_SECRET: ${OUTBOX_WORKER_SECRET:-local-outbox-worker-secret-change-123456789}
+      OUTBOX_POLL_SECONDS: ${OUTBOX_POLL_SECONDS:-5}
+    depends_on:
+      web:
+        condition: service_started
+    command:
+      - node
+      - -e
+      - "const sleep=(ms)=>new Promise((resolve)=>setTimeout(resolve,ms));(async()=>{for(;;){try{const response=await fetch(process.env.OUTBOX_WORKER_URL,{method:'POST',headers:{authorization:'Bearer '+process.env.OUTBOX_WORKER_SECRET}});if(!response.ok)console.error('Outbox worker request failed',response.status);}catch(error){console.error('Outbox worker request failed',error instanceof Error?error.message:String(error));}await sleep(Number(process.env.OUTBOX_POLL_SECONDS||5)*1000);}})();"
+    restart: unless-stopped
 
 volumes:
   postgres_data:

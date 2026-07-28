@@ -18,69 +18,43 @@ const onboardingSchema = z.object({
 type OnboardingInput = z.input<typeof onboardingSchema>;
 
 function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48) || "business";
+  return value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "business";
 }
 
 function stableSuffix(key: string) {
   return createHash("sha256").update(key).digest("hex").slice(0, 10);
 }
 
+function isSerializableConflict(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; meta?: { driverAdapterError?: { cause?: { originalCode?: unknown } } } };
+  return candidate.code === "P2034" || candidate.meta?.driverAdapterError?.cause?.originalCode === "40001";
+}
+
+async function sleep(milliseconds: number) {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export async function onboardOwner(rawInput: OnboardingInput) {
   const input = onboardingSchema.parse(rawInput);
-  const existing = await db.onboardingOperation.findUnique({
-    where: { idempotencyKey: input.idempotencyKey },
-  });
-
+  const existing = await db.onboardingOperation.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
   if (existing) {
-    if (existing.userId !== input.userId) {
-      throw new Error("IDEMPOTENCY_KEY_CONFLICT");
-    }
-
+    if (existing.userId !== input.userId) throw new Error("IDEMPOTENCY_KEY_CONFLICT");
     return existing;
   }
 
   const suffix = stableSuffix(input.idempotencyKey);
+  const maxAttempts = 4;
 
-  try {
-    return await db.$transaction(
-      async (transaction) => {
-        const plan = await transaction.plan.findUnique({
-          where: { key: INTERNAL_UNLIMITED_PLAN_KEY },
-          select: { id: true, active: true },
-        });
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await db.$transaction(async (transaction) => {
+        const plan = await transaction.plan.findUnique({ where: { key: INTERNAL_UNLIMITED_PLAN_KEY }, select: { id: true, active: true } });
+        if (!plan?.active) throw new Error("DEFAULT_PLAN_UNAVAILABLE");
 
-        if (!plan?.active) {
-          throw new Error("DEFAULT_PLAN_UNAVAILABLE");
-        }
-
-        const tenant = await transaction.tenant.create({
-          data: {
-            name: input.tenantName,
-            slug: `${slugify(input.tenantName)}-${suffix}`,
-          },
-        });
-
-        await transaction.tenantSubscription.create({
-          data: {
-            tenantId: tenant.id,
-            planId: plan.id,
-          },
-        });
-
-        await transaction.tenantMembership.create({
-          data: {
-            tenantId: tenant.id,
-            userId: input.userId,
-            isOwner: true,
-            status: MembershipStatus.ACTIVE,
-          },
-        });
-
+        const tenant = await transaction.tenant.create({ data: { name: input.tenantName, slug: `${slugify(input.tenantName)}-${suffix}` } });
+        await transaction.tenantSubscription.create({ data: { tenantId: tenant.id, planId: plan.id } });
+        await transaction.tenantMembership.create({ data: { tenantId: tenant.id, userId: input.userId, isOwner: true, status: MembershipStatus.ACTIVE } });
         const business = await transaction.business.create({
           data: {
             tenantId: tenant.id,
@@ -92,14 +66,7 @@ export async function onboardOwner(rawInput: OnboardingInput) {
             timezone: input.timezone,
           },
         });
-
-        await transaction.businessProfile.create({
-          data: {
-            tenantId: tenant.id,
-            businessId: business.id,
-          },
-        });
-
+        await transaction.businessProfile.create({ data: { tenantId: tenant.id, businessId: business.id } });
         await transaction.unitOfMeasure.createMany({
           data: [
             { tenantId: tenant.id, businessId: business.id, code: "EA", name: "Each", symbol: "ea", dimension: "COUNT", decimalPlaces: 0 },
@@ -107,7 +74,6 @@ export async function onboardOwner(rawInput: OnboardingInput) {
             { tenantId: tenant.id, businessId: business.id, code: "DAY", name: "Day", symbol: "day", dimension: "TIME", decimalPlaces: 2 },
           ],
         });
-
         await transaction.numberSequence.createMany({
           data: [
             { tenantId: tenant.id, businessId: business.id, key: "QUOTATION", label: "Quotation", prefixTemplate: "Q-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
@@ -119,37 +85,23 @@ export async function onboardOwner(rawInput: OnboardingInput) {
             { tenantId: tenant.id, businessId: business.id, key: "PAYMENT", label: "Payment", prefixTemplate: "PAY-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
           ],
         });
-
         await transaction.businessMembership.create({
-          data: {
-            tenantId: tenant.id,
-            businessId: business.id,
-            userId: input.userId,
-            roleKey: "business.owner",
-            status: MembershipStatus.ACTIVE,
-          },
+          data: { tenantId: tenant.id, businessId: business.id, userId: input.userId, roleKey: "business.owner", status: MembershipStatus.ACTIVE },
         });
-
         return transaction.onboardingOperation.create({
-          data: {
-            idempotencyKey: input.idempotencyKey,
-            userId: input.userId,
-            tenantId: tenant.id,
-            businessId: business.id,
-          },
+          data: { idempotencyKey: input.idempotencyKey, userId: input.userId, tenantId: tenant.id, businessId: business.id },
         });
-      },
-      { isolationLevel: "Serializable" },
-    );
-  } catch (error) {
-    const completed = await db.onboardingOperation.findUnique({
-      where: { idempotencyKey: input.idempotencyKey },
-    });
-
-    if (completed?.userId === input.userId) {
-      return completed;
+      }, { isolationLevel: "Serializable" });
+    } catch (error) {
+      const completed = await db.onboardingOperation.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (completed) {
+        if (completed.userId !== input.userId) throw new Error("IDEMPOTENCY_KEY_CONFLICT");
+        return completed;
+      }
+      if (!isSerializableConflict(error) || attempt === maxAttempts) throw error;
+      await sleep(20 * attempt + Math.floor(Math.random() * 30));
     }
-
-    throw error;
   }
+
+  throw new Error("ONBOARDING_RETRY_EXHAUSTED");
 }
