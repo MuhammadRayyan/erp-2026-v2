@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-const optionalText = (max: number) => z.string().trim().max(max).optional().transform((value) => value || null);
-const optionalDecimal = z.string().trim().regex(/^\d{1,15}(?:\.\d{1,4})?$/).optional().or(z.literal("")).transform((value) => value || null);
+const optionalText = (max: number) => z.string().trim().max(max).nullish().transform((value) => value || null);
+const optionalDecimal = z.string().trim().regex(/^\d{1,15}(?:\.\d{1,4})?$/).nullish().or(z.literal("")).transform((value) => value || null);
 
 export const accountClassKeys = [
   "SALES_REVENUE",
@@ -21,7 +21,7 @@ export const createUnitSchema = z.object({
 
 export const createCatalogItemSchema = z.object({
   type: z.enum(["PRODUCT", "SERVICE"]),
-  sku: z.string().trim().max(60).optional().transform((value) => value ? value.toUpperCase() : null),
+  sku: z.string().trim().max(60).nullish().transform((value) => value ? value.toUpperCase() : null),
   name: z.string().trim().min(2).max(160),
   description: optionalText(2000),
   unitId: z.string().min(1),
