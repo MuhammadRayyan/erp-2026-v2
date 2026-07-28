@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getRequestSession } from "@/modules/identity/server/session";
 import { requireBusinessAccessContext } from "@/modules/tenancy/server/context";
-import { createCatalogItem, createUnit, listCatalogItems, listUnits, setCatalogItemStatus } from "@/modules/catalog/server/catalog";
+import { createCatalogItem, createUnit, listCatalogItems, listUnits, setUnitStatus } from "@/modules/catalog/server/catalog";
 
 async function requestContext(request: Request, businessId: string) {
   const session = await getRequestSession(request.headers);
@@ -47,14 +47,18 @@ export async function POST(request: Request, context: { params: Promise<{ busine
     if (body.action === "create-unit") {
       return NextResponse.json({ unit: await createUnit(access, body.data) }, { status: 201 });
     }
-    if (body.action === "set-status") {
-      return NextResponse.json({ item: await setCatalogItemStatus(access, body.itemId, body.data) });
+    if (body.action === "unit-status") {
+      return NextResponse.json({ unit: await setUnitStatus(access, body.unitId, body.data) });
     }
     return NextResponse.json({ item: await createCatalogItem(access, body.data ?? body) }, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ message: "Check the catalog details.", issues: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ message: "The catalog change could not be saved." }, { status: statusFor(error) });
+    const message = error instanceof Error ? error.message : "CATALOG_CHANGE_FAILED";
+    const responseMessage = message === "CATALOG_UNIT_IN_USE"
+      ? "Deactivate or move active catalog items before deactivating this unit."
+      : "The catalog change could not be saved.";
+    return NextResponse.json({ message: responseMessage }, { status: statusFor(error) });
   }
 }

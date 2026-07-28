@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { CatalogCreateForms } from "@/components/catalog/catalog-create-forms";
+import { UnitStatusButton } from "@/components/catalog/unit-status-button";
 import { requireBusinessPageAccess } from "@/modules/access/server/business-page";
 import { hasBusinessCapability } from "@/modules/access/roles";
 import { listCatalogItems, listUnits } from "@/modules/catalog/server/catalog";
@@ -48,7 +50,7 @@ export default async function CatalogPage({
       </form>
     </div>
 
-    {canManage && <CatalogCreateForms businessId={businessId} units={units.map((unit) => ({ id: unit.id, code: unit.code, name: unit.name, symbol: unit.symbol, dimension: unit.dimension, decimalPlaces: unit.decimalPlaces }))} />}
+    {canManage && <CatalogCreateForms businessId={businessId} units={units.filter((unit) => unit.active).map((unit) => ({ id: unit.id, code: unit.code, name: unit.name, symbol: unit.symbol, dimension: unit.dimension, decimalPlaces: unit.decimalPlaces }))} />}
 
     <section>
       <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Catalog register</h2><span className="text-sm text-[var(--muted)]">{items.length} records · {units.length} units</span></div>
@@ -56,7 +58,7 @@ export default async function CatalogPage({
         {items.length === 0 ? <div className="p-10 text-center text-sm text-[var(--muted)]">No matching products or services yet.</div> : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-[var(--surface-muted)] text-[var(--muted)]"><tr><th className="px-4 py-3">Item</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Sales price</th><th className="px-4 py-3">Purchase price</th><th className="px-4 py-3">Tax defaults</th><th className="px-4 py-3">Status</th></tr></thead>
           <tbody className="divide-y divide-[var(--border)]">{items.map((item) => <tr key={item.id}>
-            <td className="px-4 py-4"><p className="font-medium">{item.name}</p><p className="text-xs text-[var(--muted)]">{item.sku || "No SKU"} · {item.salesAccountClassKey} / {item.purchaseAccountClassKey}</p></td>
+            <td className="px-4 py-4"><Link href={`/business/${businessId}/catalog/${item.id}`} className="font-medium text-[var(--brand)] hover:underline">{item.name}</Link><p className="text-xs text-[var(--muted)]">{item.sku || "No SKU"} · {item.salesAccountClassKey} / {item.purchaseAccountClassKey}</p></td>
             <td className="px-4 py-4">{item.type.toLowerCase()}</td>
             <td className="px-4 py-4">{item.unit.name} ({item.unit.code})</td>
             <td className="px-4 py-4 font-mono">{price(item.defaultSalesPrice)}</td>
@@ -68,6 +70,6 @@ export default async function CatalogPage({
       </div>
     </section>
 
-    <section className="grid gap-4 md:grid-cols-3">{units.map((unit) => <Card key={unit.id}><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{unit.name}</h3><p className="mt-1 text-sm text-[var(--muted)]">{unit.code}{unit.symbol ? ` · ${unit.symbol}` : ""}</p></div><span className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-xs">{unit.dimension.toLowerCase()}</span></div><p className="mt-4 text-sm text-[var(--muted)]">Allows {unit.decimalPlaces} quantity decimal places.</p></Card>)}</section>
+    <section className="grid gap-4 md:grid-cols-3">{units.map((unit) => <Card key={unit.id}><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{unit.name}</h3><p className="mt-1 text-sm text-[var(--muted)]">{unit.code}{unit.symbol ? ` · ${unit.symbol}` : ""}</p></div><span className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-xs">{unit.active ? unit.dimension.toLowerCase() : "inactive"}</span></div><p className="mt-4 text-sm text-[var(--muted)]">Allows {unit.decimalPlaces} quantity decimal places.</p>{canManage && <UnitStatusButton businessId={businessId} unitId={unit.id} active={unit.active} />}</Card>)}</section>
   </div>;
 }

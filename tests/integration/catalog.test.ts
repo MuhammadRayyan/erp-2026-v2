@@ -2,7 +2,16 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { db } from "../../src/lib/db";
 import type { CreateCatalogItemInput } from "../../src/modules/catalog/contracts/catalog";
-import { createCatalogItem, createUnit, listCatalogItems, listUnits } from "../../src/modules/catalog/server/catalog";
+import {
+  createCatalogItem,
+  createUnit,
+  getCatalogItem,
+  listCatalogItems,
+  listUnits,
+  setCatalogItemStatus,
+  setUnitStatus,
+  updateCatalogItem,
+} from "../../src/modules/catalog/server/catalog";
 import { onboardOwner } from "../../src/modules/tenancy/server/onboarding";
 
 async function ownerContext(label: string) {
@@ -48,17 +57,64 @@ describe("catalog foundation", () => {
     await expect(createUnit(context, { code: "m2", name: "Duplicate square metre", dimension: "AREA", decimalPlaces: 3 })).rejects.toThrow();
   });
 
-  it("rejects cross-tenant units for catalog items", async () => {
+  it("updates catalog identity, exact prices, search text, and lifecycle", async () => {
+    const context = await ownerContext("catalog-update");
+    const units = await listUnits(context);
+    const each = units.find((unit) => unit.code === "EA")!;
+    const hour = units.find((unit) => unit.code === "HOUR")!;
+    const item = await createCatalogItem(context, productInput(each.id));
+    const updated = await updateCatalogItem(context, item.id, productInput(hour.id, {
+      type: "SERVICE",
+      sku: "LABOUR-INSPECTION",
+      name: "Vehicle inspection labour",
+      description: "Workshop inspection service",
+      salesAccountClassKey: "SERVICE_REVENUE",
+      purchaseAccountClassKey: "DIRECT_EXPENSE",
+      defaultSalesPrice: "225.7500",
+      defaultPurchasePrice: "0.0000",
+    }));
+    expect(updated.type).toBe("SERVICE");
+    expect(updated.defaultSalesPrice?.toString()).toBe("225.75");
+    expect((await listCatalogItems(context, { query: "vehicle inspection" }))[0]?.id).toBe(item.id);
+    await setCatalogItemStatus(context, item.id, { status: "INACTIVE" });
+    expect((await getCatalogItem(context, item.id)).status).toBe("INACTIVE");
+    await setCatalogItemStatus(context, item.id, { status: "ACTIVE" });
+    expect((await getCatalogItem(context, item.id)).status).toBe("ACTIVE");
+  });
+
+  it("prevents deactivating units used by active items and rejects inactive units", async () => {
+    const context = await ownerContext("catalog-unit-lifecycle");
+    const unit = await createUnit(context, { code: "JOB", name: "Job", symbol: "job", dimension: "COUNT", decimalPlaces: 0 });
+    const item = await createCatalogItem(context, productInput(unit.id));
+    await expect(setUnitStatus(context, unit.id, { active: false })).rejects.toThrow("CATALOG_UNIT_IN_USE");
+    await setCatalogItemStatus(context, item.id, { status: "INACTIVE" });
+    await setUnitStatus(context, unit.id, { active: false });
+    await expect(createCatalogItem(context, productInput(unit.id))).rejects.toThrow("CATALOG_UNIT_NOT_FOUND");
+    const each = (await listUnits(context)).find((candidate) => candidate.code === "EA")!;
+    await expect(updateCatalogItem(context, item.id, productInput(unit.id))).rejects.toThrow("CATALOG_UNIT_NOT_FOUND");
+    await updateCatalogItem(context, item.id, productInput(each.id));
+    await setUnitStatus(context, unit.id, { active: true });
+    expect((await listUnits(context)).find((candidate) => candidate.id === unit.id)?.active).toBe(true);
+  });
+
+  it("rejects cross-tenant units and catalog detail access", async () => {
     const first = await ownerContext("catalog-first");
     const second = await ownerContext("catalog-second");
+    const firstUnit = (await listUnits(first))[0];
     const secondUnit = (await listUnits(second))[0];
+    const item = await createCatalogItem(first, productInput(firstUnit.id));
     await expect(createCatalogItem(first, productInput(secondUnit.id))).rejects.toThrow("CATALOG_UNIT_NOT_FOUND");
+    await expect(getCatalogItem(second, item.id)).rejects.toThrow("CATALOG_ITEM_NOT_FOUND");
+    await expect(updateCatalogItem(second, item.id, productInput(secondUnit.id))).rejects.toThrow("CATALOG_ITEM_NOT_FOUND");
+    await expect(setUnitStatus(first, secondUnit.id, { active: false })).rejects.toThrow("CATALOG_UNIT_NOT_FOUND");
   });
 
   it("enforces catalog management capability and database entitlement", async () => {
     const context = await ownerContext("catalog-access");
     const unit = (await listUnits(context))[0];
+    const item = await createCatalogItem(context, productInput(unit.id));
     await expect(createCatalogItem({ ...context, roleKey: "business.viewer" }, productInput(unit.id))).rejects.toThrow("BUSINESS_CAPABILITY_DENIED");
+    await expect(updateCatalogItem({ ...context, roleKey: "business.viewer" }, item.id, productInput(unit.id))).rejects.toThrow("BUSINESS_CAPABILITY_DENIED");
     const feature = await db.featureDefinition.findUniqueOrThrow({ where: { key: "catalog.core" } });
     await db.tenantEntitlementOverride.create({ data: { tenantId: context.tenantId, featureId: feature.id, enabled: false, reason: "Integration test" } });
     await expect(listCatalogItems(context)).rejects.toThrow("TENANT_FEATURE_DISABLED");
