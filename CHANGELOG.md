@@ -79,6 +79,14 @@
 - Item activation and deactivation controls.
 - Unit activation controls with active-item usage protection.
 - Integration coverage for catalog editing, lifecycle changes, inactive-unit rejection, RBAC, and tenant isolation.
+- Staged catalog CSV previews with persisted source rows, normalized values, validation issues, and explicit create/update/skip decisions.
+- Duplicate-file SKU, existing SKU, normalized-name, and inactive-unit conflict detection before import commit.
+- Transactional catalog import commits with unit-row locking and tenant isolation.
+- Private file metadata, attachment links, generated storage keys, content hashes, and append-only audit events.
+- Authenticated private upload and no-store download routes with extension, MIME type, size, and byte-signature validation.
+- Files & History workspace with RBAC, entitlement enforcement, checksums, attachments, and recent audit activity.
+- Coordinated PostgreSQL and private-file backup and restore guidance.
+- Unit and PostgreSQL integration coverage for private storage, audit history, RBAC, entitlements, and tenant isolation.
 
 ### Changed
 
@@ -100,4 +108,6 @@
 - Party register cards now open direct, protected detail URLs.
 - Primary-contact and default-address updates now serialize on the party row before changing flags.
 - Missing or out-of-scope party details now use a stable `PARTY_NOT_FOUND` error for correct 404 responses.
-- Catalog creation, editing, and unit lifecycle operations now lock unit rows to prevent races with deactivation.
+- Catalog creation, editing, imports, and unit lifecycle operations now lock unit rows to prevent races with deactivation.
+- Unit and PostgreSQL integration suites now use distinct commands without shell-expanded test globs.
+- Private binary objects now remain outside PostgreSQL and the public web root behind a storage-adapter boundary.
