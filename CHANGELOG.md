@@ -63,6 +63,9 @@
 - Tenant-safe party search by name, email, phone, or TRN.
 - Protected parties API, register page, creation form, capability definitions, and entitlement.
 - PostgreSQL tests for dual roles, search, read-only denial, and cross-tenant rejection.
+- Protected party detail pages with editable identity, roles, notes, and lifecycle state.
+- Multiple party contacts and typed addresses with primary/default selection.
+- Integration coverage for party editing, lifecycle changes, related records, and cross-tenant detail denial.
 
 ### Changed
 
@@ -80,3 +83,5 @@
 - Disabling a tenant member now disables their business grants and removes active sessions atomically.
 - Account Hub business cards now show the resolved tenant plan.
 - Business settings now provide structured profile editing instead of a static summary-only screen.
+- README project status now reflects Phase 3 rather than the completed Phase 2.
+- Party register cards now open direct, protected detail URLs.

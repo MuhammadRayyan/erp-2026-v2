@@ -2,20 +2,40 @@ import type { BusinessAccessContext } from "@/modules/tenancy/server/context";
 import { db } from "@/lib/db";
 import { requireBusinessCapability } from "@/modules/access/server/authorize";
 import { requireTenantFeature } from "@/modules/entitlements/server/resolve";
-import { createPartySchema, type CreatePartyInput } from "@/modules/parties/contracts/party";
+import {
+  createAddressSchema,
+  createContactSchema,
+  createPartySchema,
+  partyStatusSchema,
+  updatePartySchema,
+  type CreateAddressInput,
+  type CreateContactInput,
+  type CreatePartyInput,
+  type UpdatePartyInput,
+} from "@/modules/parties/contracts/party";
 
 function normalizeSearch(values: Array<string | null | undefined>) {
   return values.filter(Boolean).join(" ").trim().toLowerCase();
 }
 
-export async function listParties(
-  context: BusinessAccessContext,
-  options: { query?: string; role?: "CUSTOMER" | "SUPPLIER" } = {},
-) {
-  requireBusinessCapability(context, "parties.view");
-  await requireTenantFeature(context.tenantId, "parties.core");
-  const query = options.query?.trim().toLowerCase();
+function displayNameFor(input: { type: "ORGANIZATION" | "INDIVIDUAL"; legalName: string | null; firstName: string | null; lastName: string | null }) {
+  return input.type === "ORGANIZATION" ? input.legalName! : [input.firstName, input.lastName].filter(Boolean).join(" ");
+}
 
+async function assertPartyScope(context: BusinessAccessContext, partyId: string) {
+  const party = await db.party.findFirst({ where: { id: partyId, tenantId: context.tenantId, businessId: context.businessId } });
+  if (!party) throw new Error("PARTY_NOT_FOUND");
+  return party;
+}
+
+async function requirePartyFeature(context: BusinessAccessContext, capability: "parties.view" | "parties.manage") {
+  requireBusinessCapability(context, capability);
+  await requireTenantFeature(context.tenantId, "parties.core");
+}
+
+export async function listParties(context: BusinessAccessContext, options: { query?: string; role?: "CUSTOMER" | "SUPPLIER" } = {}) {
+  await requirePartyFeature(context, "parties.view");
+  const query = options.query?.trim().toLowerCase();
   return db.party.findMany({
     where: {
       tenantId: context.tenantId,
@@ -24,23 +44,23 @@ export async function listParties(
       ...(options.role ? { roles: { some: { role: options.role } } } : {}),
     },
     orderBy: [{ status: "asc" }, { displayName: "asc" }],
-    include: {
-      roles: { select: { role: true } },
-      contacts: { where: { isPrimary: true }, take: 1 },
-      addresses: { where: { isDefault: true }, take: 1 },
-    },
+    include: { roles: { select: { role: true } }, contacts: { where: { isPrimary: true }, take: 1 }, addresses: { where: { isDefault: true }, take: 1 } },
     take: 100,
   });
 }
 
-export async function createParty(context: BusinessAccessContext, rawInput: CreatePartyInput) {
-  requireBusinessCapability(context, "parties.manage");
-  await requireTenantFeature(context.tenantId, "parties.core");
-  const input = createPartySchema.parse(rawInput);
-  const displayName = input.type === "ORGANIZATION"
-    ? input.legalName!
-    : [input.firstName, input.lastName].filter(Boolean).join(" ");
+export async function getParty(context: BusinessAccessContext, partyId: string) {
+  await requirePartyFeature(context, "parties.view");
+  return db.party.findFirstOrThrow({
+    where: { id: partyId, tenantId: context.tenantId, businessId: context.businessId },
+    include: { roles: { orderBy: { role: "asc" } }, contacts: { orderBy: [{ isPrimary: "desc" }, { name: "asc" }] }, addresses: { orderBy: [{ isDefault: "desc" }, { type: "asc" }, { line1: "asc" }] } },
+  });
+}
 
+export async function createParty(context: BusinessAccessContext, rawInput: CreatePartyInput) {
+  await requirePartyFeature(context, "parties.manage");
+  const input = createPartySchema.parse(rawInput);
+  const displayName = displayNameFor(input);
   return db.$transaction(async (transaction) => {
     const party = await transaction.party.create({
       data: {
@@ -55,63 +75,88 @@ export async function createParty(context: BusinessAccessContext, rawInput: Crea
         phone: input.phone,
         taxRegistrationNumber: input.taxRegistrationNumber,
         notes: input.notes,
-        searchText: normalizeSearch([
-          displayName,
-          input.legalName,
-          input.firstName,
-          input.lastName,
-          input.email,
-          input.phone,
-          input.taxRegistrationNumber,
-        ]),
+        searchText: normalizeSearch([displayName, input.legalName, input.firstName, input.lastName, input.email, input.phone, input.taxRegistrationNumber]),
       },
     });
+    await transaction.partyRole.createMany({ data: Array.from(new Set(input.roles)).map((role) => ({ tenantId: context.tenantId, businessId: context.businessId, partyId: party.id, role })) });
+    if (input.contact) await transaction.partyContact.create({ data: { tenantId: context.tenantId, businessId: context.businessId, partyId: party.id, ...input.contact, isPrimary: true } });
+    if (input.address) await transaction.partyAddress.create({ data: { tenantId: context.tenantId, businessId: context.businessId, partyId: party.id, ...input.address, isDefault: true } });
+    return transaction.party.findUniqueOrThrow({ where: { id: party.id }, include: { roles: true, contacts: true, addresses: true } });
+  });
+}
 
-    await transaction.partyRole.createMany({
-      data: Array.from(new Set(input.roles)).map((role) => ({
-        tenantId: context.tenantId,
-        businessId: context.businessId,
-        partyId: party.id,
-        role,
-      })),
+export async function updateParty(context: BusinessAccessContext, partyId: string, rawInput: UpdatePartyInput) {
+  await requirePartyFeature(context, "parties.manage");
+  await assertPartyScope(context, partyId);
+  const input = updatePartySchema.parse(rawInput);
+  const displayName = displayNameFor(input);
+  return db.$transaction(async (transaction) => {
+    await transaction.party.update({
+      where: { id: partyId },
+      data: {
+        type: input.type,
+        displayName,
+        legalName: input.legalName,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email,
+        phone: input.phone,
+        taxRegistrationNumber: input.taxRegistrationNumber,
+        notes: input.notes,
+        searchText: normalizeSearch([displayName, input.legalName, input.firstName, input.lastName, input.email, input.phone, input.taxRegistrationNumber]),
+      },
     });
+    await transaction.partyRole.deleteMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId } });
+    await transaction.partyRole.createMany({ data: Array.from(new Set(input.roles)).map((role) => ({ tenantId: context.tenantId, businessId: context.businessId, partyId, role })) });
+    return transaction.party.findUniqueOrThrow({ where: { id: partyId }, include: { roles: true, contacts: true, addresses: true } });
+  });
+}
 
-    if (input.contact) {
-      await transaction.partyContact.create({
-        data: {
-          tenantId: context.tenantId,
-          businessId: context.businessId,
-          partyId: party.id,
-          name: input.contact.name,
-          jobTitle: input.contact.jobTitle,
-          email: input.contact.email,
-          phone: input.contact.phone,
-          isPrimary: true,
-        },
-      });
-    }
+export async function setPartyStatus(context: BusinessAccessContext, partyId: string, rawInput: unknown) {
+  await requirePartyFeature(context, "parties.manage");
+  await assertPartyScope(context, partyId);
+  const { status } = partyStatusSchema.parse(rawInput);
+  return db.party.update({ where: { id: partyId }, data: { status } });
+}
 
-    if (input.address) {
-      await transaction.partyAddress.create({
-        data: {
-          tenantId: context.tenantId,
-          businessId: context.businessId,
-          partyId: party.id,
-          type: input.address.type,
-          line1: input.address.line1,
-          line2: input.address.line2,
-          city: input.address.city,
-          emirate: input.address.emirate,
-          postalCode: input.address.postalCode,
-          countryCode: input.address.countryCode,
-          isDefault: true,
-        },
-      });
-    }
+export async function addPartyContact(context: BusinessAccessContext, partyId: string, rawInput: CreateContactInput) {
+  await requirePartyFeature(context, "parties.manage");
+  await assertPartyScope(context, partyId);
+  const input = createContactSchema.parse(rawInput);
+  return db.$transaction(async (transaction) => {
+    if (input.isPrimary) await transaction.partyContact.updateMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId }, data: { isPrimary: false } });
+    return transaction.partyContact.create({ data: { tenantId: context.tenantId, businessId: context.businessId, partyId, ...input } });
+  });
+}
 
-    return transaction.party.findUniqueOrThrow({
-      where: { id: party.id },
-      include: { roles: true, contacts: true, addresses: true },
-    });
+export async function setPrimaryContact(context: BusinessAccessContext, partyId: string, contactId: string) {
+  await requirePartyFeature(context, "parties.manage");
+  await assertPartyScope(context, partyId);
+  const contact = await db.partyContact.findFirst({ where: { id: contactId, tenantId: context.tenantId, businessId: context.businessId, partyId } });
+  if (!contact) throw new Error("PARTY_CONTACT_NOT_FOUND");
+  return db.$transaction(async (transaction) => {
+    await transaction.partyContact.updateMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId }, data: { isPrimary: false } });
+    return transaction.partyContact.update({ where: { id: contactId }, data: { isPrimary: true } });
+  });
+}
+
+export async function addPartyAddress(context: BusinessAccessContext, partyId: string, rawInput: CreateAddressInput) {
+  await requirePartyFeature(context, "parties.manage");
+  await assertPartyScope(context, partyId);
+  const input = createAddressSchema.parse(rawInput);
+  return db.$transaction(async (transaction) => {
+    if (input.isDefault) await transaction.partyAddress.updateMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId, type: input.type }, data: { isDefault: false } });
+    return transaction.partyAddress.create({ data: { tenantId: context.tenantId, businessId: context.businessId, partyId, ...input } });
+  });
+}
+
+export async function setDefaultAddress(context: BusinessAccessContext, partyId: string, addressId: string) {
+  await requirePartyFeature(context, "parties.manage");
+  await assertPartyScope(context, partyId);
+  const address = await db.partyAddress.findFirst({ where: { id: addressId, tenantId: context.tenantId, businessId: context.businessId, partyId } });
+  if (!address) throw new Error("PARTY_ADDRESS_NOT_FOUND");
+  return db.$transaction(async (transaction) => {
+    await transaction.partyAddress.updateMany({ where: { tenantId: context.tenantId, businessId: context.businessId, partyId, type: address.type }, data: { isDefault: false } });
+    return transaction.partyAddress.update({ where: { id: addressId }, data: { isDefault: true } });
   });
 }

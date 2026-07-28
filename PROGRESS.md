@@ -26,13 +26,16 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #11 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The party detail/editing slice is implemented on `phase-3-party-details-v2` and must pass the same gate before merge.
+
 ## Next priority
 
-1. Add party detail/editing, lifecycle controls, additional contacts and addresses, and merge preparation.
-2. Add items, services, units, and default account/tax classifications.
-3. Add private file and audit/history foundations required by master data.
-4. Add durable queued email records when the PostgreSQL outbox worker is introduced.
+1. Verify and merge party detail/editing, lifecycle controls, multiple contacts and addresses, and primary/default selection.
+2. Add duplicate detection and future merge preparation.
+3. Add items, services, units, and default account/tax classifications.
+4. Add private file and audit/history foundations required by master data.
+5. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- None for the verified business-profile or parties-and-contacts foundations.
+- CI verification is pending for the party detail/editing slice.
