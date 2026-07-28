@@ -17,8 +17,9 @@ Implemented and verified foundations include:
 - tenant access administration and secure invitations;
 - business roles, capabilities, plans, entitlements, and usage limits;
 - business profile and UAE VAT registration settings;
-- shared customer and supplier parties with contacts and addresses;
+- shared customer and supplier parties with contacts, addresses, and duplicate review;
 - products, services, units, lifecycle controls, and staged imports;
+- private files, attachment links, audit history, and coordinated backup guidance;
 - Docker and GitHub Actions verification.
 
 See `PROGRESS.md` for the exact current state and next work.
@@ -297,13 +298,6 @@ Common problems:
 - confirm `BETTER_AUTH_URL` and `APP_URL` match the URL opened in the browser;
 - restart the development server after changing `.env`.
 
-### Private file storage is not writable
-
-- confirm `FILE_STORAGE_ROOT` exists or its parent can be created;
-- confirm the runtime user has read/write permission;
-- in Docker, confirm the `private_files` volume is mounted;
-- do not place private files under `public/`.
-
 ### Prisma Client missing or stale
 
 ```bash
@@ -334,7 +328,6 @@ src/app/                      Next.js routes, layouts, and HTTP handlers
 src/components/               Shared UI and layout components
 src/lib/                      Infrastructure configuration and adapters
 src/modules/                  Domain and application modules
-storage/private/              Local non-public file objects; never commit
 tests/                        Unit and PostgreSQL integration tests
 .github/workflows/            CI verification
 *.md                          Durable product and development context
