@@ -1,32 +1,17 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { serverEnv } from "@/lib/server-env";
-import { escapeEmailHtml, sendPlatformEmail } from "@/modules/communication/server/platform-email";
 import { requireTenantFeature } from "@/modules/entitlements/server/resolve";
 import { getRequestSession } from "@/modules/identity/server/session";
 import { createInvitationRequestSchema } from "@/modules/tenancy/contracts/invitation-request";
-import {
-  createTenantInvitation,
-  listTenantAccessAdministration,
-} from "@/modules/tenancy/server/invitations";
+import { createTenantInvitation, listTenantAccessAdministration } from "@/modules/tenancy/server/invitations";
 
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ tenantId: string }> },
-) {
+export async function GET(request: Request, context: { params: Promise<{ tenantId: string }> }) {
   const session = await getRequestSession(request.headers);
-  if (!session) {
-    return NextResponse.json({ message: "Authentication required." }, { status: 401 });
-  }
-
+  if (!session) return NextResponse.json({ message: "Authentication required." }, { status: 401 });
   try {
     const { tenantId } = await context.params;
     await requireTenantFeature(tenantId, "users.manage");
-    const administration = await listTenantAccessAdministration({
-      actorUserId: session.user.id,
-      tenantId,
-    });
-    return NextResponse.json(administration);
+    return NextResponse.json(await listTenantAccessAdministration({ actorUserId: session.user.id, tenantId }));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown access error";
     const status = message === "TENANT_OWNER_REQUIRED" || message === "TENANT_FEATURE_DISABLED" ? 403 : 404;
@@ -34,15 +19,9 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ tenantId: string }> },
-) {
+export async function POST(request: Request, context: { params: Promise<{ tenantId: string }> }) {
   const session = await getRequestSession(request.headers);
-  if (!session) {
-    return NextResponse.json({ message: "Authentication required." }, { status: 401 });
-  }
-
+  if (!session) return NextResponse.json({ message: "Authentication required." }, { status: 401 });
   try {
     const { tenantId } = await context.params;
     const body = createInvitationRequestSchema.parse(await request.json());
@@ -53,58 +32,16 @@ export async function POST(
       expiresInDays: body.expiresInDays,
       businessGrants: body.businessGrants,
     });
-
-    const invitationUrl = `${serverEnv.APP_URL}/invitations/${result.token}`;
-    const grants = result.invitation.businessGrants
-      .map((grant) => `${grant.business.legalName}: ${grant.roleKey.replace("business.", "")}`)
-      .join("\n");
-    const inviterName = escapeEmailHtml(result.invitation.invitedBy.name);
-    const tenantName = escapeEmailHtml(result.invitation.tenant.name);
-
-    try {
-      const delivery = await sendPlatformEmail({
-        to: result.invitation.email,
-        subject: `Invitation to ${result.invitation.tenant.name}`,
-        text: `${result.invitation.invitedBy.name} invited you to ${result.invitation.tenant.name}.\n\nBusiness access:\n${grants}\n\nAccept within ${body.expiresInDays} days: ${invitationUrl}`,
-        html: `<p><strong>${inviterName}</strong> invited you to <strong>${tenantName}</strong>.</p><p>Accept this invitation within ${body.expiresInDays} days:</p><p><a href="${invitationUrl}">Accept invitation</a></p>`,
-      });
-
-      return NextResponse.json(
-        {
-          invitationId: result.invitation.id,
-          expiresAt: result.invitation.expiresAt,
-          deliveryStatus: "sent",
-          messageId: delivery.messageId,
-        },
-        { status: 201 },
-      );
-    } catch (deliveryError) {
-      console.error("Invitation email delivery failed", {
-        invitationId: result.invitation.id,
-        tenantId,
-        error: deliveryError instanceof Error ? deliveryError.message : "Unknown email error",
-      });
-
-      return NextResponse.json(
-        {
-          invitationId: result.invitation.id,
-          expiresAt: result.invitation.expiresAt,
-          deliveryStatus: "failed",
-          message: "The invitation was created, but the email could not be sent. Check SMTP settings and retry.",
-        },
-        { status: 502 },
-      );
-    }
+    return NextResponse.json({
+      invitationId: result.invitation.id,
+      expiresAt: result.invitation.expiresAt,
+      deliveryStatus: "queued",
+    }, { status: 201 });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json({ message: "Check the invitation details.", issues: error.issues }, { status: 400 });
-    }
-
+    if (error instanceof ZodError) return NextResponse.json({ message: "Check the invitation details.", issues: error.issues }, { status: 400 });
     const message = error instanceof Error ? error.message : "Unknown invitation error";
     const status = message === "TENANT_OWNER_REQUIRED" || message === "TENANT_FEATURE_DISABLED" ? 403 : 409;
-    const responseMessage = message === "TENANT_LIMIT_REACHED"
-      ? "The tenant user limit has been reached."
-      : "The invitation could not be created.";
+    const responseMessage = message === "TENANT_LIMIT_REACHED" ? "The tenant user limit has been reached." : "The invitation could not be created.";
     return NextResponse.json({ message: responseMessage }, { status });
   }
 }
