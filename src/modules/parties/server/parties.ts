@@ -42,7 +42,10 @@ async function lockParty(transaction: Parameters<Parameters<typeof db.$transacti
   if (rows.length === 0) throw new Error("PARTY_NOT_FOUND");
 }
 
-export async function listParties(context: BusinessAccessContext, options: { query?: string; role?: "CUSTOMER" | "SUPPLIER" } = {}) {
+export async function listParties(
+  context: BusinessAccessContext,
+  options: { query?: string; role?: "CUSTOMER" | "SUPPLIER"; status?: "ACTIVE" | "INACTIVE" } = {},
+) {
   await requirePartyFeature(context, "parties.view");
   const query = options.query?.trim().toLowerCase();
   return db.party.findMany({
@@ -51,6 +54,7 @@ export async function listParties(context: BusinessAccessContext, options: { que
       businessId: context.businessId,
       ...(query ? { searchText: { contains: query } } : {}),
       ...(options.role ? { roles: { some: { role: options.role } } } : {}),
+      ...(options.status ? { status: options.status } : {}),
     },
     orderBy: [{ status: "asc" }, { displayName: "asc" }],
     include: { roles: { select: { role: true } }, contacts: { where: { isPrimary: true }, take: 1 }, addresses: { where: { isDefault: true }, take: 1 } },
