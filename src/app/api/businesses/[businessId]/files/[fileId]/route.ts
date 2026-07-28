@@ -14,7 +14,8 @@ export async function GET(request: Request, context: { params: Promise<{ busines
     if (!session) return Response.json({ message: "Authentication required." }, { status: 401 });
     const access = await requireBusinessAccessContext({ userId: session.user.id, businessId });
     const { file, bytes } = await readPrivateFile(access, fileId);
-    return new Response(bytes, {
+    const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    return new Response(body, {
       status: 200,
       headers: {
         "Content-Type": file.contentType,
