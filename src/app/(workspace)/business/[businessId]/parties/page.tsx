@@ -36,11 +36,14 @@ export default async function PartiesPage({
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">Customers and suppliers</h1>
           <p className="mt-2 max-w-2xl text-[var(--muted)]">One party can be a customer, supplier, or both, with reusable contacts, addresses, and tax identity.</p>
         </div>
-        <form className="flex flex-wrap gap-2">
-          <input name="q" defaultValue={filters.q} placeholder="Search name, email, phone, or TRN" className="min-w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
-          <select name="role" defaultValue={filters.role ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All roles</option><option value="CUSTOMER">Customers</option><option value="SUPPLIER">Suppliers</option></select>
-          <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Filter</button>
-        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/business/${businessId}/parties/duplicates`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Review duplicates</Link>
+          <form className="flex flex-wrap gap-2">
+            <input name="q" defaultValue={filters.q} placeholder="Search name, email, phone, or TRN" className="min-w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
+            <select name="role" defaultValue={filters.role ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All roles</option><option value="CUSTOMER">Customers</option><option value="SUPPLIER">Suppliers</option></select>
+            <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Filter</button>
+          </form>
+        </div>
       </div>
 
       {canManage && <PartyCreateForm businessId={businessId} />}
