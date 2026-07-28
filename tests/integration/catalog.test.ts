@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { db } from "../../src/lib/db";
+import type { CreateCatalogItemInput } from "../../src/modules/catalog/contracts/catalog";
 import { createCatalogItem, createUnit, listCatalogItems, listUnits } from "../../src/modules/catalog/server/catalog";
 import { onboardOwner } from "../../src/modules/tenancy/server/onboarding";
 
@@ -10,7 +11,7 @@ async function ownerContext(label: string) {
   return { userId: user.id, tenantId: operation.tenantId, businessId: operation.businessId, roleKey: "business.owner", tenantName: `${label} Tenant`, businessName: `${label} Business LLC`, planKey: "internal-unlimited", planName: "Internal Unlimited", enabledFeatures: ["catalog.core"] };
 }
 
-function productInput(unitId: string, overrides: Record<string, unknown> = {}) {
+function productInput(unitId: string, overrides: Partial<CreateCatalogItemInput> = {}): CreateCatalogItemInput {
   return {
     type: "PRODUCT",
     sku: `SKU-${randomUUID().slice(0, 8)}`,
@@ -26,7 +27,7 @@ function productInput(unitId: string, overrides: Record<string, unknown> = {}) {
     defaultSalesTaxCategory: "STANDARD_RATE",
     defaultPurchaseTaxCategory: "STANDARD_RATE",
     ...overrides,
-  } as const;
+  };
 }
 
 describe("catalog foundation", () => {
