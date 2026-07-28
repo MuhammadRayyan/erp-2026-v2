@@ -4,7 +4,7 @@ A structured UAE-first ERP for owner-operated and small businesses. The product 
 
 ## Current project status
 
-Phase 2 — Identity and Access Foundation.
+Phase 3 — Shared ERP Foundations.
 
 Implemented and verified foundations include:
 
@@ -15,7 +15,9 @@ Implemented and verified foundations include:
 - explicit owner onboarding;
 - authenticated Account Hub and business workspaces;
 - tenant access administration and secure invitations;
-- business roles and capability-aware navigation;
+- business roles, capabilities, plans, entitlements, and usage limits;
+- business profile and UAE VAT registration settings;
+- shared customer and supplier parties with contacts and addresses;
 - Docker and GitHub Actions verification.
 
 See `PROGRESS.md` for the exact current state and next work.
@@ -48,7 +50,7 @@ cd erp-2026-v2
 cp .env.example .env
 ```
 
-Generate a private authentication secret of at least 32 characters. One suitable command is:
+Generate a private authentication secret of at least 32 characters:
 
 ```bash
 openssl rand -base64 32
@@ -62,7 +64,7 @@ Replace `BETTER_AUTH_SECRET` in `.env` with the generated value. Never commit `.
 npm ci
 ```
 
-Use `npm ci` for a clean reproducible installation. Use `npm install <package>` only when intentionally adding or changing dependencies and commit the resulting lockfile.
+Use `npm ci` for a clean reproducible installation. Use `npm install <package>` only when intentionally changing dependencies and commit the resulting lockfile.
 
 ### 4. Start local infrastructure
 
@@ -170,10 +172,10 @@ For Docker Compose, service-to-service hostnames differ from host development: P
 ## Database commands
 
 ```bash
-npm run db:generate       # Generate Prisma Client
-npm run db:migrate        # Create and apply a development migration
-npm run db:deploy         # Apply existing migrations without creating new ones
-npm run db:studio         # Open Prisma Studio
+npm run db:generate
+npm run db:migrate
+npm run db:deploy
+npm run db:studio
 ```
 
 Migration rules:
@@ -194,8 +196,6 @@ npm run test
 ```
 
 ### PostgreSQL integration tests
-
-Start PostgreSQL and apply migrations first:
 
 ```bash
 docker compose up -d db
@@ -225,15 +225,7 @@ npm run build
 npm run verify
 ```
 
-The full verification requires a reachable migrated PostgreSQL database and runs:
-
-1. lint;
-2. TypeScript checking;
-3. unit tests;
-4. PostgreSQL integration tests;
-5. production build.
-
-GitHub Actions runs the same core gate for pull requests and `main`.
+The full verification requires a reachable migrated PostgreSQL database and runs lint, TypeScript checking, unit tests, PostgreSQL integration tests, and the production build. GitHub Actions runs the same core gate for pull requests and `main`.
 
 ## Health and troubleshooting
 
