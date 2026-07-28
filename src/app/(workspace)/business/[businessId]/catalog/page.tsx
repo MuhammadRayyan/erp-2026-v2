@@ -6,6 +6,7 @@ import { UnitStatusButton } from "@/components/catalog/unit-status-button";
 import { requireBusinessPageAccess } from "@/modules/access/server/business-page";
 import { hasBusinessCapability } from "@/modules/access/roles";
 import { listCatalogItems, listUnits } from "@/modules/catalog/server/catalog";
+import { resolveTenantEntitlements } from "@/modules/entitlements/server/resolve";
 
 function price(value: { toString(): string } | null) {
   return value ? value.toString() : "—";
@@ -29,11 +30,13 @@ export default async function CatalogPage({
 
   const type = filters.type === "PRODUCT" || filters.type === "SERVICE" ? filters.type : undefined;
   const status = filters.status === "ACTIVE" || filters.status === "INACTIVE" ? filters.status : undefined;
-  const [items, units] = await Promise.all([
+  const [items, units, entitlements] = await Promise.all([
     listCatalogItems(access.context, { query: filters.q, type, status }),
     listUnits(access.context),
+    resolveTenantEntitlements(access.context.tenantId),
   ]);
   const canManage = hasBusinessCapability(access.context.roleKey, "catalog.manage");
+  const canExport = hasBusinessCapability(access.context.roleKey, "exports.run") && entitlements.enabledFeatures.has("exports.core");
 
   return <div className="space-y-8">
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -42,12 +45,21 @@ export default async function CatalogPage({
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Items and services</h1>
         <p className="mt-2 max-w-3xl text-[var(--muted)]">Reusable products, services, units, exact default prices, and preparatory account and tax classifications.</p>
       </div>
-      <div className="flex flex-wrap gap-2">{canManage && <Link href={`/business/${businessId}/catalog/imports`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Import CSV</Link>}<form className="flex flex-wrap gap-2">
-        <input name="q" defaultValue={filters.q} placeholder="Search SKU, name, or description" className="min-w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
-        <select name="type" defaultValue={filters.type ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All types</option><option value="PRODUCT">Products</option><option value="SERVICE">Services</option></select>
-        <select name="status" defaultValue={filters.status ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select>
-        <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Filter</button>
-      </form></div>
+      <div className="flex flex-wrap gap-2">
+        {canManage && <Link href={`/business/${businessId}/catalog/imports`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Import CSV</Link>}
+        {canExport && <form method="post" action={`/api/businesses/${businessId}/exports/catalog`}>
+          {filters.q && <input type="hidden" name="q" value={filters.q} />}
+          {type && <input type="hidden" name="type" value={type} />}
+          {status && <input type="hidden" name="status" value={status} />}
+          <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Export CSV</button>
+        </form>}
+        <form className="flex flex-wrap gap-2">
+          <input name="q" defaultValue={filters.q} placeholder="Search SKU, name, or description" className="min-w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
+          <select name="type" defaultValue={filters.type ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All types</option><option value="PRODUCT">Products</option><option value="SERVICE">Services</option></select>
+          <select name="status" defaultValue={filters.status ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select>
+          <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Filter</button>
+        </form>
+      </div>
     </div>
 
     {canManage && <CatalogCreateForms businessId={businessId} units={units.filter((unit) => unit.active).map((unit) => ({ id: unit.id, code: unit.code, name: unit.name, symbol: unit.symbol, dimension: unit.dimension, decimalPlaces: unit.decimalPlaces }))} />}

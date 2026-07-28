@@ -4,6 +4,7 @@ export const booleanFeatureKeys = [
   "parties.core",
   "catalog.core",
   "files.core",
+  "exports.core",
   "users.manage",
   "sales.core",
   "purchases.core",

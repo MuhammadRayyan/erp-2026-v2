@@ -77,3 +77,9 @@ Store file metadata, attachment scope, hashes, and audit events in PostgreSQL wh
 **Status:** Accepted
 
 Each business owns explicit document sequences. A future business document must allocate its identifier inside the same PostgreSQL transaction that creates the document, after the calling module has enforced its own authorization. The allocator locks the sequence row, rechecks a stable idempotency key inside the lock, derives the reset period from an explicit effective date, stores the numeric and formatted values, and advances the sequence atomically. Formatting changes affect only future allocations. Voided identifiers remain in history and are never reused. Direct sequence administration remains protected by business settings permissions and audit events.
+
+## ADR-014 — Small exports are synchronous, bounded, and not retained
+
+**Status:** Accepted
+
+Generate current master-data exports synchronously because the initial deployment serves one owner or a small trusted team. Every export requires a dedicated export capability, the dataset's normal view permission, and the tenant export entitlement. Dataset adapters own explicit filter schemas and deterministic columns. CSV generation must neutralize spreadsheet formulas, use a hard row ceiling, fail rather than truncate, and return a private non-cacheable response. PostgreSQL stores only immutable run metadata, filters, actor, row count, file name, checksum, and audit event; generated CSV payloads are not retained. Move large or scheduled exports to the PostgreSQL outbox worker only after measured volume requires asynchronous processing.

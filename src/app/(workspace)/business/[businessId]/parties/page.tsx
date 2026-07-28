@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { PartyCreateForm } from "@/components/parties/party-create-form";
 import { requireBusinessPageAccess } from "@/modules/access/server/business-page";
 import { hasBusinessCapability } from "@/modules/access/roles";
+import { resolveTenantEntitlements } from "@/modules/entitlements/server/resolve";
 import { listParties } from "@/modules/parties/server/parties";
 
 export default async function PartiesPage({
@@ -11,7 +12,7 @@ export default async function PartiesPage({
   searchParams,
 }: {
   params: Promise<{ businessId: string }>;
-  searchParams: Promise<{ q?: string; role?: string }>;
+  searchParams: Promise<{ q?: string; role?: string; status?: string }>;
 }) {
   const { businessId } = await params;
   const filters = await searchParams;
@@ -22,11 +23,17 @@ export default async function PartiesPage({
     notFound();
   }
 
-  const parties = await listParties(access.context, {
-    query: filters.q,
-    role: filters.role === "CUSTOMER" || filters.role === "SUPPLIER" ? filters.role : undefined,
-  });
+  const status = filters.status === "ACTIVE" || filters.status === "INACTIVE" ? filters.status : undefined;
+  const [parties, entitlements] = await Promise.all([
+    listParties(access.context, {
+      query: filters.q,
+      role: filters.role === "CUSTOMER" || filters.role === "SUPPLIER" ? filters.role : undefined,
+      status,
+    }),
+    resolveTenantEntitlements(access.context.tenantId),
+  ]);
   const canManage = hasBusinessCapability(access.context.roleKey, "parties.manage");
+  const canExport = hasBusinessCapability(access.context.roleKey, "exports.run") && entitlements.enabledFeatures.has("exports.core");
 
   return (
     <div className="space-y-8">
@@ -38,9 +45,16 @@ export default async function PartiesPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href={`/business/${businessId}/parties/duplicates`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Review duplicates</Link>
+          {canExport && <form method="post" action={`/api/businesses/${businessId}/exports/parties`}>
+            {filters.q && <input type="hidden" name="q" value={filters.q} />}
+            {filters.role && <input type="hidden" name="role" value={filters.role} />}
+            {status && <input type="hidden" name="status" value={status} />}
+            <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Export CSV</button>
+          </form>}
           <form className="flex flex-wrap gap-2">
             <input name="q" defaultValue={filters.q} placeholder="Search name, email, phone, or TRN" className="min-w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
             <select name="role" defaultValue={filters.role ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All roles</option><option value="CUSTOMER">Customers</option><option value="SUPPLIER">Suppliers</option></select>
+            <select name="status" defaultValue={filters.status ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select>
             <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Filter</button>
           </form>
         </div>

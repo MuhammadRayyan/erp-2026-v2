@@ -1,0 +1,21 @@
+enum ExportFormat {
+  CSV
+}
+
+model ExportRun {
+  id            String       @id @default(cuid())
+  tenantId      String
+  businessId    String
+  datasetKey    String
+  format        ExportFormat @default(CSV)
+  filters       Json
+  rowCount      Int
+  sha256        String
+  fileName      String
+  requestedById String
+  createdAt     DateTime     @default(now())
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, datasetKey, createdAt])
+  @@index([tenantId, businessId, requestedById, createdAt])
+}

@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 28, 2026
-Current branch: `main`
+Current branch: `phase-3-export-foundation`
 Current phase: Phase 3 — Shared business foundations
 
 ## Verified state
@@ -19,7 +19,7 @@ Current phase: Phase 3 — Shared business foundations
 - Reusable document numbering, configurable sequences, locked idempotent allocation, immutable formatted history, void preservation, settings UI, and concurrency coverage merged and verified through PR #18.
 - Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
 - Prisma uses a multi-file schema layout so bounded domains can evolve without one oversized schema file.
-- Composite tenant keys protect operational master data, import batches, stored-file metadata, file attachments, numbering sequences, and allocations in PostgreSQL.
+- Composite tenant keys protect operational master data, import batches, stored-file metadata, file attachments, numbering sequences, allocations, and export runs in PostgreSQL.
 - Business navigation and protected pages require implementation status, user capability, and tenant entitlement.
 - Private objects remain outside PostgreSQL and the public web root; PostgreSQL stores metadata, scope, hashes, and append-only audit events.
 - Local and Docker storage use generated opaque keys, allowlisted formats, byte-signature checks, size limits, SHA-256 hashes, and private non-root storage paths.
@@ -30,12 +30,27 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #18 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests including concurrent allocation, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The reusable export slice is implemented on `phase-3-export-foundation` and must pass the same strict gate before merge.
+
+## Current implementation slice
+
+- Dedicated `exports.core` entitlement and `exports.run` capability.
+- Dataset-specific view permission checks in addition to export permission.
+- Reusable party and catalog CSV dataset adapters with explicit filter schemas.
+- UTF-8 CSV with deterministic columns, quoting, CRLF line endings, and spreadsheet formula neutralization.
+- Synchronous 5,000-row hard ceiling with explicit failure instead of silent truncation.
+- POST-only authenticated non-cacheable downloads with no filter values in URLs.
+- Export-run metadata containing filters, actor, row count, file name, and SHA-256 checksum while CSV payloads are not retained.
+- Append-only export audit events and a protected export-history workspace.
+- Filter-preserving export controls on party and catalog registers.
+- Unit and PostgreSQL integration coverage for CSV safety, row limits, filtered results, exact decimal text, RBAC, entitlements, checksums, audit events, and tenant isolation.
+
 ## Next priority
 
-1. Add reusable export foundations.
+1. Verify and merge reusable export foundations.
 2. Add custom-field definitions and values.
 3. Add durable queued email records when the PostgreSQL outbox worker is introduced.
 
 ## Active blockers
 
-- None for the verified numbering foundation.
+- CI verification is pending for the reusable export foundation.
