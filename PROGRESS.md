@@ -33,9 +33,11 @@ Current phase: Phase 3 — Shared business foundations
 
 PR #14 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds before merge.
 
+The catalog detail and lifecycle slice is implemented on `phase-3-catalog-details` and must pass the same gate before merge.
+
 ## Next priority
 
-1. Add catalog detail/editing and lifecycle controls.
+1. Verify and merge catalog detail editing, item activation, and safe unit lifecycle controls.
 2. Add catalog import preparation and duplicate/SKU conflict handling.
 3. Add private file and audit/history foundations required by master data.
 4. Add reusable numbering, import/export, and custom-field foundations.
@@ -43,4 +45,4 @@ PR #14 passed strict `npm ci`, multi-file Prisma generation, migration deploymen
 
 ## Active blockers
 
-- None for the verified catalog foundation.
+- CI verification is pending for the catalog detail and lifecycle slice.
