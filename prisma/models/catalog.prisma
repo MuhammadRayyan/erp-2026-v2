@@ -26,6 +26,20 @@ enum CatalogTaxCategory {
   OUT_OF_SCOPE
 }
 
+enum CatalogImportStatus {
+  PREVIEW
+  COMMITTED
+  CANCELLED
+}
+
+enum CatalogImportAction {
+  CREATE
+  UPDATE
+  SKIP
+  CONFLICT
+  INVALID
+}
+
 model UnitOfMeasure {
   id            String        @id @default(cuid())
   tenantId      String
@@ -72,4 +86,41 @@ model CatalogItem {
   @@unique([tenantId, businessId, sku])
   @@index([tenantId, businessId, status, type, name])
   @@index([tenantId, businessId, unitId])
+}
+
+model CatalogImportBatch {
+  id           String              @id @default(cuid())
+  tenantId     String
+  businessId   String
+  createdById  String
+  sourceName   String
+  status       CatalogImportStatus @default(PREVIEW)
+  totalRows    Int
+  createdAt    DateTime            @default(now())
+  committedAt  DateTime?
+  cancelledAt  DateTime?
+  rows         CatalogImportRow[]
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status, createdAt])
+}
+
+model CatalogImportRow {
+  id             String              @id @default(cuid())
+  tenantId       String
+  businessId     String
+  batchId        String
+  rowNumber      Int
+  rawData        Json
+  normalizedData Json?
+  action         CatalogImportAction
+  existingItemId String?
+  issues         Json
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  batch          CatalogImportBatch  @relation(fields: [tenantId, businessId, batchId], references: [tenantId, businessId, id], onDelete: Cascade)
+
+  @@unique([batchId, rowNumber])
+  @@index([tenantId, businessId, batchId, action])
+  @@index([tenantId, businessId, existingItemId])
 }
