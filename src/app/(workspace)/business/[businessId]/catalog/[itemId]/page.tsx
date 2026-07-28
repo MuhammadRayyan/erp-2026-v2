@@ -18,15 +18,16 @@ export default async function CatalogItemPage({ params }: { params: Promise<{ bu
 
   let item;
   let units;
-  let customFields;
   try {
-    [item, units, customFields] = await Promise.all([
-      getCatalogItem(access.context, itemId),
-      listUnits(access.context),
-      getCustomFieldsForEntity(access.context, "CATALOG_ITEM", itemId),
-    ]);
+    [item, units] = await Promise.all([getCatalogItem(access.context, itemId), listUnits(access.context)]);
   } catch {
     notFound();
+  }
+  let customFields: Awaited<ReturnType<typeof getCustomFieldsForEntity>> = [];
+  try {
+    customFields = await getCustomFieldsForEntity(access.context, "CATALOG_ITEM", itemId);
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "TENANT_FEATURE_DISABLED") notFound();
   }
 
   const canManage = hasBusinessCapability(access.context.roleKey, "catalog.manage");
