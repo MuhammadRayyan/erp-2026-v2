@@ -17,11 +17,16 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ bu
   }
 
   let party;
-  let customFields;
   try {
-    [party, customFields] = await Promise.all([getParty(access.context, partyId), getCustomFieldsForEntity(access.context, "PARTY", partyId)]);
+    party = await getParty(access.context, partyId);
   } catch {
     notFound();
+  }
+  let customFields: Awaited<ReturnType<typeof getCustomFieldsForEntity>> = [];
+  try {
+    customFields = await getCustomFieldsForEntity(access.context, "PARTY", partyId);
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "TENANT_FEATURE_DISABLED") notFound();
   }
   const canManage = hasBusinessCapability(access.context.roleKey, "parties.manage");
   const serialized = JSON.parse(JSON.stringify(party));
