@@ -20,6 +20,8 @@ Implemented and verified foundations include:
 - shared customer and supplier parties with contacts, addresses, and duplicate review;
 - products, services, units, lifecycle controls, and staged imports;
 - private files, attachment links, audit history, and coordinated backup guidance;
+- concurrency-safe reusable document numbering and immutable allocation history;
+- controlled filtered CSV exports with checksums and audit history;
 - Docker and GitHub Actions verification.
 
 See `PROGRESS.md` for the exact current state and next work.
