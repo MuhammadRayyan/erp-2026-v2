@@ -1,22 +1,30 @@
 # Progress
 
 Last updated: July 29, 2026
-Current branch: `phase-4-posting-kernel`
+Current branch: `agent/read-only-journal-evidence`
 Current phase: Phase 4 — Accounting kernel
-Current slice: Central balanced posting kernel — verified complete
+Current slice: Read-only posted-journal evidence boundary — implementation branch open
 
 ## Evidence-based verified state
 
 - Phases 1–3 are complete and merged through PR #25.
 - PR #26 merged normally into `main` as `87782734a3ee32d8edf0d0e6353a5e40dc87ae5c`.
 - PR #27 merged normally into `main` as `e4d8e7af1e8baad116dc7ef09d56800cf68d4544`.
-- The chart-of-accounts and accounting-period foundations are complete and merged.
 - PR #28 implements the internal central posting kernel without exposing manual journal or document transaction entry.
 - Implementation-head run `30469369143`, job `90635303570`, passed clean dependency installation, Prisma generation, forward migrations, migration status, supported schema diff, PostgreSQL catalog integrity, real base-to-head upgrade verification, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, Playwright browser verification, Compose validation, migration/runtime image builds, booted runtime readiness, and protected outbox smoke.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
 - No manual journal UI, opening-balance workflow, document posting, VAT posting, allocations, reconciliation, or financial statements are exposed.
+
+## Active branch progress
+
+- `agent/read-only-journal-evidence` adds route-owned read-only posted-journal pages at `/business/[businessId]/accounting/journals` and `/business/[businessId]/accounting/journals/[journalId]`.
+- The pages use the existing `accounting.view` and `accounting.core` gates through `requireBusinessPageAccess` and the existing journal read services.
+- The register and detail pages expose posted journal dates, origin, source identity, line count, balanced debit/credit totals, account lines, idempotency key, memo, and reversal lineage.
+- The chart-of-accounts page now links to posted journals and clarifies that journal evidence is read-only.
+- This branch intentionally adds no manual posting form, no public posting route, no opening-balance workflow, no journal mutation path, and no schema change.
+- CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
 
@@ -57,9 +65,9 @@ Current slice: Central balanced posting kernel — verified complete
 
 ## Current Phase 4 priority
 
-Implement controlled opening balances and the first read-only journal/general-ledger evidence boundary without exposing ordinary manual transaction entry.
+Implement controlled opening balances after the read-only posted-journal evidence boundary passes review and CI.
 
-The next slice must provide:
+The opening-balance slice must provide:
 
 1. a business cutover date and explicit opening-balance lifecycle;
 2. balanced opening entries posted only through the central kernel;
@@ -67,12 +75,12 @@ The next slice must provide:
 4. account eligibility rules that prevent unsupported receivable, payable, inventory, VAT, bank, and retained-earnings shortcuts;
 5. exact base-currency amounts and a clearly defined opening-equity balancing policy;
 6. prevention of duplicate or conflicting opening sets under concurrency;
-7. a read-only journal register and journal detail/general-ledger evidence view using `accounting.view`;
-8. no update/delete path for posted history and no ordinary manual-journal form;
-9. PostgreSQL constraints, migration-integrity protection, unit tests, integration tests, browser evidence for read-only history, Docker/runtime evidence, and updated operating documentation.
+7. no update/delete path for posted history and no ordinary manual-journal form;
+8. PostgreSQL constraints, migration-integrity protection, unit tests, integration tests, browser evidence, Docker/runtime evidence, and updated operating documentation.
 
 ## Explicitly not implemented
 
+- Opening-balance workflow.
 - Ordinary manual journal-entry UI.
 - Draft, recurring, or approval-based journals.
 - Sales, purchase, bank, inventory, payroll, or project posting.
@@ -94,4 +102,4 @@ The next slice must provide:
 
 ## Active blockers
 
-- Business transaction entry remains blocked until opening-balance cutover, read-only journal evidence, subledger policies, and the applicable VAT/document posting rules are implemented and verified.
+- Business transaction entry remains blocked until opening-balance cutover, subledger policies, and the applicable VAT/document posting rules are implemented and verified.
