@@ -1,0 +1,37 @@
+enum TenantAccessEventType {
+  INVITATION_CREATED
+  INVITATION_SUPERSEDED
+  INVITATION_REVOKED
+  INVITATION_EXPIRED
+  INVITATION_ACCEPTED
+  MEMBER_ACTIVATED
+  MEMBER_DISABLED
+  BUSINESS_ACCESS_GRANTED
+  BUSINESS_ACCESS_UPDATED
+  BUSINESS_ACCESS_DISABLED
+  SESSIONS_REVOKED
+}
+
+model TenantAccessEvent {
+  id            String                @id @default(cuid())
+  tenantId      String
+  eventType     TenantAccessEventType
+  actorUserId   String?
+  targetUserId  String?
+  targetEmail   String?
+  businessId    String?
+  invitationId  String?
+  summary       String
+  metadata      Json
+  occurredAt    DateTime              @default(now())
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "TenantAccessEvent_tenant_fkey")
+  actor         User?                 @relation("TenantAccessEventActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "TenantAccessEvent_actorUserId_fkey")
+  targetUser    User?                 @relation("TenantAccessEventTarget", fields: [targetUserId], references: [id], onDelete: SetNull, map: "TenantAccessEvent_targetUserId_fkey")
+  business      Business?             @relation("TenantAccessEventBusiness", fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict, map: "TenantAccessEvent_business_scope_fkey")
+
+  @@unique([tenantId, id], map: "TenantAccessEvent_scope_id_key")
+  @@index([tenantId, occurredAt], map: "TenantAccessEvent_scope_time_idx")
+  @@index([tenantId, eventType, occurredAt], map: "TenantAccessEvent_type_time_idx")
+  @@index([tenantId, targetUserId, occurredAt], map: "TenantAccessEvent_target_time_idx")
+  @@index([tenantId, invitationId, occurredAt], map: "TenantAccessEvent_invitation_time_idx")
+}
