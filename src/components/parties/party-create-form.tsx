@@ -8,9 +8,10 @@ export function PartyCreateForm({ businessId }: { businessId: string }) {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setPending(true);
     setMessage(null);
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const type = String(form.get("type"));
     const roles = form.getAll("roles").map(String);
     const payload = {
@@ -49,7 +50,7 @@ export function PartyCreateForm({ businessId }: { businessId: string }) {
       return;
     }
     setMessage("Party created.");
-    event.currentTarget.reset();
+    formElement.reset();
     setPending(false);
     window.location.reload();
   }

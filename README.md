@@ -24,9 +24,10 @@ Implemented foundations include:
 - reusable document numbering and immutable allocation history;
 - controlled filtered CSV exports with checksums and audit history;
 - durable PostgreSQL queued email with a separate worker;
-- Docker and GitHub Actions verification.
+- Playwright browser verification across authentication, onboarding, master data, files, invitations, authorization, and password recovery;
+- Docker and GitHub Actions verification, including a booted runtime-image smoke check.
 
-These foundations are under evidence-based hardening before Phase 4 begins. See `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for confirmed strengths, defects, verification gaps, and the active plan.
+These foundations remain under evidence-based hardening before Phase 4 begins. Browser E2E is now verified; migration-drift protection and tenant access-change auditing remain blocking gates. See `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for the evidence and active plan.
 
 ## Technology requirements
 
@@ -267,6 +268,26 @@ npm run test:integration
 
 Integration tests use the configured `DATABASE_URL`. Do not point tests at a production or valuable database.
 
+### Browser end-to-end verification
+
+Install the Chromium browser once, build the production application, and keep PostgreSQL and Mailpit running:
+
+```bash
+npx playwright install chromium
+docker compose up -d db mailpit
+npm run db:deploy
+npm run build
+npm run test:e2e
+```
+
+Playwright starts the production web process and email worker. The scenario verifies anonymous denial, sign-up, onboarding, parties, catalog, private upload/download, invitation delivery and acceptance, viewer authorization, password reset, session revocation, and reauthentication. Do not point it at production or a valuable database. See `E2E_TESTING.md` for the complete operating guide.
+
+Interactive browser debugging:
+
+```bash
+npm run test:e2e:ui
+```
+
 ### Watch mode
 
 ```bash
@@ -285,11 +306,10 @@ npm run build
 
 ```bash
 npm run verify
+npm run test:e2e
 ```
 
-The full verification requires a reachable migrated PostgreSQL database and runs lint, TypeScript checking, unit tests, PostgreSQL integration tests, and the production build. GitHub Actions also validates Compose configuration and both migration/runtime Docker image targets.
-
-Browser E2E and a booted full-stack smoke gate are tracked in `PHASE_3_VERIFICATION_AUDIT.md` and must be added before Phase 3 is finally closed.
+`npm run verify` requires a reachable migrated PostgreSQL database and runs lint, TypeScript checking, unit tests, PostgreSQL integration tests, and the production build. The browser command additionally requires Mailpit and Chromium. GitHub Actions runs both layers, validates Compose, builds migration/runtime images, boots the runtime image, verifies database readiness, and calls the protected outbox endpoint.
 
 ## Health and troubleshooting
 
@@ -323,7 +343,7 @@ Common problems:
 ### Authentication configuration error
 
 - confirm `BETTER_AUTH_SECRET` is at least 32 characters;
-- confirm `BETTER_AUTH_URL` and `APP_URL` match the URL opened in the browser;
+- confirm `BETTER_AUTH_URL`, `APP_URL`, and the browser origin are identical;
 - restart the development server after changing `.env`.
 
 ### Invitations or password resets remain queued
@@ -332,6 +352,14 @@ Common problems:
 - run `npm run worker:email` during host development;
 - inspect `docker compose logs -f worker` in full Docker mode;
 - confirm Mailpit or the configured SMTP server is reachable.
+
+### Browser E2E cannot start
+
+- run `npx playwright install chromium`;
+- confirm PostgreSQL and Mailpit are running;
+- confirm the production build exists through `npm run build`;
+- keep `APP_URL`, `BETTER_AUTH_URL`, and `PLAYWRIGHT_BASE_URL` on `http://localhost:3000` unless all are changed together;
+- inspect `playwright-report/` and `test-results/` after a failure.
 
 ### Prisma Client missing or stale
 
@@ -363,9 +391,9 @@ src/app/                      Next.js routes, layouts, and HTTP handlers
 src/components/               Shared UI and layout components
 src/lib/                      Infrastructure configuration and adapters
 src/modules/                  Domain and application modules
-tests/                        Unit and PostgreSQL integration tests
+tests/                        Unit, PostgreSQL integration, and Playwright E2E tests
 .github/workflows/            CI verification
-*.md                          Durable product and development context
+*.md                          Durable product, operations, and development context
 ```
 
 Route handlers remain thin. Domain modules own business rules, authorization, transactions, and tests.
@@ -377,7 +405,7 @@ Route handlers remain thin. Domain modules own business rules, authorization, tr
 3. Create one coherent implementation slice.
 4. Update or add forward migrations when needed.
 5. Run relevant local checks or the GitHub Actions gate when local execution is unavailable.
-6. Open a pull request and require the full CI gate to pass.
+6. Open a pull request and require the complete unit, PostgreSQL, browser, build, Docker, and runtime gate to pass.
 7. Merge without rewriting or deleting history.
 8. Update context files only after claims are supported by code and test evidence.
 
@@ -397,8 +425,10 @@ Route handlers remain thin. Domain modules own business rules, authorization, tr
 12. `FUTURE_DEVELOPMENTS.md`
 13. `RESEARCH_REFERENCES.md`
 
+Operational guides such as `E2E_TESTING.md` and `OUTBOX_OPERATIONS.md` apply when working on those boundaries.
+
 The repository, migrations, tests, and verified runtime behavior are the source of truth. Context files describe accepted direction and must not overstate implementation.
 
 ## Continuation prompt
 
-> Read all project context Markdown files in their stated order. Treat progress and changelog claims as items to verify against code, migrations, tests, Git history, Docker configuration, and runtime evidence. Correct stale context before continuing. Complete the highest-priority hardening or implementation slice while preserving accounting integrity, tenant and business isolation, RBAC, entitlements, migrations, concurrency controls, tests, consistent UI patterns, backups, and documentation.
+> Read all project context Markdown files in their stated order. Treat progress and changelog claims as items to verify against code, migrations, tests, Git history, Docker configuration, browser evidence, and runtime behavior. Correct stale context before continuing. Complete the highest-priority hardening or implementation slice while preserving accounting integrity, tenant and business isolation, RBAC, entitlements, migrations, concurrency controls, tests, consistent UI patterns, backups, and documentation.

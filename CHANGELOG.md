@@ -113,6 +113,11 @@
 - Evidence-based Phase 3 verification report covering code, migrations, authorization, concurrency, CI, Docker, and documentation rather than relying on progress claims.
 - Regression tests for protected invitation roles, persisted invitation expiry, service-level entitlement gates, composite invitation scope, stale queued messages, inactive-unit reactivation, conflicting email/number idempotency, serialized number voids, and stale import targets.
 - Database-aware application readiness and a CI smoke gate that boots the built runtime image and invokes the protected outbox processor.
+- Playwright 1.61.1 browser verification against the production Next.js build with one Chromium worker.
+- A real critical browser workflow covering anonymous denial, owner sign-up, onboarding, party and catalog creation, private upload/download, invitation delivery and acceptance, viewer authorization, password reset, session revocation, and reauthentication.
+- CI Mailpit service integration and production email-worker orchestration for browser verification.
+- Browser failure evidence with short-lived HTML reports, traces, screenshots, and video.
+- `E2E_TESTING.md` with local setup, CI behavior, origin requirements, stateful-test rules, and troubleshooting guidance.
 
 ### Changed
 
@@ -146,6 +151,10 @@
 - Local host setup now starts the queued-email worker explicitly, and Docker documentation includes the worker and outbox environment contract.
 - PostgreSQL and Mailpit host ports are bound to loopback only; the worker waits for database-aware web readiness.
 - Business-profile registration and VAT-setting updates now create append-only audit events without storing the full TRN in audit metadata.
+- CI now runs the production browser workflow after unit, PostgreSQL, and build gates and before Docker-image/runtime verification.
+- The runtime smoke test reuses the CI Mailpit service instead of starting a competing host-network container.
+- Stateful authentication E2E runs once per clean CI job instead of automatically retrying and obscuring primary failures behind rate limiting.
+- Phase 3 browser E2E is verified; migration-drift protection and tenant access-change auditing remain blockers.
 
 ### Fixed
 
@@ -158,3 +167,5 @@
 - Prevented catalog items from being reactivated against inactive units and serialized item edits with lifecycle changes.
 - Locked numbering settings against concurrent allocation, froze reset/start policy after first use, rejected conflicting allocation retries, and serialized void transitions.
 - Serialized catalog import row decisions against final commit and rejected updates whose target changed after preview.
+- Retained the party creation form element before awaiting its API request so a successful creation can reset and reload the register instead of remaining stuck on `Creating…`.
+- Recognized Better Auth password-reset verification URLs whose same-origin redirect target is the configured reset page, without weakening origin validation or logging tokens.

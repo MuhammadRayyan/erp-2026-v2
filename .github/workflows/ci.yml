@@ -13,16 +13,19 @@ env:
   BETTER_AUTH_SECRET: "12345678901234567890123456789012"
   BETTER_AUTH_URL: http://localhost:3000
   APP_URL: http://localhost:3000
+  PLAYWRIGHT_BASE_URL: http://localhost:3000
+  MAILPIT_URL: http://localhost:8025
   SMTP_HOST: localhost
   SMTP_PORT: 1025
   SMTP_SECURE: "false"
   EMAIL_FROM: ERP 2026 <no-reply@localhost>
   OUTBOX_WORKER_SECRET: "12345678901234567890123456789012"
+  OUTBOX_POLL_SECONDS: 2
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16-alpine
@@ -37,6 +40,11 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,6 +59,24 @@ jobs:
       - run: npm run test
       - run: npm run test:integration
       - run: npm run build
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Run browser end-to-end verification
+        env:
+          E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          touch .env
+          npm run test:e2e
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Validate Docker Compose
         run: docker compose config --quiet
       - name: Build migration image
@@ -60,7 +86,6 @@ jobs:
       - name: Smoke runtime and outbox endpoint
         run: |
           set -euo pipefail
-          docker run -d --name mailpit-ci --network host axllent/mailpit:latest
           docker run -d --name erp-web-ci --network host \
             -e DATABASE_URL="$DATABASE_URL" \
             -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
@@ -91,6 +116,6 @@ jobs:
             --header "Authorization: Bearer $OUTBOX_WORKER_SECRET" \
             http://localhost:3000/api/internal/outbox/process > outbox.json
           grep -q '"claimed"' outbox.json
-      - name: Stop smoke containers
+      - name: Stop smoke container
         if: always()
-        run: docker rm -f erp-web-ci mailpit-ci 2>/dev/null || true
+        run: docker rm -f erp-web-ci 2>/dev/null || true
