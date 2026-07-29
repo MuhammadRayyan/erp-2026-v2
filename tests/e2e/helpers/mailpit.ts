@@ -52,17 +52,36 @@ export async function waitForMessage(recipient: string, subjectIncludes: string,
   throw new Error(`Timed out waiting for email to ${recipient} with subject containing ${subjectIncludes}.`);
 }
 
+function messageLinks(message: MailpitMessage) {
+  const textLinks = message.Text.match(/https?:\/\/[^\s<>"']+/g) ?? [];
+  const htmlLinks = Array.from(message.HTML.matchAll(/href=["']([^"']+)["']/gi), (match) => match[1].replaceAll("&amp;", "&"));
+  return Array.from(new Set([...textLinks, ...htmlLinks]));
+}
+
+function targetsApplicationPath(url: URL, pathPrefix: string, origin: string) {
+  if (url.origin !== origin) return false;
+  if (url.pathname.startsWith(pathPrefix)) return true;
+
+  for (const value of url.searchParams.values()) {
+    try {
+      const redirect = new URL(value, origin);
+      if (redirect.origin === origin && redirect.pathname.startsWith(pathPrefix)) return true;
+    } catch {
+      // Ignore non-URL query parameters such as opaque verification tokens.
+    }
+  }
+  return false;
+}
+
 export function applicationLink(message: MailpitMessage, pathPrefix: string, applicationUrl: string) {
   const origin = new URL(applicationUrl).origin;
-  const links = message.Text.match(/https?:\/\/[^\s<>"']+/g) ?? [];
-  const link = links.find((candidate) => {
+  const link = messageLinks(message).find((candidate) => {
     try {
-      const url = new URL(candidate);
-      return url.origin === origin && url.pathname.startsWith(pathPrefix);
+      return targetsApplicationPath(new URL(candidate), pathPrefix, origin);
     } catch {
       return false;
     }
   });
-  if (!link) throw new Error(`Email did not contain an application link beginning with ${pathPrefix}.`);
+  if (!link) throw new Error(`Email did not contain a same-origin link targeting ${pathPrefix}.`);
   return link;
 }
