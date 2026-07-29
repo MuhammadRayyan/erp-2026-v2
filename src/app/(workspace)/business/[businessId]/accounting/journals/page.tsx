@@ -11,13 +11,6 @@ function formatDate(value: Date) {
   return value.toISOString().slice(0, 10);
 }
 
-function money(value: unknown) {
-  if (value && typeof value === "object" && "toFixed" in value && typeof value.toFixed === "function") {
-    return value.toFixed(4);
-  }
-  return Number(value).toFixed(4);
-}
-
 function entryTotal(entry: Awaited<ReturnType<typeof listJournalEntries>>[number]) {
   const total = entry.lines.reduce((sum, line) => sum + Number(line.debit), 0);
   return total.toFixed(4);
