@@ -4,7 +4,9 @@ import { requireTenantAccessAdministration } from "@/modules/tenancy/server/acce
 
 const forbiddenMetadataKey = /(password|secret|token|url)/i;
 
-function safeJsonValue(value: unknown, path: string): Prisma.InputJsonValue {
+type SafeJsonValue = string | number | boolean | null | SafeJsonValue[] | { [key: string]: SafeJsonValue };
+
+function safeJsonValue(value: unknown, path: string): SafeJsonValue {
   if (value === null || typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value === "string") {
     if (/https?:\/\//i.test(value)) throw new Error(`TENANT_ACCESS_AUDIT_UNSAFE:${path}`);
@@ -15,7 +17,7 @@ function safeJsonValue(value: unknown, path: string): Prisma.InputJsonValue {
     return value.filter((entry) => entry !== undefined).map((entry, index) => safeJsonValue(entry, `${path}[${index}]`));
   }
   if (typeof value === "object") {
-    const result: Record<string, Prisma.InputJsonValue> = {};
+    const result: Record<string, SafeJsonValue> = {};
     for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
       if (forbiddenMetadataKey.test(key)) throw new Error(`TENANT_ACCESS_AUDIT_UNSAFE:${path}.${key}`);
       if (entry === undefined) continue;
@@ -42,7 +44,7 @@ export async function appendTenantAccessEvent(
   transaction: Prisma.TransactionClient,
   input: TenantAccessAuditInput,
 ) {
-  const metadata = safeJsonValue(input.metadata ?? {}, "metadata");
+  const metadata = safeJsonValue(input.metadata ?? {}, "metadata") as Prisma.InputJsonObject;
   const targetEmail = input.targetEmail.trim().toLowerCase();
   if (!targetEmail) throw new Error("TENANT_ACCESS_AUDIT_TARGET_REQUIRED");
 
