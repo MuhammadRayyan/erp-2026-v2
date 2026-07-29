@@ -104,7 +104,12 @@ export async function createTenantInvitation(input: {
         tokenDigest,
         expiresAt,
         invitedByUserId: input.actorUserId,
-        businessGrants: { create: input.businessGrants.map((grant) => ({ tenantId: input.tenantId, businessId: grant.businessId, roleKey: grant.roleKey })) },
+        businessGrants: {
+          create: input.businessGrants.map((grant) => ({
+            roleKey: grant.roleKey,
+            business: { connect: { tenantId_id: { tenantId: input.tenantId, id: grant.businessId } } },
+          })),
+        },
       },
       include: {
         tenant: { select: { name: true } },
