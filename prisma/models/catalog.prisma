@@ -106,19 +106,20 @@ model CatalogImportBatch {
 }
 
 model CatalogImportRow {
-  id             String              @id @default(cuid())
-  tenantId       String
-  businessId     String
-  batchId        String
-  rowNumber      Int
-  rawData        Json
-  normalizedData Json?
-  action         CatalogImportAction
-  existingItemId String?
-  issues         Json
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  batch          CatalogImportBatch  @relation(fields: [tenantId, businessId, batchId], references: [tenantId, businessId, id], onDelete: Cascade)
+  id                    String              @id @default(cuid())
+  tenantId              String
+  businessId            String
+  batchId               String
+  rowNumber             Int
+  rawData               Json
+  normalizedData        Json?
+  action                CatalogImportAction
+  existingItemId        String?
+  existingItemUpdatedAt DateTime?
+  issues                Json
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  batch                 CatalogImportBatch  @relation(fields: [tenantId, businessId, batchId], references: [tenantId, businessId, id], onDelete: Cascade)
 
   @@unique([batchId, rowNumber])
   @@index([tenantId, businessId, batchId, action])
