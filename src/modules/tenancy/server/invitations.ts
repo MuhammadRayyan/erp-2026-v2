@@ -7,7 +7,7 @@ import { enqueueEmail } from "@/modules/communication/server/email-outbox";
 import { escapeEmailHtml } from "@/modules/communication/server/platform-email";
 import { requireTenantUserInvitationCapacityInTransaction } from "@/modules/entitlements/server/usage";
 import { requireTenantAccessAdministration } from "@/modules/tenancy/server/access-admin";
-import { appendTenantAccessEvent, listTenantAccessEvents } from "@/modules/tenancy/server/access-audit";
+import { appendTenantAccessEvent } from "@/modules/tenancy/server/access-audit";
 
 function digestToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -293,33 +293,40 @@ export async function acceptTenantInvitation(input: { userId: string; userEmail:
 export async function listTenantAccessAdministration(input: { actorUserId: string; tenantId: string }) {
   await requireTenantAccessAdministration(input.actorUserId, input.tenantId);
   await expirePendingInvitations(input.tenantId);
-  const [administration, accessEvents] = await Promise.all([
-    db.tenant.findUniqueOrThrow({
-      where: { id: input.tenantId },
-      select: {
-        id: true,
-        name: true,
-        businesses: { orderBy: { legalName: "asc" }, select: { id: true, legalName: true } },
-        memberships: {
-          orderBy: { createdAt: "asc" },
-          select: {
-            id: true, isOwner: true, status: true,
-            user: { select: { id: true, name: true, email: true } },
-            businesses: { select: { status: true, roleKey: true, business: { select: { id: true, legalName: true } } } },
-          },
-        },
-        invitations: {
-          where: { status: InvitationStatus.PENDING, expiresAt: { gt: new Date() } },
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true, email: true, expiresAt: true, createdAt: true,
-            businessGrants: { select: { roleKey: true, business: { select: { id: true, legalName: true } } } },
-          },
+  const administration = await db.tenant.findUniqueOrThrow({
+    where: { id: input.tenantId },
+    select: {
+      id: true,
+      name: true,
+      businesses: { orderBy: { legalName: "asc" }, select: { id: true, legalName: true } },
+      memberships: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true, isOwner: true, status: true,
+          user: { select: { id: true, name: true, email: true } },
+          businesses: { select: { status: true, roleKey: true, business: { select: { id: true, legalName: true } } } },
         },
       },
-    }),
-    listTenantAccessEvents({ actorUserId: input.actorUserId, tenantId: input.tenantId, limit: 100 }),
-  ]);
+      invitations: {
+        where: { status: InvitationStatus.PENDING, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true, email: true, expiresAt: true, createdAt: true,
+          businessGrants: { select: { roleKey: true, business: { select: { id: true, legalName: true } } } },
+        },
+      },
+    },
+  });
+  const accessEvents = await db.tenantAccessEvent.findMany({
+    where: { tenantId: input.tenantId },
+    include: {
+      actor: { select: { id: true, name: true, email: true } },
+      targetUser: { select: { id: true, name: true, email: true } },
+      business: { select: { id: true, legalName: true, tradingName: true } },
+    },
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    take: 100,
+  });
   const deliveryRows = await db.emailOutbox.findMany({
     where: { tenantId: input.tenantId, correlationType: "TENANT_INVITATION", correlationId: { in: administration.invitations.map((invitation) => invitation.id) } },
     select: { correlationId: true, status: true, attempts: true, lastError: true, sentAt: true, availableAt: true },
