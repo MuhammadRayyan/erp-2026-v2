@@ -24,7 +24,7 @@ model TenantAccessEvent {
   summary       String
   metadata      Json
   occurredAt    DateTime              @default(now())
-  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "TenantAccessEvent_tenant_fkey")
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "TenantAccessEvent_tenant_fkey")
   actor         User?                 @relation("TenantAccessEventActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "TenantAccessEvent_actorUserId_fkey")
   targetUser    User?                 @relation("TenantAccessEventTarget", fields: [targetUserId], references: [id], onDelete: SetNull, map: "TenantAccessEvent_targetUserId_fkey")
   business      Business?             @relation("TenantAccessEventBusiness", fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict, map: "TenantAccessEvent_business_scope_fkey")
