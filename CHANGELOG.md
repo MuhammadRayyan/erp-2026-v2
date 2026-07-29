@@ -118,6 +118,11 @@
 - CI Mailpit service integration and production email-worker orchestration for browser verification.
 - Browser failure evidence with short-lived HTML reports, traces, screenshots, and video.
 - `E2E_TESTING.md` with local setup, CI behavior, origin requirements, stateful-test rules, and troubleshooting guidance.
+- A fail-closed PostgreSQL migration-integrity manifest for 26 critical composite foreign keys, 34 check constraints, three custom indexes, the custom-field trigger/function pair, and `pg_trgm`.
+- Pull-request base-to-head upgrade verification using a second database built from the exact target commit.
+- Upgrade sentinels for user, owner membership, tenant, business, unit, and party data preservation.
+- `MIGRATION_INTEGRITY.md` with clean-install, schema-diff, catalog, upgrade, local-operation, and failure-handling guidance.
+- ADR-018 defining migration history, Prisma schema, PostgreSQL catalog, and upgrade evidence as mandatory.
 
 ### Changed
 
@@ -154,7 +159,11 @@
 - CI now runs the production browser workflow after unit, PostgreSQL, and build gates and before Docker-image/runtime verification.
 - The runtime smoke test reuses the CI Mailpit service instead of starting a competing host-network container.
 - Stateful authentication E2E runs once per clean CI job instead of automatically retrying and obscuring primary failures behind rate limiting.
-- Phase 3 browser E2E is verified; migration-drift protection and tenant access-change auditing remain blockers.
+- Phase 3 browser E2E is verified.
+- Existing SQL foreign keys and custom index names are represented in the Prisma schema with stable relation/index mappings where supported.
+- The party trigram GIN operator class is represented in Prisma, producing an empty supported-object schema diff after clean migration replay.
+- CI now fails on migration-history divergence, supported schema drift, PostgreSQL catalog weakening, unsafe base-to-head upgrades, or representative-data loss.
+- Phase 3 migration-drift protection is verified; tenant access-change auditing remains the only blocker before reassessment.
 
 ### Fixed
 
@@ -169,3 +178,4 @@
 - Serialized catalog import row decisions against final commit and rejected updates whose target changed after preview.
 - Retained the party creation form element before awaiting its API request so a successful creation can reset and reload the register instead of remaining stuck on `Creating…`.
 - Recognized Better Auth password-reset verification URLs whose same-origin redirect target is the configured reset page, without weakening origin validation or logging tokens.
+- Prevented future Prisma migration generation from proposing duplicate or renamed database keys solely because existing reviewed SQL constraints were absent from model metadata.
