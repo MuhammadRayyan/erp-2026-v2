@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { applicationLink, clearMailbox, waitForMessage } from "./helpers/mailpit";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -10,7 +10,7 @@ function safeRunKey(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(-20) || "local";
 }
 
-async function createAccount(page: Parameters<typeof test>[0] extends never ? never : import("@playwright/test").Page, input: { name: string; email: string; password: string }) {
+async function createAccount(page: Page, input: { name: string; email: string; password: string }) {
   await page.goto("/sign-up");
   await page.getByLabel("Your name").fill(input.name);
   await page.getByLabel("Email address").fill(input.email);
