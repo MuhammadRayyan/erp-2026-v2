@@ -47,6 +47,40 @@ type LockedAccount = {
 
 const zero = new Prisma.Decimal(0);
 
+function containsSerializableConflict(value: unknown, depth = 0, seen = new Set<object>()): boolean {
+  if (depth > 6 || value === null || value === undefined) return false;
+  if (typeof value === "string") {
+    return /P2034|40001|TransactionWriteConflict|serialization failure|could not serialize access/i.test(value);
+  }
+  if (typeof value !== "object") return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+
+  const candidate = value as Record<string, unknown>;
+  for (const key of ["code", "name", "message", "originalCode", "kind", "cause", "meta", "driverAdapterError"]) {
+    if (containsSerializableConflict(candidate[key], depth + 1, seen)) return true;
+  }
+  return false;
+}
+
+async function sleep(milliseconds: number) {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function withSerializableRetry<T>(operation: () => Promise<T>) {
+  const maxAttempts = 8;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!containsSerializableConflict(error) || attempt === maxAttempts) throw error;
+      const backoff = Math.min(20 * 2 ** (attempt - 1), 400) + Math.floor(Math.random() * 40);
+      await sleep(backoff);
+    }
+  }
+  throw new Error("JOURNAL_SERIALIZABLE_RETRY_EXHAUSTED");
+}
+
 function accountingDate(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
 }
@@ -248,10 +282,10 @@ async function postWithinTransaction(
 export async function postJournalEntry(context: BusinessAccessContext, rawInput: PostJournalEntryInput) {
   await requireAccounting(context, "accounting.manage");
   const posting = normalizePosting(postJournalEntrySchema.parse(rawInput));
-  return db.$transaction(
+  return withSerializableRetry(() => db.$transaction(
     (transaction) => postWithinTransaction(transaction, context, posting),
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+  ));
 }
 
 export async function reverseJournalEntry(
@@ -262,7 +296,7 @@ export async function reverseJournalEntry(
   await requireAccounting(context, "accounting.manage");
   const input = reverseJournalEntrySchema.parse(rawInput);
 
-  return db.$transaction(async (transaction) => {
+  return withSerializableRetry(() => db.$transaction(async (transaction) => {
     const originals = await transaction.$queryRaw<Array<{
       id: string;
       postingDate: Date;
@@ -312,7 +346,7 @@ export async function reverseJournalEntry(
       })),
     };
     return postWithinTransaction(transaction, context, posting);
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }
 
 export async function listJournalEntries(context: BusinessAccessContext) {
