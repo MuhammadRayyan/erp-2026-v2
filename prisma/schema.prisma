@@ -189,6 +189,7 @@ model Business {
   exportRuns             ExportRun[]
   customFieldDefinitions CustomFieldDefinition[]
   tenantAccessEvents     TenantAccessEvent[]      @relation("TenantAccessEventBusiness")
+  ledgerAccounts         LedgerAccount[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, slug])
