@@ -14,8 +14,10 @@ model ExportRun {
   fileName      String
   requestedById String
   createdAt     DateTime     @default(now())
+  business      Business     @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "ExportRun_business_scope_fkey")
+  requestedBy   User         @relation("ExportRequester", fields: [requestedById], references: [id], onDelete: Restrict, map: "ExportRun_requestedById_fkey")
 
   @@unique([tenantId, businessId, id])
-  @@index([tenantId, businessId, datasetKey, createdAt])
-  @@index([tenantId, businessId, requestedById, createdAt])
+  @@index([tenantId, businessId, datasetKey, createdAt], map: "ExportRun_dataset_time_idx")
+  @@index([tenantId, businessId, requestedById, createdAt], map: "ExportRun_actor_time_idx")
 }
