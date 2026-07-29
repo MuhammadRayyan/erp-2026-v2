@@ -29,6 +29,7 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
   const viewerNewPassword = "Viewer-Reset-2026!";
   const tenantName = `E2E Group ${runKey}`;
   const businessName = `E2E Technical Services ${runKey}`;
+  const businessTradingName = `E2E Trading ${runKey}`;
   const partyName = `E2E Customer ${runKey}`;
   const catalogName = `E2E Service ${runKey}`;
   const sku = `E2E-${runKey.toUpperCase().slice(-14)}`;
@@ -51,7 +52,7 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await createAccount(page, { name: "E2E Owner", email: ownerEmail, password: ownerPassword });
     await page.getByLabel("Account or group name").fill(tenantName);
     await page.getByLabel("Legal business name").fill(businessName);
-    await page.getByLabel("Trading name").fill(`E2E Trading ${runKey}`);
+    await page.getByLabel("Trading name").fill(businessTradingName);
     await page.getByRole("button", { name: "Create business and continue" }).click();
     await expect(page).toHaveURL(/\/business\/[^/]+\/dashboard$/);
     businessId = new URL(page.url()).pathname.split("/")[2] ?? "";
@@ -125,7 +126,8 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await viewerPage.goto(invitationUrl);
     await viewerPage.getByRole("button", { name: "Accept invitation" }).click();
     await expect(viewerPage).toHaveURL(/\/businesses$/);
-    await expect(viewerPage.getByRole("heading", { name: businessName })).toBeVisible();
+    await expect(viewerPage.getByRole("heading", { name: businessTradingName })).toBeVisible();
+    await expect(viewerPage.getByText(businessName, { exact: true })).toBeVisible();
     await expect(viewerPage.getByText("viewer", { exact: true })).toBeVisible();
   });
 
@@ -188,7 +190,8 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await viewerPage.getByLabel("Password").fill(viewerNewPassword);
     await viewerPage.getByRole("button", { name: "Sign in" }).click();
     await expect(viewerPage).toHaveURL(/\/businesses$/);
-    await expect(viewerPage.getByRole("heading", { name: businessName })).toBeVisible();
+    await expect(viewerPage.getByRole("heading", { name: businessTradingName })).toBeVisible();
+    await expect(viewerPage.getByText(businessName, { exact: true })).toBeVisible();
 
     await resetContext.close();
   });
