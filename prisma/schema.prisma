@@ -66,12 +66,19 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions            Session[]
-  accounts            Account[]
-  memberships         TenantMembership[]
-  onboarding          OnboardingOperation[]
-  invitationsSent     TenantInvitation[] @relation("InvitationSender")
-  invitationsAccepted TenantInvitation[] @relation("InvitationAcceptor")
+  sessions                  Session[]
+  accounts                  Account[]
+  memberships               TenantMembership[]
+  onboarding                OnboardingOperation[]
+  invitationsSent           TenantInvitation[]   @relation("InvitationSender")
+  invitationsAccepted       TenantInvitation[]   @relation("InvitationAcceptor")
+  auditEvents                AuditEvent[]          @relation("AuditEventActor")
+  catalogImportsCreated      CatalogImportBatch[] @relation("CatalogImportCreator")
+  customFieldValuesUpdated   CustomFieldValue[]   @relation("CustomFieldValueUpdater")
+  exportsRequested           ExportRun[]          @relation("ExportRequester")
+  numberAllocationsCreated   NumberAllocation[]   @relation("NumberAllocator")
+  numberAllocationsVoided    NumberAllocation[]   @relation("NumberVoider")
+  filesUploaded              StoredFile[]         @relation("FileUploader")
 }
 
 model Session {
@@ -134,6 +141,7 @@ model Tenant {
   invitations          TenantInvitation[]
   subscription         TenantSubscription?
   entitlementOverrides TenantEntitlementOverride[]
+  emailOutbox           EmailOutbox[]
 }
 
 model TenantMembership {
@@ -153,21 +161,30 @@ model TenantMembership {
 }
 
 model Business {
-  id               String   @id @default(cuid())
-  tenantId         String
-  slug             String
-  legalName        String
-  tradingName      String?
-  countryCode      String   @default("AE")
-  baseCurrency     String   @default("AED")
-  timezone         String   @default("Asia/Dubai")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  profile          BusinessProfile?
-  memberships      BusinessMembership[]
-  onboarding       OnboardingOperation[]
-  invitationGrants BusinessInvitationGrant[]
+  id                     String   @id @default(cuid())
+  tenantId               String
+  slug                   String
+  legalName              String
+  tradingName            String?
+  countryCode            String   @default("AE")
+  baseCurrency           String   @default("AED")
+  timezone               String   @default("Asia/Dubai")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  profile                BusinessProfile?
+  memberships            BusinessMembership[]
+  onboarding             OnboardingOperation[]
+  invitationGrants       BusinessInvitationGrant[]
+  units                  UnitOfMeasure[]
+  catalogItems           CatalogItem[]
+  catalogImportBatches   CatalogImportBatch[]
+  parties                Party[]
+  storedFiles            StoredFile[]
+  auditEvents            AuditEvent[]
+  numberSequences        NumberSequence[]
+  exportRuns             ExportRun[]
+  customFieldDefinitions CustomFieldDefinition[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, slug])
@@ -240,7 +257,7 @@ model BusinessInvitationGrant {
   tenantId     String
   businessId   String
   roleKey      String
-  invitation   TenantInvitation @relation(fields: [tenantId, invitationId], references: [tenantId, id], onDelete: Cascade)
+  invitation   TenantInvitation @relation(fields: [tenantId, invitationId], references: [tenantId, id], onDelete: Cascade, map: "BusinessInvitationGrant_invitation_scope_fkey")
   business     Business         @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
 
   @@unique([invitationId, businessId])
