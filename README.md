@@ -1,31 +1,40 @@
 # ERP 2026 V2
 
-A UAE-first ERP for owner-operated and small businesses, developed as a structured Next.js modular monolith for technical services, automotive workshops, civil/architectural services, general services, and trading businesses.
+A UAE-first ERP for owner-operated and small businesses, built as a structured Next.js modular monolith for technical services, automotive workshops, civil/architectural services, general services, and trading businesses.
 
 ## Current status
 
-**Phase 4 — Accounting kernel: chart structure and account lifecycle.**
+**Phase 4 — Accounting kernel. Active slice: chart of accounts and account lifecycle.**
 
-Phase 3 shared ERP foundations are complete and verified. Implemented and executable foundations include:
+Phases 1–3 are complete. PR #26 adds the first accounting structure without introducing financial transactions:
+
+- business-scoped account classes, constrained types, normal balances, contra accounts, headers, posting accounts, and control accounts;
+- tenant-safe hierarchy, stable system keys, required controls, and active/inactive lifecycle;
+- deterministic UAE-oriented default chart for existing and newly onboarded businesses;
+- accounting RBAC, entitlement enforcement, protected register/detail UI, and business audit events;
+- PostgreSQL classification and hierarchy invariants;
+- clean-install, base-to-head upgrade, PostgreSQL, browser, Docker, and runtime verification.
+
+The implementation-head PR #26 run `30442778259`, job `90545780793`, passed every repository gate. The next slice is accounting periods and locks.
+
+**No balances, opening entries, journals, document posting, VAT posting, allocation, reconciliation, or financial statements exist yet.** Transaction entry remains blocked until period enforcement and one balanced, idempotent posting kernel with reversals are implemented and PostgreSQL integration-tested.
+
+Read `ACCOUNTING_FOUNDATION.md`, `PROGRESS.md`, and `DECISIONS.md` for the active accounting boundary.
+
+## Implemented foundations
 
 - Next.js 16, React 19, strict TypeScript, PostgreSQL 16, and Prisma 7;
-- Better Auth with database-backed revocable sessions;
+- Better Auth with PostgreSQL-backed revocable sessions;
 - tenant/business isolation, RBAC, capabilities, plans, entitlements, and usage limits;
-- owner onboarding, Account Hub, business workspaces, invitations, and member administration;
-- immutable tenant access history for invitation, membership, role/status, and administration-driven session changes;
+- owner onboarding, Account Hub, business workspaces, invitations, member administration, and immutable tenant access history;
 - UAE business profile and VAT-registration settings;
 - parties, contacts, addresses, duplicate review, products, services, units, and staged imports;
 - typed custom fields, private files, business audit history, document numbering, and controlled CSV exports;
 - durable PostgreSQL email outbox with a separate worker;
-- Playwright verification for authentication, onboarding, master data, private files, invitations, owner access history, authorization, and password recovery;
+- chart of accounts and account lifecycle structure;
+- Playwright verification across authentication, onboarding, master data, accounting, private files, invitations, authorization, and password recovery;
 - clean-install and real base-to-head migration integrity verification;
-- Docker image builds and a booted runtime/readiness/outbox smoke check.
-
-PR #25 closed the final Phase 3 audit blocker and merged as `f13644c3d6248bf074647377b65910af8447ad9a`. Its exact head passed migration history/diff/catalog, base upgrade, lint, TypeScript, unit and PostgreSQL tests, production build, browser E2E, Compose, both images, runtime boot, readiness, and protected outbox processing.
-
-The active Phase 4 slice is chart structure and account lifecycle only. No accounting transaction workflow exists yet. Journals or document posting must not be exposed until account structure, periods/locks, balanced posting, idempotency, and reversals are implemented and PostgreSQL integration-tested.
-
-Read `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for the authoritative evidence and next sequence.
+- Docker image builds plus booted runtime/readiness/outbox smoke checks.
 
 ## Requirements
 
@@ -34,7 +43,7 @@ Read `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for the authoritative evi
 - Docker Desktop or Docker Engine with Compose;
 - Git.
 
-Windows development is best through WSL2 with Docker Desktop integration. Linux and macOS are also supported.
+Windows development is best through WSL2 with Docker Desktop integration. Linux and macOS are supported.
 
 ## Recommended local development
 
@@ -46,7 +55,7 @@ cd erp-2026-v2
 cp .env.example .env
 ```
 
-Generate separate secrets of at least 32 characters:
+Generate separate authentication and worker secrets of at least 32 characters:
 
 ```bash
 openssl rand -base64 32
@@ -61,7 +70,7 @@ Set different values for `BETTER_AUTH_SECRET` and `OUTBOX_WORKER_SECRET`. Never 
 npm ci
 ```
 
-Use `npm ci` for reproducible installs. Use `npm install <package>` only for intentional dependency changes and commit the resulting lockfile.
+Use `npm ci` for reproducible installs. Use `npm install <package>` only for intentional dependency changes and commit the lockfile.
 
 ### 3. Start PostgreSQL and Mailpit
 
@@ -73,7 +82,7 @@ docker compose ps
 Local services are loopback-bound:
 
 - PostgreSQL: `localhost:5432`
-- Mailpit web UI: `http://localhost:8025`
+- Mailpit UI: `http://localhost:8025`
 - Mailpit SMTP: `localhost:1025`
 
 ### 4. Generate and migrate
@@ -119,14 +128,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Compose:
-
-1. starts PostgreSQL and waits for health;
-2. applies committed migrations once;
-3. starts Mailpit;
-4. starts the web application and waits for database-aware readiness;
-5. starts the email worker after the web service is healthy;
-6. mounts private files at `/app/storage/private`.
+Compose starts PostgreSQL, applies migrations, starts Mailpit, waits for database-aware web readiness, starts the email worker, and mounts private files at `/app/storage/private`.
 
 Stop without deleting data:
 
@@ -156,7 +158,7 @@ docker compose down -v
 | `SMTP_USER` | No | empty | SMTP username |
 | `SMTP_PASSWORD` | No | empty | SMTP password |
 | `EMAIL_FROM` | No | `ERP 2026 <no-reply@localhost>` | Platform sender |
-| `OUTBOX_WORKER_SECRET` | For delivery | generated value | Protects the internal processing endpoint |
+| `OUTBOX_WORKER_SECRET` | For delivery | generated value | Protects internal outbox processing |
 | `OUTBOX_BATCH_SIZE` | No | `10` | Messages claimed per worker request |
 | `OUTBOX_POLL_SECONDS` | No | `5` | Worker polling interval |
 | `FILE_STORAGE_PROVIDER` | For files | `local` | Private storage adapter |
@@ -165,20 +167,28 @@ docker compose down -v
 
 In Compose, PostgreSQL is `db`, Mailpit is `mailpit`, the worker calls `web`, and private files use `/app/storage/private`.
 
-See `OUTBOX_OPERATIONS.md` for delivery lifecycle, retries, payload retention, failure handling, and secret rotation.
+## Accounting structure
+
+The Accounting workspace currently manages chart structure only.
+
+- `accounting.view` reads the chart.
+- `accounting.manage` creates, edits, activates, and deactivates accounts.
+- `accounting.core` must be enabled for the tenant.
+- Viewer roles are read-only.
+- Create/update/status changes produce business audit events.
+- Required system controls cannot be deactivated.
+- System-managed classification and hierarchy are immutable; code, name, and description may be localized while `systemKey` remains stable.
+- Header parents must be active, same-class, and in the same business.
+- PostgreSQL rejects cycles and invalid class/type/balance/kind combinations.
+- There is no hard-delete path.
+
+See `ACCOUNTING_FOUNDATION.md` for the default chart, lifecycle, hierarchy, migration, and explicit non-posting rules.
 
 ## Tenant access history
 
-The tenant users-and-access page records and displays:
+The tenant users-and-access page records invitation, membership, business-role/status, and administration-driven session changes. Events are tenant-scoped, transactional, owner-readable after `users.manage`, and protected by a PostgreSQL trigger that rejects updates and deletes. Audit metadata excludes passwords, secrets, tokens, links, sessions, and email bodies.
 
-- invitation creation, replacement, revocation, expiry, and acceptance;
-- member activation and disablement;
-- business access grants, role/status changes, and disablement;
-- administration-driven session revocation counts.
-
-Events are tenant-scoped, written in the same transaction as the access change, readable only by an active tenant owner with `users.manage`, and protected by a PostgreSQL trigger that rejects updates and deletes. Audit metadata excludes passwords, secrets, tokens, links, sessions, and email bodies.
-
-See `TENANT_ACCESS_AUDIT.md` for the complete event, safety, concurrency, and operating rules.
+See `TENANT_ACCESS_AUDIT.md`.
 
 ## Database and migration integrity
 
@@ -193,7 +203,7 @@ npm run db:verify-integrity
 npm run db:studio
 ```
 
-For a migrated disposable database, run:
+For a migrated disposable database:
 
 ```bash
 npm run db:status
@@ -205,18 +215,18 @@ npx prisma migrate diff \
 npm run db:verify-integrity
 ```
 
-The catalog verifier protects approved composite tenant keys, business checks, partial/operator-class indexes, trigger/function behavior, and required extensions. Pull-request CI additionally builds a second database from the exact base commit, inserts representative user/tenant/business/unit/party records, applies head migrations, and verifies schema integrity plus data preservation.
+The catalog verifier protects approved composite tenant keys, business checks, custom indexes, triggers/functions, and required extensions. Pull-request CI also builds a second database from the exact base commit, inserts representative data, applies head migrations, and verifies both schema integrity and data preservation. PR #26 additionally verifies default-chart backfill during this real upgrade.
 
 Migration rules:
 
 - use new forward migrations;
 - inspect generated and custom SQL;
-- represent supported relations/index names in Prisma using stable mappings;
-- update the catalog manifest only for an intentional reviewed invariant change;
+- map existing database object names in Prisma where supported;
+- update the catalog manifest only for intentional reviewed invariant changes;
 - verify clean installation and base-to-head upgrade;
 - back up important data before destructive changes.
 
-See `MIGRATION_INTEGRITY.md` for the full policy and failure interpretation.
+See `MIGRATION_INTEGRITY.md`.
 
 ## Backups and restore
 
@@ -248,7 +258,7 @@ Restore order:
 4. run `npm run db:deploy` and migration-integrity checks;
 5. review pending/retry outbox records and expiry dates;
 6. start the web service, then the worker;
-7. verify health, files, audit history, tenant access history, and delivery.
+7. verify health, chart structure, files, audit history, tenant access history, and delivery.
 
 Never restore the database and private files from different maintenance windows. Test restoration on a disposable environment.
 
@@ -278,7 +288,7 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright starts the production web process and email worker. It verifies anonymous denial, sign-up, onboarding, parties, catalog, private upload/download, invitation delivery/acceptance, owner access-history visibility, viewer authorization, password reset, session revocation, and reauthentication. Never point tests at production or valuable data. See `E2E_TESTING.md`.
+Playwright starts the production web process and email worker. It verifies anonymous denial, sign-up, onboarding, parties, catalog, default/custom chart accounts, owner/viewer accounting authorization, private files, invitation delivery/acceptance, tenant access history, password reset, session revocation, and reauthentication. Never point tests at production or valuable data. See `E2E_TESTING.md`.
 
 Standard local gate:
 
@@ -287,7 +297,7 @@ npm run verify
 npm run test:e2e
 ```
 
-`npm run verify` runs lint, strict TypeScript, unit tests, PostgreSQL integration tests, and the production build. GitHub Actions additionally enforces migration status, supported schema diff, PostgreSQL catalog integrity, base-to-head upgrade preservation, browser E2E, Compose validation, migration/runtime images, runtime boot, database readiness, and the protected outbox smoke request.
+GitHub Actions additionally enforces migration status, supported schema diff, PostgreSQL catalog integrity, real base-to-head upgrade preservation, browser E2E, Compose validation, migration/runtime images, runtime boot, database readiness, and protected outbox processing.
 
 ## Health and troubleshooting
 
@@ -330,7 +340,7 @@ docker compose logs -f mailpit
 ### Migration integrity fails
 
 - run `npm run db:status`;
-- inspect the Prisma diff output;
+- inspect the Prisma diff;
 - review the named missing or changed catalog object;
 - fix the migration/schema relationship rather than weakening the manifest.
 
@@ -339,7 +349,7 @@ docker compose logs -f mailpit
 - install Chromium;
 - confirm PostgreSQL and Mailpit are running;
 - build the production application;
-- keep all application origins aligned;
+- keep application origins aligned;
 - inspect `playwright-report/` and `test-results/`.
 
 ### Stale Prisma client
@@ -391,7 +401,7 @@ Route handlers remain thin. Domain modules own authorization, business rules, tr
 12. `FUTURE_DEVELOPMENTS.md`
 13. `RESEARCH_REFERENCES.md`
 
-Use `MIGRATION_INTEGRITY.md`, `TENANT_ACCESS_AUDIT.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
+Use `ACCOUNTING_FOUNDATION.md`, `MIGRATION_INTEGRITY.md`, `TENANT_ACCESS_AUDIT.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
 
 The repository, migrations, tests, and verified runtime behavior are the source of truth. Documentation must not overstate implementation.
 
