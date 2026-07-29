@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 29, 2026
-Current branch: `phase-3-hardening-audit`
+Current branch: `main`
 Current phase: Phase 3 — Verification and hardening
 
 ## Evidence-based verified state
@@ -12,14 +12,14 @@ Current phase: Phase 3 — Verification and hardening
 - Business access resolves through active tenant and business memberships and an active subscription.
 - Private files are stored outside the public web root and downloaded through authenticated no-store routes.
 - Controlled exports are scoped, spreadsheet-safe, bounded, and audited without retaining generated payloads.
-- PR #22 corrects the blocking defects found by the independent Phase 3 audit: invitation role/lifecycle/scope, tenant administration entitlement gates, catalog reactivation, numbering settings/idempotency/void concurrency, import decision and target staleness, local worker setup, infrastructure exposure, and business-profile audit coverage.
-- The code-equivalent PR #22 run `30427351994`, job `90496608146`, passed clean dependency installation, Prisma generation, all migrations, lint, type checking, unit tests, 60 PostgreSQL integration tests, production build, Compose validation, both Docker image builds, runtime-container boot, database readiness, and the protected outbox smoke request.
+- PR #22 merged the blocking corrections found by the independent Phase 3 audit: invitation role/lifecycle/scope, tenant administration entitlement gates, catalog reactivation, numbering settings/idempotency/void concurrency, import decision and target staleness, local worker setup, infrastructure exposure, and business-profile audit coverage.
+- The final PR #22 run `30427561733`, job `90497258414`, passed clean dependency installation, Prisma generation, all migrations, lint, type checking, unit tests, 60 PostgreSQL integration tests, production build, Compose validation, both Docker image builds, runtime-container boot, database readiness, and the protected outbox smoke request.
 
 ## Audit correction
 
 The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICATION_AUDIT.md` records the code-level findings, corrective evidence, and remaining gaps. `PROGRESS.md` and `CHANGELOG.md` are not treated as proof by themselves.
 
-## Completed hardening in PR #22
+## Verified hardening merged through PR #22
 
 - Aligned module phase metadata with the authoritative roadmap and added a regression test.
 - Rejected protected owner invitation grants and persisted invitation expiry correctly.
