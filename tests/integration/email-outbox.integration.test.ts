@@ -52,11 +52,14 @@ describe("durable email outbox", () => {
     expect(failed.htmlBody).toBeNull();
   });
 
-  it("expires undelivered messages and preserves idempotent enqueueing", async () => {
+  it("expires undelivered messages and preserves equivalent idempotent enqueueing", async () => {
     const context = await ownerContext("outbox-expiry");
     const key = `expired-${randomUUID()}`;
-    const first = await enqueueEmail(db, { tenantId: context.tenantId, category: EmailOutboxCategory.SYSTEM, recipient: `expired-${randomUUID()}@example.com`, subject: "Expired", textBody: "Expired body", idempotencyKey: key, expiresAt: new Date(Date.now() - 1000) });
-    const second = await enqueueEmail(db, { tenantId: context.tenantId, category: EmailOutboxCategory.SYSTEM, recipient: "ignored@example.com", subject: "Ignored", textBody: "Ignored", idempotencyKey: key });
+    const recipient = `expired-${randomUUID()}@example.com`;
+    const expiresAt = new Date(Date.now() - 1000);
+    const input = { tenantId: context.tenantId, category: EmailOutboxCategory.SYSTEM, recipient, subject: "Expired", textBody: "Expired body", idempotencyKey: key, expiresAt };
+    const first = await enqueueEmail(db, input);
+    const second = await enqueueEmail(db, input);
     expect(second.id).toBe(first.id);
     const result = await processEmailOutboxBatch({ tenantId: context.tenantId, send: async () => ({ messageId: "unused" }) });
     expect(result.claimed).toBe(0);

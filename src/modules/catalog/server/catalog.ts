@@ -134,8 +134,12 @@ export async function updateCatalogItem(context: BusinessAccessContext, itemId: 
   await requireCatalog(context, "catalog.manage");
   const input = updateCatalogItemSchema.parse(rawInput);
   return db.$transaction(async (transaction) => {
-    const item = await transaction.catalogItem.findFirst({ where: { id: itemId, tenantId: context.tenantId, businessId: context.businessId } });
-    if (!item) throw new Error("CATALOG_ITEM_NOT_FOUND");
+    const lockedItem = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "CatalogItem"
+      WHERE "id" = ${itemId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    if (!lockedItem[0]) throw new Error("CATALOG_ITEM_NOT_FOUND");
     const unit = await transaction.$queryRaw<Array<{ id: string; active: boolean }>>`
       SELECT "id", "active" FROM "UnitOfMeasure"
       WHERE "id" = ${input.unitId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
@@ -167,10 +171,23 @@ export async function updateCatalogItem(context: BusinessAccessContext, itemId: 
 
 export async function setCatalogItemStatus(context: BusinessAccessContext, itemId: string, rawInput: unknown) {
   await requireCatalog(context, "catalog.manage");
-  const item = await db.catalogItem.findFirst({
-    where: { id: itemId, tenantId: context.tenantId, businessId: context.businessId },
-  });
-  if (!item) throw new Error("CATALOG_ITEM_NOT_FOUND");
   const { status } = catalogItemStatusSchema.parse(rawInput);
-  return db.catalogItem.update({ where: { id: itemId }, data: { status } });
+  return db.$transaction(async (transaction) => {
+    const items = await transaction.$queryRaw<Array<{ id: string; unitId: string }>>`
+      SELECT "id", "unitId" FROM "CatalogItem"
+      WHERE "id" = ${itemId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    const item = items[0];
+    if (!item) throw new Error("CATALOG_ITEM_NOT_FOUND");
+    if (status === "ACTIVE") {
+      const units = await transaction.$queryRaw<Array<{ id: string; active: boolean }>>`
+        SELECT "id", "active" FROM "UnitOfMeasure"
+        WHERE "id" = ${item.unitId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+        FOR UPDATE
+      `;
+      if (!units[0]?.active) throw new Error("CATALOG_UNIT_NOT_FOUND");
+    }
+    return transaction.catalogItem.update({ where: { id: itemId }, data: { status } });
+  });
 }

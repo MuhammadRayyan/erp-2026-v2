@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Prisma, type EmailOutbox, EmailOutboxCategory, EmailOutboxStatus } from "@/generated/prisma/client";
+import { Prisma, type EmailOutbox, EmailOutboxCategory, EmailOutboxStatus, InvitationStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { sendPlatformEmail } from "@/modules/communication/server/platform-email";
 
@@ -20,24 +20,44 @@ export type QueueEmailInput = {
 type DbClient = Prisma.TransactionClient | typeof db;
 type EmailSender = typeof sendPlatformEmail;
 
+function normalizedInput(input: QueueEmailInput) {
+  return {
+    tenantId: input.tenantId ?? null,
+    category: input.category,
+    recipient: input.recipient.trim().toLowerCase(),
+    subject: input.subject.trim(),
+    textBody: input.textBody ?? null,
+    htmlBody: input.htmlBody ?? null,
+    idempotencyKey: input.idempotencyKey,
+    correlationType: input.correlationType ?? null,
+    correlationId: input.correlationId ?? null,
+    expiresAt: input.expiresAt ?? null,
+    maxAttempts: input.maxAttempts ?? 5,
+  };
+}
+
+function matchesInput(message: EmailOutbox, input: ReturnType<typeof normalizedInput>) {
+  return message.tenantId === input.tenantId
+    && message.category === input.category
+    && message.recipient === input.recipient
+    && message.subject === input.subject
+    && message.textBody === input.textBody
+    && message.htmlBody === input.htmlBody
+    && message.correlationType === input.correlationType
+    && message.correlationId === input.correlationId
+    && message.maxAttempts === input.maxAttempts
+    && (message.expiresAt?.getTime() ?? null) === (input.expiresAt?.getTime() ?? null);
+}
+
 export async function enqueueEmail(client: DbClient, input: QueueEmailInput) {
-  return client.emailOutbox.upsert({
-    where: { idempotencyKey: input.idempotencyKey },
+  const normalized = normalizedInput(input);
+  const message = await client.emailOutbox.upsert({
+    where: { idempotencyKey: normalized.idempotencyKey },
     update: {},
-    create: {
-      tenantId: input.tenantId ?? null,
-      category: input.category,
-      recipient: input.recipient.trim().toLowerCase(),
-      subject: input.subject.trim(),
-      textBody: input.textBody ?? null,
-      htmlBody: input.htmlBody ?? null,
-      idempotencyKey: input.idempotencyKey,
-      correlationType: input.correlationType ?? null,
-      correlationId: input.correlationId ?? null,
-      expiresAt: input.expiresAt ?? null,
-      maxAttempts: input.maxAttempts ?? 5,
-    },
+    create: normalized,
   });
+  if (!matchesInput(message, normalized)) throw new Error("EMAIL_IDEMPOTENCY_CONFLICT");
+  return message;
 }
 
 export function retryDelayMilliseconds(attempt: number) {
@@ -115,6 +135,37 @@ async function markFailedAttempt(message: EmailOutbox, error: unknown) {
   });
 }
 
+async function requireActionableCorrelation(message: EmailOutbox) {
+  if (message.category !== EmailOutboxCategory.TENANT_INVITATION || !message.correlationId) return true;
+  const now = new Date();
+  return db.$transaction(async (transaction) => {
+    const invitation = await transaction.tenantInvitation.findUnique({
+      where: { id: message.correlationId! },
+      select: { status: true, expiresAt: true },
+    });
+    const expired = invitation?.status === InvitationStatus.PENDING && invitation.expiresAt.getTime() <= now.getTime();
+    if (expired) {
+      await transaction.tenantInvitation.updateMany({
+        where: { id: message.correlationId!, status: InvitationStatus.PENDING },
+        data: { status: InvitationStatus.EXPIRED },
+      });
+    }
+    if (invitation?.status === InvitationStatus.PENDING && !expired) return true;
+    await transaction.emailOutbox.updateMany({
+      where: { id: message.id, status: EmailOutboxStatus.PROCESSING, lockedBy: message.lockedBy },
+      data: {
+        status: expired ? EmailOutboxStatus.EXPIRED : EmailOutboxStatus.CANCELLED,
+        textBody: null,
+        htmlBody: null,
+        lockedAt: null,
+        lockedBy: null,
+        lastError: expired ? "INVITATION_EXPIRED" : "INVITATION_NOT_ACTIONABLE",
+      },
+    });
+    return false;
+  });
+}
+
 export async function processEmailOutboxBatch(options?: { workerId?: string; batchSize?: number; staleAfterMs?: number; tenantId?: string; send?: EmailSender }) {
   const workerId = options?.workerId ?? `worker-${randomUUID()}`;
   const batchSize = Math.min(Math.max(options?.batchSize ?? 10, 1), 50);
@@ -125,9 +176,14 @@ export async function processEmailOutboxBatch(options?: { workerId?: string; bat
   let sent = 0;
   let retried = 0;
   let failed = 0;
+  let cancelled = 0;
 
   for (const message of messages) {
     try {
+      if (!await requireActionableCorrelation(message)) {
+        cancelled += 1;
+        continue;
+      }
       if (!message.textBody && !message.htmlBody) throw new Error("EMAIL_PAYLOAD_MISSING");
       const result = await sender({ to: message.recipient, subject: message.subject, text: message.textBody ?? "", html: message.htmlBody ?? undefined });
       await markSent(message, result.messageId);
@@ -139,5 +195,5 @@ export async function processEmailOutboxBatch(options?: { workerId?: string; bat
     }
   }
 
-  return { claimed: messages.length, sent, retried, failed };
+  return { claimed: messages.length, sent, retried, failed, cancelled };
 }

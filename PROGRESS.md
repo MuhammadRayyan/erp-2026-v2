@@ -1,47 +1,57 @@
 # Progress
 
 Last updated: July 29, 2026
-Current branch: `main`
-Current phase: Phase 4 — Accounting kernel
+Current branch: `phase-3-hardening-audit`
+Current phase: Phase 3 — Verification and hardening
 
-## Verified state
+## Evidence-based verified state
 
-- Phase 1 application foundation merged with strict CI verification.
-- Phase 2 identity, tenancy, sessions, invitations, RBAC, capabilities, entitlements, limits, setup documentation, SMTP integration, and access administration merged and verified through PRs #2–#9.
-- Phase 3 business onboarding and settings, parties, contacts, items, services, units, custom fields, private files, numbering, lists, forms, staged imports, controlled exports, audit/history, and durable queued email foundations merged and verified through PRs #10–#21.
-- Business-profile and UAE registration settings merged through PR #10.
-- Shared parties, related records, lifecycle management, integrity constraints, and duplicate review merged through PRs #11–#13.
-- Products, services, units, lifecycle controls, and staged catalog imports merged through PRs #14–#16.
-- Private file storage, attachments, audit history, and coordinated backup guidance merged through PR #17.
-- Reusable document numbering with locked idempotent allocation and immutable history merged through PR #18.
-- Controlled filtered CSV exports with safe serialization, immutable run metadata, checksums, and audit events merged through PR #19.
-- Typed custom-field definitions and values with target locking, settings administration, and tenant isolation merged through PR #20.
-- Durable PostgreSQL email outbox, concurrent worker claiming, retries, expiry, payload scrubbing, invitation/password-reset integration, and worker operations merged through PR #21.
-- Prisma 7 PostgreSQL runtime and Better Auth database sessions are active foundations.
-- Prisma uses a multi-file schema layout so bounded domains can evolve without one oversized schema file.
-- Composite tenant keys protect operational records and shared foundations in PostgreSQL.
-- Business navigation and protected pages require implementation status, user capability, and tenant entitlement.
-- Private objects remain outside PostgreSQL and the public web root; PostgreSQL stores metadata, scope, hashes, and append-only audit events.
-- Number allocations use explicit effective dates, stable idempotency keys, PostgreSQL row locking, immutable formatted values, and no reuse after voiding.
-- CSV exports require dedicated export permission plus dataset view permission, fail above 5,000 rows, neutralize spreadsheet formulas, and retain metadata without retaining generated payloads.
-- Custom-field keys and types are immutable; operational values use typed columns, required fields are enforced during save, and used select options cannot be removed.
-- Email delivery work is persisted before request completion, claimed with `FOR UPDATE SKIP LOCKED`, retried with bounded backoff, and scrubbed after terminal outcomes.
-- Serializable owner onboarding now retries bounded PostgreSQL write conflicts while preserving idempotency.
+- Phase 1 application foundation and Phase 2 identity/access foundations are merged and covered by the repository CI gate.
+- Phase 3 working foundations are merged through PRs #10–#21: business profile, parties and contacts, catalog and units, staged catalog imports, private files, audit storage, numbering, exports, custom fields, and durable queued email.
+- Better Auth uses PostgreSQL-backed revocable sessions.
+- Business access resolves through active tenant and business memberships and an active subscription.
+- Private files are stored outside the public web root and downloaded through authenticated no-store routes.
+- Controlled exports are scoped, spreadsheet-safe, bounded, and audited without retaining generated payloads.
+- PR #22 corrects the blocking defects found by the independent Phase 3 audit: invitation role/lifecycle/scope, tenant administration entitlement gates, catalog reactivation, numbering settings/idempotency/void concurrency, import decision and target staleness, local worker setup, infrastructure exposure, and business-profile audit coverage.
+- The code-equivalent PR #22 run `30427351994`, job `90496608146`, passed clean dependency installation, Prisma generation, all migrations, lint, type checking, unit tests, 60 PostgreSQL integration tests, production build, Compose validation, both Docker image builds, runtime-container boot, database readiness, and the protected outbox smoke request.
 
-## Verification status
+## Audit correction
 
-PR #21 passed strict `npm ci`, multi-file Prisma generation, migration deployment, lint, type checking, separated unit tests, PostgreSQL integration tests including concurrent workers and parallel onboarding, production build, Compose validation including the worker service, and migration/runtime Docker image builds before merge.
+The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICATION_AUDIT.md` records the code-level findings, corrective evidence, and remaining gaps. `PROGRESS.md` and `CHANGELOG.md` are not treated as proof by themselves.
 
-Phase 3 is complete according to the `MODULES_AND_PHASES.md` completion scope. Its shared foundations are implemented as working, protected, migrated, tested workflows rather than file-only scaffolding.
+## Completed hardening in PR #22
 
-## Next priority
+- Aligned module phase metadata with the authoritative roadmap and added a regression test.
+- Rejected protected owner invitation grants and persisted invitation expiry correctly.
+- Enforced `users.manage` within tenant administration services.
+- Added composite invitation/grant tenant scope in Prisma and PostgreSQL.
+- Revalidated invitation correlation before queued delivery and tightened email idempotency.
+- Cancelled older queued password resets when a new request is created.
+- Serialized catalog item edits/reactivation with unit lifecycle changes.
+- Serialized numbering settings with allocation, froze unsafe post-use policy changes, validated retry equivalence, and locked void transitions.
+- Serialized import row decisions with commit and rejected stale update targets.
+- Added sensitive business-profile audit events.
+- Bound PostgreSQL and Mailpit host ports to loopback, added database-aware readiness, and made the worker wait for a healthy web service.
+- Added focused regression tests and a booted-runtime CI smoke gate.
+- Reconciled README, security guidance, decisions, changelog, and the Phase 3 audit.
 
-1. Begin Phase 4 with chart-of-accounts foundations and account lifecycle rules.
-2. Add accounting periods and lock foundations before journal posting is exposed.
-3. Build the central double-entry journal and posting-policy kernel with exact decimals, balanced transactions, idempotency, reversals, and immutable posted history.
-4. Add opening balances, receivables/payables foundations, allocations, multi-currency controls, and core reports only in the documented accounting sequence.
+## Remaining Phase 3 priorities
+
+1. Add Playwright browser E2E for sign-up, onboarding, authorization, parties, catalog, files, invitations, password reset, and queued Mailpit delivery.
+2. Add migration-drift protection and reconcile remaining critical manually enforced composite constraints with Prisma models.
+3. Add a tenant-level access audit trail for invitation, membership, role, disable/reactivate, and acceptance events.
+4. Re-run unit, PostgreSQL, browser, runtime, Docker, and migration verification from a clean branch.
+5. Reassess Phase 3 from evidence before enabling Phase 4.
+
+## Tracked non-blocking follow-up
+
+- Pagination for capped party, catalog, file, and audit lists.
+- Full contact/address editing and removal.
+- Broader party/catalog/import audit coverage.
+- File attachment target validation, stronger OOXML inspection, deployment request-size limits, and restore drills.
+- Entitlement value-type constraints and subscription start/end-date enforcement.
 
 ## Active blockers
 
-- None for the completed Phase 3 shared foundations.
-- No accounting transaction should be exposed until chart structure, periods, posting invariants, and reversal policy are implemented and integration-tested.
+- Phase 4 remains blocked by browser E2E, migration-drift protection, and tenant access-change auditing.
+- No accounting transaction should be exposed until Phase 3 is explicitly re-verified and chart structure, periods, posting invariants, and reversal policy are implemented and integration-tested.
