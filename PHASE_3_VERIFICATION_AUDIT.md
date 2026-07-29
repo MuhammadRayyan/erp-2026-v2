@@ -5,7 +5,7 @@ Audit basis: repository code, Prisma models, committed migrations, API and serve
 
 ## Current conclusion
 
-Phase 3 contains substantial working foundations. The confirmed transaction, authorization, lifecycle, setup, numbering, and browser-integration defects found during this audit have been corrected through PRs #22 and #23 and covered by regression or end-to-end verification. Browser E2E is no longer a blocker. Phase 3 must remain open because migration-drift protection and complete tenant access-change auditing are still missing. Phase 4 accounting remains blocked.
+Phase 3 contains substantial working foundations. The confirmed transaction, authorization, lifecycle, setup, numbering, and browser-integration defects found during this audit have been corrected through merged PRs #22 and #23 and covered by regression or end-to-end verification. Browser E2E is no longer a blocker. Phase 3 must remain open because migration-drift protection and complete tenant access-change auditing are still missing. Phase 4 accounting remains blocked.
 
 ## Verified strengths
 
@@ -59,7 +59,7 @@ Phase 3 contains substantial working foundations. The confirmed transaction, aut
 
 ### Browser integration
 
-- Playwright now runs the production build with one Chromium worker against clean PostgreSQL and Mailpit services.
+- Playwright runs the production build with one Chromium worker against clean PostgreSQL and Mailpit services.
 - The critical scenario proves anonymous denial, owner sign-up, tenant/business onboarding, party and catalog creation, private upload/download, invitation delivery and acceptance, viewer read-only enforcement, password reset, old-session revocation, and sign-in with the new credential.
 - Viewer authorization is checked through both rendered UI controls and a direct authenticated write request that must return `403`.
 - Private file downloads are byte-verified from both owner and viewer browser contexts.
@@ -85,7 +85,7 @@ PR #22 run `30427561733`, job `90497258414`, passed:
 - database readiness response;
 - authenticated internal outbox-processing smoke request.
 
-The code-equivalent PR #23 run `30429567937`, job `90503417733`, additionally passed the complete Playwright workflow against the production build and real email worker, then repeated Compose validation, both image builds, runtime boot, readiness, and protected outbox smoke verification.
+The final exact-head PR #23 run `30429920983`, job `90504549396`, additionally passed the complete Playwright workflow against the production build and real email worker, then repeated Compose validation, both image builds, runtime boot, readiness, and protected outbox smoke verification. PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
 
 This evidence is not a substitute for migration-upgrade/drift verification or restoration testing.
 
@@ -107,8 +107,7 @@ This evidence is not a substitute for migration-upgrade/drift verification or re
 
 ## Best next sequence
 
-1. Merge the verified PR #23 browser gate without declaring Phase 3 complete.
-2. Add a migration-drift gate and reconcile remaining manually enforced composite constraints with Prisma models.
-3. Add tenant-level access audit records and expose protected owner-readable history.
-4. Re-run the complete unit, PostgreSQL, browser, migration, runtime, and Docker gate from a clean branch.
-5. Reassess Phase 3 from evidence. Only then begin Phase 4 with chart structure and account lifecycle, followed by periods and locks, then the central balanced posting kernel.
+1. Add a migration-drift gate and reconcile remaining manually enforced composite constraints with Prisma models.
+2. Add tenant-level access audit records and expose protected owner-readable history.
+3. Re-run the complete unit, PostgreSQL, browser, migration, runtime, and Docker gate from a clean branch.
+4. Reassess Phase 3 from evidence. Only then begin Phase 4 with chart structure and account lifecycle, followed by periods and locks, then the central balanced posting kernel.
