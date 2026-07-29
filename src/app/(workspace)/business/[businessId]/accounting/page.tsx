@@ -44,17 +44,20 @@ export default async function AccountingPage({
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Chart of accounts</h1>
         <p className="mt-2 max-w-3xl text-[var(--muted)]">Business-scoped account classes, hierarchy, control accounts, normal balances, and lifecycle. This foundation does not create balances or journal postings.</p>
       </div>
-      <form className="flex flex-wrap gap-2">
-        <input name="q" defaultValue={filters.q} placeholder="Search code or name" className="min-w-64 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
-        <select name="class" defaultValue={filters.class ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All classes</option>{accountClasses.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select>
-        <select name="status" defaultValue={filters.status ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All statuses</option>{accountStatuses.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select>
-        <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Filter</button>
-      </form>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={`/business/${businessId}/accounting/periods`} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white">Accounting periods</Link>
+        <form className="flex flex-wrap gap-2">
+          <input name="q" defaultValue={filters.q} placeholder="Search code or name" className="min-w-64 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
+          <select name="class" defaultValue={filters.class ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All classes</option>{accountClasses.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select>
+          <select name="status" defaultValue={filters.status ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All statuses</option>{accountStatuses.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select>
+          <button className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Filter</button>
+        </form>
+      </div>
     </div>
 
     <div className="rounded-2xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-sm">
-      <p className="font-medium">Structure only</p>
-      <p className="mt-1 text-[var(--muted)]">Journal entry, opening balance, period lock, receivable/payable allocation, and financial report workflows remain blocked until later Phase 4 slices verify the balanced posting kernel.</p>
+      <p className="font-medium">Structure and period control only</p>
+      <p className="mt-1 text-[var(--muted)]">Journal entry, opening balance, receivable/payable allocation, and financial report workflows remain blocked until later Phase 4 slices verify the balanced posting kernel.</p>
     </div>
 
     {canManage && <LedgerAccountForm businessId={businessId} headers={headers} />}
