@@ -204,7 +204,7 @@ CREATE TEMP TABLE "_DefaultLedgerAccount" (
   "manualPostingAllowed" BOOLEAN NOT NULL,
   "required" BOOLEAN NOT NULL,
   "parentSystemKey" TEXT
-) ON COMMIT DROP;
+);
 
 INSERT INTO "_DefaultLedgerAccount" VALUES
 ('ASSETS','1000','Assets','Asset accounts','ASSET','GENERAL','DEBIT','HEADER',false,false,true,NULL),
