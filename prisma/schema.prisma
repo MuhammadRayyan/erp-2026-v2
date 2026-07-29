@@ -229,6 +229,7 @@ model TenantInvitation {
   acceptedBy       User?            @relation("InvitationAcceptor", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
   businessGrants   BusinessInvitationGrant[]
 
+  @@unique([tenantId, id])
   @@index([tenantId, status, expiresAt])
   @@index([email, status])
 }
@@ -239,7 +240,7 @@ model BusinessInvitationGrant {
   tenantId     String
   businessId   String
   roleKey      String
-  invitation   TenantInvitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitation   TenantInvitation @relation(fields: [tenantId, invitationId], references: [tenantId, id], onDelete: Cascade)
   business     Business         @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
 
   @@unique([invitationId, businessId])
