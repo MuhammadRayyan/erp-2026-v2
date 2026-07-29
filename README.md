@@ -1,226 +1,212 @@
 # ERP 2026 V2
 
-A structured UAE-first ERP for owner-operated and small businesses. The product is being developed phase by phase for technical services, automotive workshops, civil/architectural services, and general service or trading businesses.
+A UAE-first ERP for owner-operated and small businesses, developed as a structured Next.js modular monolith for technical services, automotive workshops, civil/architectural services, general services, and trading businesses.
 
-## Current project status
+## Current status
 
-Phase 3 — Verification and hardening.
+**Phase 3 — Verification and hardening.**
 
-Implemented foundations include:
+Implemented and executable foundations include:
 
-- Next.js 16 App Router and React 19;
-- PostgreSQL 16 and Prisma 7;
-- Better Auth with database-backed sessions;
-- tenant and business isolation;
-- explicit owner onboarding;
-- authenticated Account Hub and business workspaces;
-- tenant access administration and secure invitations;
-- business roles, capabilities, plans, entitlements, and usage limits;
-- business profile and UAE VAT registration settings;
-- shared customer and supplier parties with contacts, addresses, and duplicate review;
-- products, services, units, lifecycle controls, and staged imports;
-- typed custom fields for parties and catalog items;
-- private files, attachment links, audit history, and coordinated backup guidance;
-- reusable document numbering and immutable allocation history;
-- controlled filtered CSV exports with checksums and audit history;
-- durable PostgreSQL queued email with a separate worker;
-- Playwright browser verification across authentication, onboarding, master data, files, invitations, authorization, and password recovery;
-- Docker and GitHub Actions verification, including a booted runtime-image smoke check.
+- Next.js 16, React 19, strict TypeScript, PostgreSQL 16, and Prisma 7;
+- Better Auth with database-backed revocable sessions;
+- tenant/business isolation, RBAC, capabilities, plans, entitlements, and usage limits;
+- owner onboarding, Account Hub, business workspaces, invitations, and member administration;
+- UAE business profile and VAT-registration settings;
+- parties, contacts, addresses, duplicate review, products, services, units, and staged imports;
+- typed custom fields, private files, audit history, document numbering, and controlled CSV exports;
+- durable PostgreSQL email outbox with a separate worker;
+- Playwright browser verification for authentication, onboarding, master data, private files, invitations, authorization, and password recovery;
+- clean-install and base-to-head migration integrity verification;
+- Docker image builds and a booted runtime/readiness/outbox smoke check.
 
-These foundations remain under evidence-based hardening before Phase 4 begins. Browser E2E is now verified; migration-drift protection and tenant access-change auditing remain blocking gates. See `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for the evidence and active plan.
+Migration integrity is now verified through migration history, an empty Prisma-supported schema diff, a PostgreSQL catalog manifest, and a real base-commit upgrade database with preserved sentinel data. The remaining Phase 3 blocker is the tenant access-change audit trail. Phase 4 accounting remains blocked until Phase 3 is reassessed from complete evidence.
 
-## Technology requirements
+Read `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for the authoritative state.
 
-Install these before running the project locally:
+## Requirements
 
 - Node.js 24 LTS;
 - npm 11 or the npm version bundled with Node.js 24;
-- Docker Desktop or Docker Engine with Docker Compose;
+- Docker Desktop or Docker Engine with Compose;
 - Git.
 
-Windows development is best through WSL2 with Docker Desktop integration, although the project also works directly on Linux and macOS.
+Windows development is best through WSL2 with Docker Desktop integration. Linux and macOS are also supported.
 
-## First-time setup — recommended local development
+## Recommended local development
 
-This mode runs PostgreSQL and Mailpit in Docker while Next.js and the email worker run directly on the host. It provides the fastest hot reload and does not rebuild a container after each code change.
-
-### 1. Clone the repository
+### 1. Clone and configure
 
 ```bash
 git clone https://github.com/MuhammadRayyan/erp-2026-v2.git
 cd erp-2026-v2
-```
-
-### 2. Create the environment file
-
-```bash
 cp .env.example .env
 ```
 
-Generate separate authentication and worker secrets of at least 32 characters:
+Generate separate secrets of at least 32 characters:
 
 ```bash
 openssl rand -base64 32
 openssl rand -base64 32
 ```
 
-Replace `BETTER_AUTH_SECRET` and `OUTBOX_WORKER_SECRET` in `.env` with different generated values. Never commit `.env`.
+Set different values for `BETTER_AUTH_SECRET` and `OUTBOX_WORKER_SECRET`. Never commit `.env`.
 
-### 3. Install dependencies
+### 2. Install dependencies
 
 ```bash
 npm ci
 ```
 
-Use `npm ci` for a clean reproducible installation. Use `npm install <package>` only when intentionally changing dependencies and commit the resulting lockfile.
+Use `npm ci` for reproducible installs. Use `npm install <package>` only for intentional dependency changes and commit the resulting lockfile.
 
-### 4. Start local infrastructure
+### 3. Start PostgreSQL and Mailpit
 
 ```bash
 docker compose up -d db mailpit
-```
-
-Services are bound to the local machine only:
-
-- PostgreSQL: `localhost:5432`
-- Mailpit web interface: `http://localhost:8025`
-- Mailpit SMTP: `localhost:1025`
-
-Check service health:
-
-```bash
 docker compose ps
 ```
 
-### 5. Generate Prisma Client
+Local services are loopback-bound:
+
+- PostgreSQL: `localhost:5432`
+- Mailpit web UI: `http://localhost:8025`
+- Mailpit SMTP: `localhost:1025`
+
+### 4. Generate and migrate
 
 ```bash
 npm run db:generate
-```
-
-### 6. Apply database migrations
-
-For normal first-time setup or a shared branch:
-
-```bash
 npm run db:deploy
 ```
 
-When intentionally creating a new migration during development:
+When intentionally creating a new migration:
 
 ```bash
 npm run db:migrate -- --name meaningful_migration_name
 ```
 
-Do not use `prisma db push` as the normal project workflow. Schema changes must be represented by reviewed migrations.
+Never use `prisma db push` as the normal project workflow and never edit a migration that has already been shared or applied.
 
-### 7. Start the application
+### 5. Start the application and worker
+
+Terminal one:
 
 ```bash
 npm run dev
 ```
 
-### 8. Start queued email processing
-
-In a second terminal:
+Terminal two:
 
 ```bash
 npm run worker:email
 ```
-
-The application creates invitation and password-reset records durably. The worker is required to deliver those records to Mailpit or the configured SMTP provider.
-
-Open `http://localhost:3000` and Mailpit at `http://localhost:8025`.
-
-Create an account, create the first tenant and business through onboarding, and enter the business workspace from the Account Hub.
-
-## Full Docker setup
-
-This mode builds and runs the complete application stack. It is useful for clean-environment verification and deployment-like testing.
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Docker Compose will:
-
-1. start PostgreSQL and wait for database health;
-2. apply committed Prisma migrations once;
-3. start Mailpit for local email inspection;
-4. start the application and wait for database-aware readiness;
-5. start the queued-email worker only after the application is ready;
-6. mount a private file volume at `/app/storage/private`.
 
 Open:
 
 - ERP: `http://localhost:3000`
 - Mailpit: `http://localhost:8025`
 
-PostgreSQL and Mailpit ports are loopback-bound and are not exposed on external host interfaces. A remote deployment should place the web application behind HTTPS and should not publish database, Mailpit, or worker endpoints.
+The worker is required because invitation and password-reset requests persist delivery work before returning.
 
-Stop services without deleting data:
+## Full Docker mode
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Compose:
+
+1. starts PostgreSQL and waits for health;
+2. applies committed migrations once;
+3. starts Mailpit;
+4. starts the web application and waits for database-aware readiness;
+5. starts the email worker after the web service is healthy;
+6. mounts private files at `/app/storage/private`.
+
+Stop without deleting data:
 
 ```bash
 docker compose down
 ```
 
-Stop services and permanently remove the local PostgreSQL and private-file volumes only when a full reset is intentional:
+Delete local PostgreSQL and private-file volumes only for an intentional reset:
 
 ```bash
 docker compose down -v
 ```
 
-**Warning:** `-v` deletes both the local database and private-file volume.
+`-v` permanently removes both local datasets.
 
-## Environment variables
+## Environment contract
 
 | Variable | Required | Local example | Purpose |
 |---|---:|---|---|
-| `DATABASE_URL` | Yes | `postgresql://erp:erp@localhost:5432/erp` | PostgreSQL connection used by Prisma and the application |
-| `BETTER_AUTH_SECRET` | Yes | Generated private value | Signs and protects authentication data; minimum 32 characters |
-| `BETTER_AUTH_URL` | Yes | `http://localhost:3000` | Better Auth base URL |
-| `APP_URL` | Yes | `http://localhost:3000` | Canonical application origin and trusted browser origin |
-| `SMTP_HOST` | No initially | `localhost` | SMTP server used by the queued-email processor |
-| `SMTP_PORT` | No initially | `1025` | SMTP port |
-| `SMTP_SECURE` | No initially | `false` | Use implicit TLS for SMTP |
+| `DATABASE_URL` | Yes | `postgresql://erp:erp@localhost:5432/erp` | Application and Prisma database |
+| `BETTER_AUTH_SECRET` | Yes | generated value | Authentication secret, minimum 32 characters |
+| `BETTER_AUTH_URL` | Yes | `http://localhost:3000` | Better Auth origin |
+| `APP_URL` | Yes | `http://localhost:3000` | Canonical/trusted application origin |
+| `SMTP_HOST` | For delivery | `localhost` | SMTP host |
+| `SMTP_PORT` | No | `1025` | SMTP port |
+| `SMTP_SECURE` | No | `false` | Implicit SMTP TLS |
 | `SMTP_USER` | No | empty | SMTP username |
 | `SMTP_PASSWORD` | No | empty | SMTP password |
-| `EMAIL_FROM` | No initially | `ERP 2026 <no-reply@localhost>` | Platform identity sender |
-| `OUTBOX_WORKER_SECRET` | Yes for delivery | Generated private value | Protects the internal outbox-processing endpoint; minimum 32 characters |
-| `OUTBOX_BATCH_SIZE` | No | `10` | Maximum messages claimed per worker request; capped by the application |
-| `OUTBOX_POLL_SECONDS` | No | `5` | Delay between worker processing requests |
-| `FILE_STORAGE_PROVIDER` | Yes for files | `local` | Private object-storage adapter; local is implemented, S3 is reserved |
-| `FILE_STORAGE_ROOT` | Yes for local files | `./storage/private` | Non-public private storage directory |
-| `FILE_MAX_BYTES` | No | `10485760` | Maximum accepted upload size in bytes; hard maximum is 50 MiB |
+| `EMAIL_FROM` | No | `ERP 2026 <no-reply@localhost>` | Platform sender |
+| `OUTBOX_WORKER_SECRET` | For delivery | generated value | Protects the internal processing endpoint |
+| `OUTBOX_BATCH_SIZE` | No | `10` | Messages claimed per worker request |
+| `OUTBOX_POLL_SECONDS` | No | `5` | Worker polling interval |
+| `FILE_STORAGE_PROVIDER` | For files | `local` | Private storage adapter |
+| `FILE_STORAGE_ROOT` | For local files | `./storage/private` | Non-public object directory |
+| `FILE_MAX_BYTES` | No | `10485760` | Upload limit; hard maximum 50 MiB |
 
-For Docker Compose, service-to-service hostnames differ from host development: PostgreSQL is `db`, Mailpit is `mailpit`, the worker calls `web`, and private files use `/app/storage/private`. Compose supplies those values to containers.
+In Compose, PostgreSQL is `db`, Mailpit is `mailpit`, the worker calls `web`, and private files use `/app/storage/private`.
 
 See `OUTBOX_OPERATIONS.md` for delivery lifecycle, retries, payload retention, failure handling, and secret rotation.
 
-## Database commands
+## Database and migration integrity
+
+Common commands:
 
 ```bash
 npm run db:generate
 npm run db:migrate
 npm run db:deploy
+npm run db:status
+npm run db:verify-integrity
 npm run db:studio
 ```
 
+For a migrated disposable database, the local clean-integrity sequence is:
+
+```bash
+npm run db:status
+npx prisma migrate diff \
+  --from-schema prisma \
+  --to-config-datasource \
+  --script \
+  --exit-code
+npm run db:verify-integrity
+```
+
+The catalog verifier checks approved composite tenant keys, business checks, partial/operator-class indexes, trigger/function behavior, and required extensions. Pull-request CI additionally builds a second database from the exact base commit, inserts representative user/tenant/business/unit/party records, applies the head migrations, and verifies both schema integrity and data preservation.
+
 Migration rules:
 
-- never edit a migration that has already been shared or applied;
-- add a new forward migration instead;
-- inspect generated SQL before committing;
-- commit schema and migration together;
-- run integration tests after every structural database change;
-- back up important local or hosted data before destructive changes.
+- use new forward migrations;
+- inspect generated and custom SQL;
+- represent supported relations and index names in Prisma using stable mappings;
+- update the catalog manifest only for an intentional reviewed invariant change;
+- verify clean installation and base-to-head upgrade;
+- back up important data before destructive changes.
+
+See `MIGRATION_INTEGRITY.md` for the full policy and failure interpretation.
 
 ## Backups and restore
 
-PostgreSQL metadata and private file objects form one logical dataset. Back up and restore them as a coordinated pair from the same maintenance window. Pending outbox records can contain temporary invitation or password-reset links, so database backups are sensitive.
+PostgreSQL metadata and private objects form one logical dataset. Pending outbox records may contain temporary invitation or reset links, so database backups are sensitive.
 
-### Host-development backup
+Host backup:
 
 ```bash
 mkdir -p backups
@@ -228,7 +214,7 @@ pg_dump "$DATABASE_URL" --format=custom --file="backups/erp-$(date +%Y%m%d-%H%M%
 tar -czf "backups/private-files-$(date +%Y%m%d-%H%M%S).tar.gz" storage/private
 ```
 
-### Docker backup
+Docker backup:
 
 ```bash
 mkdir -p backups
@@ -236,29 +222,29 @@ docker compose exec -T db pg_dump -U erp -d erp --format=custom > "backups/erp-$
 docker run --rm -v erp-2026-v2_private_files:/data -v "$PWD/backups:/backup" alpine sh -c 'tar -czf /backup/private-files.tar.gz -C /data .'
 ```
 
-Confirm the actual Compose volume name with `docker volume ls`; Compose may prefix it with the checkout directory name.
+Confirm the actual volume name with `docker volume ls`.
 
-### Restore rules
+Restore order:
 
 1. stop the worker and application writes;
-2. restore PostgreSQL to the intended database;
-3. restore the matching private-file archive into `FILE_STORAGE_ROOT` or the Docker private-files volume;
-4. run `npm run db:deploy`;
-5. review pending/retry outbox records and their expiry timestamps;
-6. start the application, then the worker;
-7. verify health, file downloads, recent audit history, and email delivery.
+2. restore PostgreSQL;
+3. restore the matching private-file archive;
+4. run `npm run db:deploy` and the migration-integrity checks;
+5. review pending/retry outbox records and expiry dates;
+6. start the web service, then the worker;
+7. verify health, files, audit history, and delivery.
 
-Never restore a database dump without its matching private-file archive. Never restore private files alone over newer database metadata. Test restoration periodically on a disposable environment.
+Never restore the database and private files from different maintenance windows. Test restoration on a disposable environment.
 
-## Running tests and verification
+## Verification
 
-### Unit tests
+Unit tests:
 
 ```bash
 npm run test
 ```
 
-### PostgreSQL integration tests
+PostgreSQL integration tests:
 
 ```bash
 docker compose up -d db
@@ -266,11 +252,7 @@ npm run db:deploy
 npm run test:integration
 ```
 
-Integration tests use the configured `DATABASE_URL`. Do not point tests at a production or valuable database.
-
-### Browser end-to-end verification
-
-Install the Chromium browser once, build the production application, and keep PostgreSQL and Mailpit running:
+Browser E2E:
 
 ```bash
 npx playwright install chromium
@@ -280,136 +262,104 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright starts the production web process and email worker. The scenario verifies anonymous denial, sign-up, onboarding, parties, catalog, private upload/download, invitation delivery and acceptance, viewer authorization, password reset, session revocation, and reauthentication. Do not point it at production or a valuable database. See `E2E_TESTING.md` for the complete operating guide.
+Playwright starts the production web process and email worker. It verifies anonymous denial, sign-up, onboarding, parties, catalog, private upload/download, invitation delivery/acceptance, viewer authorization, password reset, session revocation, and reauthentication. Never point tests at production or valuable data. See `E2E_TESTING.md`.
 
-Interactive browser debugging:
-
-```bash
-npm run test:e2e:ui
-```
-
-### Watch mode
-
-```bash
-npm run test:watch
-```
-
-### Individual quality checks
-
-```bash
-npm run lint
-npm run typecheck
-npm run build
-```
-
-### Complete local verification
+Standard local gate:
 
 ```bash
 npm run verify
 npm run test:e2e
 ```
 
-`npm run verify` requires a reachable migrated PostgreSQL database and runs lint, TypeScript checking, unit tests, PostgreSQL integration tests, and the production build. The browser command additionally requires Mailpit and Chromium. GitHub Actions runs both layers, validates Compose, builds migration/runtime images, boots the runtime image, verifies database readiness, and calls the protected outbox endpoint.
+`npm run verify` runs lint, strict TypeScript, unit tests, PostgreSQL integration tests, and production build. GitHub Actions additionally enforces migration status, supported schema diff, PostgreSQL catalog integrity, base-to-head upgrade preservation, browser E2E, Compose validation, migration/runtime images, runtime boot, database readiness, and the protected outbox smoke request.
 
 ## Health and troubleshooting
 
-Application readiness endpoint:
+Readiness endpoint:
 
 ```text
 GET /api/health
 ```
 
-It returns `200` only when the web process can reach PostgreSQL; database failure returns `503`.
+It returns `200` only when PostgreSQL is reachable; database failure returns `503`.
 
-Useful commands:
+Useful logs:
 
 ```bash
-docker compose ps
 docker compose logs -f db
+docker compose logs -f migrate
 docker compose logs -f web
 docker compose logs -f worker
-docker compose logs -f migrate
 docker compose logs -f mailpit
 ```
 
-Common problems:
+### Database connection failure
 
-### PostgreSQL connection refused
+- confirm `db` is healthy;
+- use `localhost`, not `db`, for host development;
+- confirm port `5432` is available.
 
-- confirm `docker compose ps` shows `db` as healthy;
-- confirm host development uses `localhost`, not `db`, in `DATABASE_URL`;
-- confirm port `5432` is not occupied by another local PostgreSQL instance.
-
-### Authentication configuration error
+### Authentication/origin failure
 
 - confirm `BETTER_AUTH_SECRET` is at least 32 characters;
-- confirm `BETTER_AUTH_URL`, `APP_URL`, and the browser origin are identical;
-- restart the development server after changing `.env`.
+- keep `BETTER_AUTH_URL`, `APP_URL`, and the opened browser origin identical;
+- restart after environment changes.
 
-### Invitations or password resets remain queued
+### Queued email is not delivered
 
-- confirm `OUTBOX_WORKER_SECRET` is the same for the application and worker;
-- run `npm run worker:email` during host development;
-- inspect `docker compose logs -f worker` in full Docker mode;
-- confirm Mailpit or the configured SMTP server is reachable.
+- start `npm run worker:email` during host development;
+- ensure application and worker use the same `OUTBOX_WORKER_SECRET`;
+- verify Mailpit or the configured SMTP provider is reachable.
 
-### Browser E2E cannot start
+### Migration integrity fails
 
-- run `npx playwright install chromium`;
+- run `npm run db:status`;
+- inspect the Prisma diff output;
+- review the named missing or changed catalog object;
+- fix the migration/schema relationship rather than weakening the manifest.
+
+### Browser E2E fails
+
+- install Chromium;
 - confirm PostgreSQL and Mailpit are running;
-- confirm the production build exists through `npm run build`;
-- keep `APP_URL`, `BETTER_AUTH_URL`, and `PLAYWRIGHT_BASE_URL` on `http://localhost:3000` unless all are changed together;
-- inspect `playwright-report/` and `test-results/` after a failure.
+- build the production application;
+- keep all application origins aligned;
+- inspect `playwright-report/` and `test-results/`.
 
-### Prisma Client missing or stale
-
-```bash
-npm run db:generate
-```
-
-Restart the development server afterward.
-
-### Database schema is behind
+### Stale Prisma client
 
 ```bash
-npm run db:deploy
-```
-
-### Clean dependency reinstall
-
-```bash
-rm -rf node_modules .next
-npm ci
 npm run db:generate
 ```
 
 ## Project structure
 
 ```text
-prisma/                       Database schema and ordered migrations
+prisma/                       Multi-file schema and ordered migrations
+scripts/                      Workers and verification utilities
 src/app/                      Next.js routes, layouts, and HTTP handlers
-src/components/               Shared UI and layout components
+src/components/               Shared UI and forms
 src/lib/                      Infrastructure configuration and adapters
 src/modules/                  Domain and application modules
-tests/                        Unit, PostgreSQL integration, and Playwright E2E tests
+tests/                        Unit, PostgreSQL integration, and Playwright E2E
 .github/workflows/            CI verification
-*.md                          Durable product, operations, and development context
+*.md                          Durable architecture and operations context
 ```
 
-Route handlers remain thin. Domain modules own business rules, authorization, transactions, and tests.
+Route handlers remain thin. Domain modules own authorization, business rules, transactions, and tests.
 
 ## Development workflow
 
-1. Read `PROGRESS.md`, `PHASE_3_VERIFICATION_AUDIT.md`, and the relevant phase.
-2. Inspect the current branch, migrations, tests, configuration, and verified runtime evidence.
-3. Create one coherent implementation slice.
-4. Update or add forward migrations when needed.
-5. Run relevant local checks or the GitHub Actions gate when local execution is unavailable.
-6. Open a pull request and require the complete unit, PostgreSQL, browser, build, Docker, and runtime gate to pass.
-7. Merge without rewriting or deleting history.
-8. Update context files only after claims are supported by code and test evidence.
+1. Read the context files and relevant operating guide.
+2. Verify the branch, Git history, schema, migrations, code, and tests.
+3. Implement one coherent slice.
+4. Add reviewed forward migrations when needed.
+5. Run relevant local checks or GitHub Actions.
+6. Require clean migration, application, browser, Docker, and runtime evidence before merge.
+7. Merge normally without rewriting history.
+8. Update context only after claims are supported by executable evidence.
 
-## Project context reading order
+## Context reading order
 
 1. `PROJECT_PLAN.md`
 2. `IMPLEMENTATION_BASELINE.md`
@@ -425,10 +375,10 @@ Route handlers remain thin. Domain modules own business rules, authorization, tr
 12. `FUTURE_DEVELOPMENTS.md`
 13. `RESEARCH_REFERENCES.md`
 
-Operational guides such as `E2E_TESTING.md` and `OUTBOX_OPERATIONS.md` apply when working on those boundaries.
+Use `MIGRATION_INTEGRITY.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
 
-The repository, migrations, tests, and verified runtime behavior are the source of truth. Context files describe accepted direction and must not overstate implementation.
+The repository, migrations, tests, and verified runtime behavior are the source of truth. Documentation must not overstate implementation.
 
 ## Continuation prompt
 
-> Read all project context Markdown files in their stated order. Treat progress and changelog claims as items to verify against code, migrations, tests, Git history, Docker configuration, browser evidence, and runtime behavior. Correct stale context before continuing. Complete the highest-priority hardening or implementation slice while preserving accounting integrity, tenant and business isolation, RBAC, entitlements, migrations, concurrency controls, tests, consistent UI patterns, backups, and documentation.
+> Read all context files in order. Treat progress and changelog statements as claims to verify against code, migrations, tests, Git history, browser evidence, Docker configuration, and runtime behavior. Correct stale context before continuing. Complete the highest-priority hardening or implementation slice while preserving accounting integrity, tenant/business isolation, RBAC, entitlements, migration safety, concurrency controls, tests, UI consistency, backups, and documentation.
