@@ -30,12 +30,10 @@ export default async function AccountingPage({
   const accountClass = accountClasses.includes(filters.class as AccountClass) ? filters.class as AccountClass : undefined;
   const status = accountStatuses.includes(filters.status as AccountStatus) ? filters.status as AccountStatus : undefined;
   const hasFilters = Boolean(filters.q?.trim() || accountClass || status);
-  const [accounts, allAccounts] = await Promise.all([
-    listLedgerAccounts(access.context, { query: filters.q, class: accountClass, status }),
-    hasFilters ? listLedgerAccounts(access.context) : Promise.resolve(null),
-  ]);
+  const accounts = await listLedgerAccounts(access.context, { query: filters.q, class: accountClass, status });
+  const allAccounts = hasFilters ? await listLedgerAccounts(access.context) : accounts;
   const canManage = hasBusinessCapability(access.context.roleKey, "accounting.manage");
-  const headers = (allAccounts ?? accounts)
+  const headers = allAccounts
     .filter((account) => account.kind === "HEADER")
     .map((account) => ({ id: account.id, code: account.code, name: account.name, class: account.class, status: account.status }));
 
