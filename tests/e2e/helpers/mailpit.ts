@@ -9,30 +9,43 @@ function sleep(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-export async function clearMailbox() {
-  const response = await fetch(`${mailpitUrl}/api/v1/messages`, {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-  if (!response.ok) throw new Error(`Mailpit cleanup failed with ${response.status}.`);
-}
-
-export async function waitForMessage(recipient: string, subjectIncludes: string, timeout = 45_000) {
+export async function clearMailbox(timeout = 30_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    const response = await fetch(`${mailpitUrl}/api/v1/messages?limit=100`);
-    if (response.ok) {
-      const list = await response.json() as MessageList;
-      const summary = list.messages?.find((message) =>
-        message.Subject.includes(subjectIncludes)
-        && message.To.some((address) => address.Address.toLowerCase() === recipient.toLowerCase()),
-      );
-      if (summary) {
-        const detail = await fetch(`${mailpitUrl}/api/v1/message/${encodeURIComponent(summary.ID)}`);
-        if (!detail.ok) throw new Error(`Mailpit message lookup failed with ${detail.status}.`);
-        return await detail.json() as MailpitMessage;
+    try {
+      const response = await fetch(`${mailpitUrl}/api/v1/messages`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (response.ok) return;
+    } catch {
+      // Mailpit may still be starting in a clean CI service container.
+    }
+    await sleep(500);
+  }
+  throw new Error("Mailpit did not become ready for mailbox cleanup.");
+}
+
+export async function waitForMessage(recipient: string, subjectIncludes: string, timeout = 60_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${mailpitUrl}/api/v1/messages?limit=100`);
+      if (response.ok) {
+        const list = await response.json() as MessageList;
+        const summary = list.messages?.find((message) =>
+          message.Subject.includes(subjectIncludes)
+          && message.To.some((address) => address.Address.toLowerCase() === recipient.toLowerCase()),
+        );
+        if (summary) {
+          const detail = await fetch(`${mailpitUrl}/api/v1/message/${encodeURIComponent(summary.ID)}`);
+          if (!detail.ok) throw new Error(`Mailpit message lookup failed with ${detail.status}.`);
+          return await detail.json() as MailpitMessage;
+        }
       }
+    } catch {
+      // Retry transient Mailpit startup or network failures until the deadline.
     }
     await sleep(500);
   }
