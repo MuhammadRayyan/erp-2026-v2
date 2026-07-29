@@ -26,10 +26,24 @@ function stableSuffix(key: string) {
   return createHash("sha256").update(key).digest("hex").slice(0, 10);
 }
 
-function isSerializableConflict(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-  const candidate = error as { code?: unknown; meta?: { driverAdapterError?: { cause?: { originalCode?: unknown } } } };
-  return candidate.code === "P2034" || candidate.meta?.driverAdapterError?.cause?.originalCode === "40001";
+function containsSerializableConflict(value: unknown, depth = 0, seen = new Set<object>()): boolean {
+  if (depth > 6 || value === null || value === undefined) return false;
+  if (typeof value === "string") {
+    return /P2034|40001|TransactionWriteConflict|serialization failure|could not serialize access/i.test(value);
+  }
+  if (typeof value !== "object") return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+
+  const candidate = value as Record<string, unknown>;
+  for (const key of ["code", "name", "message", "originalCode", "kind", "cause", "meta", "driverAdapterError"]) {
+    if (containsSerializableConflict(candidate[key], depth + 1, seen)) return true;
+  }
+  return false;
+}
+
+export function isSerializableConflict(error: unknown) {
+  return containsSerializableConflict(error);
 }
 
 async function sleep(milliseconds: number) {
@@ -45,7 +59,7 @@ export async function onboardOwner(rawInput: OnboardingInput) {
   }
 
   const suffix = stableSuffix(input.idempotencyKey);
-  const maxAttempts = 4;
+  const maxAttempts = 8;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -104,7 +118,8 @@ export async function onboardOwner(rawInput: OnboardingInput) {
         return completed;
       }
       if (!isSerializableConflict(error) || attempt === maxAttempts) throw error;
-      await sleep(20 * attempt + Math.floor(Math.random() * 30));
+      const backoff = Math.min(25 * 2 ** (attempt - 1), 500) + Math.floor(Math.random() * 50);
+      await sleep(backoff);
     }
   }
 
