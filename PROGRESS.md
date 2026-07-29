@@ -8,37 +8,50 @@ Current phase: Phase 3 — Verification and hardening
 
 - Phase 1 application foundation and Phase 2 identity/access foundations are merged and covered by the repository CI gate.
 - Phase 3 working foundations are merged through PRs #10–#21: business profile, parties and contacts, catalog and units, staged catalog imports, private files, audit storage, numbering, exports, custom fields, and durable queued email.
-- The clean PR #21 head passed `npm ci`, Prisma generation, migration deployment, lint, type checking, 19 unit tests, 52 PostgreSQL integration tests, production build, Compose validation, and migration/runtime Docker image builds.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access resolves through active tenant and business memberships and an active subscription.
 - Private files are stored outside the public web root and downloaded through authenticated no-store routes.
-- Catalog import commit, number allocation, custom-field value replacement, and email outbox claiming use explicit PostgreSQL transactions or locks.
 - Controlled exports are scoped, spreadsheet-safe, bounded, and audited without retaining generated payloads.
+- PR #22 corrects the blocking defects found by the independent Phase 3 audit: invitation role/lifecycle/scope, tenant administration entitlement gates, catalog reactivation, numbering settings/idempotency/void concurrency, import decision and target staleness, local worker setup, infrastructure exposure, and business-profile audit coverage.
+- The code-equivalent PR #22 run `30427351994`, job `90496608146`, passed clean dependency installation, Prisma generation, all migrations, lint, type checking, unit tests, 60 PostgreSQL integration tests, production build, Compose validation, both Docker image builds, runtime-container boot, database readiness, and the protected outbox smoke request.
 
 ## Audit correction
 
-The prior declaration that Phase 3 was complete was premature. A repository-level audit found confirmed defects in invitation lifecycle and protected-role enforcement, inconsistent tenant entitlement gates, catalog activation/unit integrity, numbering settings concurrency and idempotency, import row-resolution concurrency, module phase metadata, local worker setup, and deployment exposure. Browser E2E and full-stack smoke verification are also absent despite the project baseline requiring them.
+The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICATION_AUDIT.md` records the code-level findings, corrective evidence, and remaining gaps. `PROGRESS.md` and `CHANGELOG.md` are not treated as proof by themselves.
 
-The detailed evidence and remaining gaps are recorded in `PHASE_3_VERIFICATION_AUDIT.md`.
+## Completed hardening in PR #22
 
-## Current hardening slice
+- Aligned module phase metadata with the authoritative roadmap and added a regression test.
+- Rejected protected owner invitation grants and persisted invitation expiry correctly.
+- Enforced `users.manage` within tenant administration services.
+- Added composite invitation/grant tenant scope in Prisma and PostgreSQL.
+- Revalidated invitation correlation before queued delivery and tightened email idempotency.
+- Cancelled older queued password resets when a new request is created.
+- Serialized catalog item edits/reactivation with unit lifecycle changes.
+- Serialized numbering settings with allocation, froze unsafe post-use policy changes, validated retry equivalence, and locked void transitions.
+- Serialized import row decisions with commit and rejected stale update targets.
+- Added sensitive business-profile audit events.
+- Bound PostgreSQL and Mailpit host ports to loopback, added database-aware readiness, and made the worker wait for a healthy web service.
+- Added focused regression tests and a booted-runtime CI smoke gate.
+- Reconciled README, security guidance, decisions, changelog, and the Phase 3 audit.
 
-1. Correct tenant invitation lifecycle, protected-role rules, database scope, and service-level entitlement enforcement.
-2. Correct catalog item activation so inactive units cannot be referenced or raced.
-3. Lock numbering settings against allocation, define immutable post-allocation settings, validate idempotency reuse, and serialize voids.
-4. Lock import row decisions against finalization and prevent stale target overwrites.
-5. Reconcile module phases, README, changelog, decisions, security guidance, and worker instructions with actual code.
-6. Bind local-only infrastructure ports safely and add readiness/full-stack verification where practical.
-7. Add regression tests and require the complete CI/Docker gate before declaring Phase 3 complete again.
+## Remaining Phase 3 priorities
 
-## Next plan after hardening
+1. Add Playwright browser E2E for sign-up, onboarding, authorization, parties, catalog, files, invitations, password reset, and queued Mailpit delivery.
+2. Add migration-drift protection and reconcile remaining critical manually enforced composite constraints with Prisma models.
+3. Add a tenant-level access audit trail for invitation, membership, role, disable/reactivate, and acceptance events.
+4. Re-run unit, PostgreSQL, browser, runtime, Docker, and migration verification from a clean branch.
+5. Reassess Phase 3 from evidence before enabling Phase 4.
 
-1. Add browser E2E coverage for authentication, onboarding, authorization, parties, catalog, files, invitations, and queued email.
-2. Add full-stack Compose smoke verification and a migration-drift safeguard for manually enforced composite constraints.
-3. Close remaining explicitly tracked master-data usability gaps such as pagination and related-record editing.
-4. Reassess Phase 3 with evidence from the corrected branch.
-5. Begin Phase 4 only after that gate, starting with chart-of-accounts structure, then accounting periods and locks, then the balanced journal kernel.
+## Tracked non-blocking follow-up
+
+- Pagination for capped party, catalog, file, and audit lists.
+- Full contact/address editing and removal.
+- Broader party/catalog/import audit coverage.
+- File attachment target validation, stronger OOXML inspection, deployment request-size limits, and restore drills.
+- Entitlement value-type constraints and subscription start/end-date enforcement.
 
 ## Active blockers
 
-- Phase 4 is blocked until the confirmed Phase 3 defects and verification gaps above are corrected or explicitly accepted as deferred with safe boundaries.
+- Phase 4 remains blocked by browser E2E, migration-drift protection, and tenant access-change auditing.
+- No accounting transaction should be exposed until Phase 3 is explicitly re-verified and chart structure, periods, posting invariants, and reversal policy are implemented and integration-tested.
