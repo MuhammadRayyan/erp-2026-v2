@@ -110,6 +110,9 @@
 - Secret-protected internal processing endpoint, host worker command, and Docker Compose worker service.
 - Tenant-owner visibility into invitation delivery status and retry attempts.
 - Unit and PostgreSQL integration coverage for queue idempotency, concurrent workers, retries, failures, expiry, and payload scrubbing.
+- Evidence-based Phase 3 verification report covering code, migrations, authorization, concurrency, CI, Docker, and documentation rather than relying on progress claims.
+- Regression tests for protected invitation roles, persisted invitation expiry, service-level entitlement gates, composite invitation scope, stale queued messages, inactive-unit reactivation, conflicting email/number idempotency, serialized number voids, and stale import targets.
+- Database-aware application readiness and a CI smoke gate that boots the built runtime image and invokes the protected outbox processor.
 
 ### Changed
 
@@ -127,7 +130,6 @@
 - Disabling a tenant member now disables their business grants and removes active sessions atomically.
 - Account Hub business cards now show the resolved tenant plan.
 - Business settings now provide structured profile editing instead of a static summary-only screen.
-- README project status now reflects Phase 3 rather than the completed Phase 2.
 - Party register cards now open direct, protected detail URLs.
 - Primary-contact and default-address updates now serialize on the party row before changing flags.
 - Missing or out-of-scope party details now use a stable `PARTY_NOT_FOUND` error for correct 404 responses.
@@ -139,3 +141,20 @@
 - Custom-field keys and value types remain immutable, while deactivation preserves existing values and used select options cannot be removed.
 - Invitation and password-reset requests now persist delivery work before returning instead of depending on synchronous or fire-and-forget SMTP calls.
 - Invitation acceptance and revocation cancel undelivered correlated email records.
+- Phase 3 is reopened for verification and hardening; Phase 4 remains blocked until the audit gate is satisfied.
+- Module phase metadata now matches `MODULES_AND_PHASES.md` and is enforced by a unit test.
+- Local host setup now starts the queued-email worker explicitly, and Docker documentation includes the worker and outbox environment contract.
+- PostgreSQL and Mailpit host ports are bound to loopback only; the worker waits for database-aware web readiness.
+- Business-profile registration and VAT-setting updates now create append-only audit events without storing the full TRN in audit metadata.
+
+### Fixed
+
+- Prevented invitations and accepted legacy grants from assigning the protected `business.owner` role.
+- Persisted expired invitation and outbox states instead of rolling them back when reporting `INVITATION_EXPIRED`.
+- Applied `users.manage` entitlement checks inside tenant administration services rather than relying on selected routes or UI visibility.
+- Bound each business invitation grant to the tenant of its invitation with a composite Prisma relation and PostgreSQL foreign key.
+- Revalidated claimed invitation messages before SMTP delivery and cancelled messages whose invitations are no longer actionable.
+- Rejected changed email payloads that reuse an existing idempotency key and cancelled older queued password resets when a new reset is requested.
+- Prevented catalog items from being reactivated against inactive units and serialized item edits with lifecycle changes.
+- Locked numbering settings against concurrent allocation, froze reset/start policy after first use, rejected conflicting allocation retries, and serialized void transitions.
+- Serialized catalog import row decisions against final commit and rejected updates whose target changed after preview.
