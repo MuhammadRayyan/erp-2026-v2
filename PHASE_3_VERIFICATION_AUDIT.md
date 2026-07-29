@@ -1,11 +1,11 @@
 # Phase 3 Verification Audit
 
 Audit date: July 29, 2026
-Audit basis: repository code, Prisma models, committed migrations, API and server use cases, tests, Docker configuration, Git history, and the clean PR #21 CI run. `PROGRESS.md` and `CHANGELOG.md` were treated as claims to verify, not as evidence by themselves.
+Audit basis: repository code, Prisma models, committed migrations, API and server use cases, tests, Docker configuration, Git history, and executable GitHub Actions evidence. `PROGRESS.md` and `CHANGELOG.md` were treated as claims to verify, not as evidence by themselves.
 
 ## Current conclusion
 
-Phase 3 contains substantial working foundations, but it must remain in verification and hardening until the confirmed defects below are corrected and the missing runtime/browser checks are added. Phase 4 accounting implementation must not depend on unresolved numbering, access-control, lifecycle, migration, or deployment assumptions.
+Phase 3 contains substantial working foundations. The confirmed transaction, authorization, lifecycle, setup, and numbering defects found during this audit have been corrected on PR #22 and covered by regression tests. Phase 3 must nevertheless remain open because browser E2E, migration-drift protection, and complete tenant access-change auditing are still missing. Phase 4 accounting remains blocked.
 
 ## Verified strengths
 
@@ -14,64 +14,89 @@ Phase 3 contains substantial working foundations, but it must remain in verifica
 - Most operational records use tenant/business-scoped queries and composite PostgreSQL foreign keys.
 - Parties, catalog, custom fields, files, numbering, exports, and email outbox have PostgreSQL integration coverage.
 - Private file objects remain outside the public web root and downloads are authenticated and non-cacheable.
-- Catalog imports use persisted preview rows, explicit decisions, a locked commit transaction, and unit locks.
-- Number allocation uses a sequence-row lock, explicit dates, stored formatted values, and non-reusable void history.
+- Catalog imports use persisted preview rows, explicit decisions, a locked commit transaction, unit locks, and target-version checks.
+- Number allocation and settings updates use the same sequence-row lock; allocations preserve explicit dates, immutable formatted values, and non-reusable void history.
 - CSV exports enforce source-module visibility, neutralize spreadsheet formulas, cap synchronous results, and retain only run metadata.
 - Custom-field values use typed columns and database target validation.
-- Email work is durable, claimed with `FOR UPDATE SKIP LOCKED`, retried with bounded backoff, and scrubbed after terminal outcomes.
-- The clean PR #21 pipeline passed dependency installation, Prisma generation, migration deployment, lint, type checking, 19 unit tests, 52 PostgreSQL integration tests, production build, Compose validation, and both Docker image builds.
+- Email work is durable, claimed with `FOR UPDATE SKIP LOCKED`, retried with bounded backoff, correlated with current invitation state, and scrubbed after terminal outcomes.
+- The built runtime image has been booted in CI against PostgreSQL; database-aware readiness and the protected outbox endpoint both succeeded.
 
-## Confirmed blocking defects
+## Corrected during this audit
 
 ### Tenant access and invitations
 
-- The invitation service accepts the protected `business.owner` role when called outside the UI.
-- The expired-invitation branch updates status and then throws inside the same transaction, rolling its own update back.
-- Tenant user-management entitlement enforcement is not consistently located in the service boundary; listing, member changes, and revocation can bypass the intended feature gate through direct server calls.
-- `BusinessInvitationGrant` is not database-bound to the tenant of its invitation through one composite foreign key.
-- A message already claimed as `PROCESSING` may still send after the related invitation is superseded, accepted, revoked, or expired.
+- Protected `business.owner` invitation grants are rejected by the service and rechecked during acceptance.
+- Expired invitation and outbox states commit before `INVITATION_EXPIRED` is returned.
+- Tenant administration services consistently enforce the `users.manage` entitlement.
+- `BusinessInvitationGrant` is bound to its invitation tenant through a composite Prisma relation and PostgreSQL foreign key.
+- Pending invitations are normalized for expiry before administration display.
+- Claimed invitation messages recheck that the invitation is still pending and unexpired before SMTP delivery.
 
-### Catalog lifecycle
+### Catalog lifecycle and imports
 
-- Reactivating a catalog item does not lock or verify that its unit is active, allowing an active item to reference an inactive unit and race with unit deactivation.
+- Item edits and lifecycle changes lock the item row.
+- Reactivation locks and validates the referenced unit, preventing active items from using inactive units or racing unit deactivation.
+- Import row decisions lock the batch and cannot race final commit.
+- Update rows snapshot the target version at preview and reject commit when the target changed afterward.
 
 ### Numbering
 
-- Sequence settings updates do not lock the sequence row and can race the first allocation, potentially restoring an obsolete `nextValue`.
-- Reset policy and start-value changes after allocations have no safe transition rule and can unexpectedly restart numbering.
-- Reusing an idempotency key with a different effective date or reference silently returns the old allocation instead of reporting a conflict.
-- Concurrent void requests can create duplicate void audit events.
+- Settings updates and allocations lock the same sequence row.
+- Reset policy and start value are immutable after the first allocation.
+- Reused idempotency keys must match the original effective date and reference.
+- Allocation voids lock the allocation row and produce one state transition and one audit event.
 
-### Catalog imports
+### Delivery, setup, and deployment
 
-- Row-resolution updates do not lock the import batch and can race final commit.
-- Resolved update rows have no optimistic check against source records changed after preview.
+- Changed email payloads cannot reuse an existing idempotency key.
+- A new password-reset request cancels older pending/retry reset messages for the user.
+- Module phase metadata matches the authoritative roadmap and is unit-tested.
+- README host setup starts the email worker and documents all outbox settings.
+- PostgreSQL and Mailpit host ports are loopback-only.
+- The worker waits for database-aware web readiness.
+- Sensitive business-profile and registration changes create audit events.
 
-### Deployment and documentation
+## Executable evidence
 
-- The live module registry phase numbers do not match `MODULES_AND_PHASES.md`.
-- `README.md` still reports Phase 3, omits the outbox worker and its environment variables, and does not start the worker in the recommended host-development flow.
-- PostgreSQL and Mailpit ports bind to all host interfaces even though the security plan says internal services must not be publicly exposed.
-- The latest Phase 4 activation was a documentation-only commit and did not itself run CI.
+The code-equivalent PR #22 run `30427351994`, job `90496608146`, passed:
 
-## Verified gaps that must be tracked
+- clean dependency installation;
+- multi-file Prisma generation;
+- all forward migrations on a clean PostgreSQL database;
+- lint and strict TypeScript checking;
+- unit tests;
+- 60 PostgreSQL integration tests, including the new defect regressions;
+- Next.js production build;
+- Docker Compose validation;
+- migration and runtime Docker image builds;
+- runtime-container boot;
+- database readiness response;
+- authenticated internal outbox-processing smoke request.
 
-- There is no browser E2E suite despite the implementation baseline and AI workflow requiring business-workflow E2E verification.
-- CI validates Compose syntax and image builds but does not boot the full stack and prove web, worker, SMTP, database, and private storage together.
-- The health endpoint is liveness-only and does not verify database readiness.
-- Audit storage exists, but business-profile changes, party/catalog changes, imports, invitations, and member-role changes are not consistently audited.
-- Party, catalog, file, and audit lists use fixed row caps rather than pagination.
+This evidence improves on the earlier build-only gate, but it is not a substitute for browser E2E or restoration testing.
+
+## Remaining Phase 3 blockers
+
+1. **Browser E2E:** no browser suite currently proves sign-up, owner onboarding, access denial, party/catalog workflows, private upload/download, invitation acceptance, password reset, and queued delivery through public routes.
+2. **Migration drift protection:** several critical composite constraints were added with reviewed SQL. Remaining relations must be modeled where practical, and CI must detect when a future Prisma migration would remove or weaken them.
+3. **Tenant access audit trail:** role changes, member disable/reactivate, invitation creation/revocation/acceptance, and entitlement-sensitive administration need a coherent tenant-level audit design. The current business-scoped audit model does not fully represent them.
+
+## Tracked non-blocking gaps
+
+- Party, catalog, file, and audit registers use fixed row caps instead of pagination.
 - Contacts and addresses can be added and selected but not fully edited or removed.
-- File attachments accept arbitrary entity identifiers without target validation; OOXML validation currently checks ZIP magic rather than document structure.
-- The upload route buffers multipart files before applying the configured application size limit.
-- Entitlement records are not database-constrained by feature value type, and subscription start/end dates are not resolved.
-- Several manually added composite PostgreSQL constraints are not represented as Prisma relations. A future migration-drift check must prove that normal schema evolution preserves them.
+- Party/catalog/import changes are not comprehensively audited.
+- File attachments accept arbitrary entity identifiers without target validation.
+- OOXML validation checks ZIP signatures rather than internal document structure.
+- Multipart uploads are buffered before the configured application size check; deployment request limits are still required.
+- Entitlement records are not database-constrained by feature value type, and subscription start/end dates are not yet resolved.
+- Full restore drills and private-file write/download smoke checks remain operational tasks.
 
-## Hardening gate before Phase 4
+## Best next sequence
 
-1. Correct all confirmed blocking defects and add regression tests.
-2. Reconcile the module registry, README, progress, changelog, decisions, and operations guidance with actual behavior.
-3. Add browser E2E and full-stack smoke verification for authentication, onboarding, authorization, master data, files, queued email, and restoration-sensitive paths.
-4. Add a migration-drift check or explicitly model every critical composite relation in Prisma.
-5. Re-run the complete CI and Docker gate from a clean branch.
-6. Only then begin accounting with chart structure and account lifecycle, followed by periods and locks, then the central balanced posting kernel.
+1. Merge the verified PR #22 hardening corrections without declaring Phase 3 complete.
+2. Add Playwright browser E2E and a repeatable test seed covering authentication, onboarding, authorization, master data, files, invitations, password reset, and Mailpit delivery.
+3. Add a migration-drift gate and reconcile remaining manually enforced composite constraints with Prisma models.
+4. Add tenant-level access audit records and expose protected owner-readable history.
+5. Re-run the complete unit, PostgreSQL, browser, runtime, Docker, and migration gate.
+6. Reassess Phase 3 from evidence. Only then begin Phase 4 with chart structure and account lifecycle, followed by periods and locks, then the central balanced posting kernel.
