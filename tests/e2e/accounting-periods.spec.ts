@@ -41,12 +41,14 @@ test("owner manages accounting periods and lock states", async ({ page, request 
   await expect(page.getByText("2027-01-01 to 2027-01-31", { exact: true })).toBeVisible();
 
   const periodCard = page.getByRole("heading", { name: "January 2027" }).locator("xpath=ancestor::article[1]");
+  const editSummary = periodCard.locator("summary", { hasText: "Edit open period" });
+
   await periodCard.getByLabel("New status").selectOption("SOFT_LOCKED");
   await periodCard.getByLabel("Reason").fill("Month-end review in progress");
   await periodCard.getByRole("button", { name: "Change status" }).click();
   await expect(periodCard.getByText("Soft Locked", { exact: true })).toBeVisible();
   await expect(periodCard.getByText(/Month-end review in progress/)).toBeVisible();
-  await expect(periodCard.getByText("Edit open period")).toHaveCount(0);
+  await expect(editSummary).toHaveCount(0);
 
   await periodCard.getByLabel("New status").selectOption("CLOSED");
   await periodCard.getByLabel("Reason").fill("Month-end review completed");
@@ -57,5 +59,6 @@ test("owner manages accounting periods and lock states", async ({ page, request 
   await periodCard.getByLabel("Reason").fill("Approved correction required");
   await periodCard.getByRole("button", { name: "Change status" }).click();
   await expect(periodCard.getByText("Open", { exact: true })).toBeVisible();
-  await expect(periodCard.getByText("Edit open period")).toBeVisible();
+  await expect(periodCard.getByText(/Approved correction required/)).toBeVisible();
+  await expect(editSummary).toBeVisible();
 });
