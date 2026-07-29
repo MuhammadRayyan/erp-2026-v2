@@ -5,7 +5,7 @@ Audit basis: repository code, Prisma models, committed migrations, PostgreSQL ca
 
 ## Current conclusion
 
-Phase 3 contains substantial working foundations. The confirmed transaction, authorization, lifecycle, setup, numbering, browser-integration, and migration-integrity defects or gaps found during this audit have been corrected through PRs #22–#24 and covered by regression, browser, clean-install, catalog, or upgrade verification. Browser E2E and migration-drift protection are no longer blockers. Phase 3 remains open only because complete tenant access-change auditing is still missing. Phase 4 accounting remains blocked until that final gate and a complete Phase 3 reassessment.
+Phase 3 contains substantial working foundations. The confirmed transaction, authorization, lifecycle, setup, numbering, browser-integration, and migration-integrity defects or gaps found during this audit have been corrected through merged PRs #22–#24 and covered by regression, browser, clean-install, catalog, or upgrade verification. Browser E2E and migration-drift protection are no longer blockers. Phase 3 remains open only because complete tenant access-change auditing is still missing. Phase 4 accounting remains blocked until that final gate and a complete Phase 3 reassessment.
 
 ## Verified strengths
 
@@ -21,7 +21,7 @@ Phase 3 contains substantial working foundations. The confirmed transaction, aut
 - Email work is durable, concurrently claimed, retried with bounded backoff, correlated with current invitation state, and scrubbed after terminal outcomes.
 - A production build and separate worker complete the critical browser workflow against real PostgreSQL, Mailpit, SMTP, private storage, and cookie sessions.
 - The runtime image boots against PostgreSQL and passes database readiness and protected outbox smoke checks.
-- Clean migration replay, Prisma-supported schema drift, PostgreSQL-specific invariants, base-to-head upgrade, and representative-data preservation are now enforced in CI.
+- Clean migration replay, Prisma-supported schema drift, PostgreSQL-specific invariants, base-to-head upgrade, and representative-data preservation are enforced in CI.
 
 ## Corrected during this audit
 
@@ -81,21 +81,11 @@ Phase 3 contains substantial working foundations. The confirmed transaction, aut
 
 ## Executable evidence
 
-PR #22 run `30427561733`, job `90497258414`, passed the hardening regression, production, Docker, and runtime gates.
+- PR #22 run `30427561733`, job `90497258414`, passed hardening regression, production, Docker, and runtime gates. PR #22 merged as `da1e313244fff647c25ca7aedd1ff7a6f78a54e7`.
+- PR #23 run `30429920983`, job `90504549396`, passed the complete production browser workflow while repeating all prior gates. PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
+- PR #24 run `30432096576`, job `90511416006`, passed clean migration status, empty supported-object schema diff, PostgreSQL catalog integrity, base-to-head upgrade preservation, lint, strict TypeScript, unit tests, 60 PostgreSQL integration tests, production build, Playwright E2E, Compose validation, migration/runtime image builds, runtime boot, readiness, and protected outbox smoke. PR #24 merged as `acd0c8eb48d110ed8995842ece3e263a84826af9`.
 
-PR #23 run `30429920983`, job `90504549396`, added and passed the complete production browser workflow while repeating all prior gates. PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
-
-PR #24 migration-integrity evidence requires:
-
-- clean `prisma migrate deploy` and `prisma migrate status`;
-- an empty Prisma-supported schema diff;
-- the PostgreSQL catalog manifest;
-- a base-commit worktree and second upgrade database;
-- preserved user, owner membership, tenant, business, unit, and party sentinels;
-- current migration status, empty diff, and catalog integrity after upgrade;
-- all existing unit, PostgreSQL, browser, Compose, Docker-image, runtime-readiness, and outbox-smoke gates.
-
-The final exact-head PR #24 run is recorded in `PROGRESS.md` after completion. This evidence does not replace restoration drills.
+This evidence does not replace coordinated restoration drills.
 
 ## Remaining Phase 3 blocker
 
@@ -114,7 +104,6 @@ The final exact-head PR #24 run is recorded in `PROGRESS.md` after completion. T
 
 ## Best next sequence
 
-1. Merge the verified migration-integrity gate without declaring Phase 3 complete.
-2. Add tenant-level access events and protected owner-readable history.
-3. Re-run the complete migration, unit, PostgreSQL, browser, Docker, and runtime gate from a clean branch.
-4. Reassess Phase 3 from evidence. Only then begin Phase 4 with chart structure and account lifecycle, followed by periods/locks and the central balanced posting kernel.
+1. Add tenant-level access events and protected owner-readable history.
+2. Re-run the complete migration, unit, PostgreSQL, browser, Docker, and runtime gate from a clean branch.
+3. Reassess Phase 3 from evidence. Only then begin Phase 4 with chart structure and account lifecycle, followed by periods/locks and the central balanced posting kernel.
