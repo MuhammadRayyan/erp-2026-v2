@@ -118,11 +118,18 @@
 - CI Mailpit service integration and production email-worker orchestration for browser verification.
 - Browser failure evidence with short-lived HTML reports, traces, screenshots, and video.
 - `E2E_TESTING.md` with local setup, CI behavior, origin requirements, stateful-test rules, and troubleshooting guidance.
-- A fail-closed PostgreSQL migration-integrity manifest for 26 critical composite foreign keys, 34 check constraints, three custom indexes, the custom-field trigger/function pair, and `pg_trgm`.
+- A fail-closed PostgreSQL migration-integrity manifest for critical composite foreign keys, check constraints, custom indexes, trigger/function pairs, and `pg_trgm`.
 - Pull-request base-to-head upgrade verification using a second database built from the exact target commit.
 - Upgrade sentinels for user, owner membership, tenant, business, unit, and party data preservation.
 - `MIGRATION_INTEGRITY.md` with clean-install, schema-diff, catalog, upgrade, local-operation, and failure-handling guidance.
 - ADR-018 defining migration history, Prisma schema, PostgreSQL catalog, and upgrade evidence as mandatory.
+- Tenant-scoped typed access events for invitation, membership, business-role/status, and administration-driven session-revocation changes.
+- PostgreSQL-enforced append-only tenant access history with composite business scope, normalized content checks, and immutable occurrence timestamps.
+- Secret-free access metadata normalization that rejects password, secret, token, URL, and HTTP(S) content.
+- Owner-readable access history on the tenant administration page.
+- PostgreSQL integration coverage for access-event completeness, no-op suppression, exact session counts, owner authorization, tenant isolation, cross-tenant correlation rejection, unsafe metadata, and database immutability.
+- Playwright verification that the owner can see accepted-invitation and business-access events after a real Mailpit-delivered invitation is accepted.
+- `TENANT_ACCESS_AUDIT.md` and ADR-019 defining transactionality, authorization, immutability, safe metadata, concurrency, and operating rules.
 
 ### Changed
 
@@ -151,7 +158,7 @@
 - Custom-field keys and value types remain immutable, while deactivation preserves existing values and used select options cannot be removed.
 - Invitation and password-reset requests now persist delivery work before returning instead of depending on synchronous or fire-and-forget SMTP calls.
 - Invitation acceptance and revocation cancel undelivered correlated email records.
-- Phase 3 is reopened for verification and hardening; Phase 4 remains blocked until the audit gate is satisfied.
+- Phase 3 was reopened for verification and hardening until independent evidence was complete.
 - Module phase metadata now matches `MODULES_AND_PHASES.md` and is enforced by a unit test.
 - Local host setup now starts the queued-email worker explicitly, and Docker documentation includes the worker and outbox environment contract.
 - PostgreSQL and Mailpit host ports are bound to loopback only; the worker waits for database-aware web readiness.
@@ -159,11 +166,14 @@
 - CI now runs the production browser workflow after unit, PostgreSQL, and build gates and before Docker-image/runtime verification.
 - The runtime smoke test reuses the CI Mailpit service instead of starting a competing host-network container.
 - Stateful authentication E2E runs once per clean CI job instead of automatically retrying and obscuring primary failures behind rate limiting.
-- Phase 3 browser E2E is verified.
-- Existing SQL foreign keys and custom index names are represented in the Prisma schema with stable relation/index mappings where supported.
+- Existing SQL foreign keys and custom index names are represented in Prisma with stable mappings where supported.
 - The party trigram GIN operator class is represented in Prisma, producing an empty supported-object schema diff after clean migration replay.
 - CI now fails on migration-history divergence, supported schema drift, PostgreSQL catalog weakening, unsafe base-to-head upgrades, or representative-data loss.
-- Phase 3 migration-drift protection is verified; tenant access-change auditing remains the only blocker before reassessment.
+- Invitation creation, acceptance, revocation, and expiry now write access history atomically and use tenant/invitation locking appropriate to each transition.
+- Member administration now records only meaningful before/after changes and rejects contradictory disable-plus-active-grant requests.
+- The migration-integrity manifest now protects 27 composite foreign keys, 38 checks, three custom indexes, two trigger/function pairs, and `pg_trgm`.
+- Tenant administration history queries run serially after one authorization decision, avoiding overlapping PostgreSQL client queries.
+- Phase 3 shared ERP foundations are verified for completion, subject only to the synchronized PR #25 documentation head repeating the full gate and merging normally.
 
 ### Fixed
 
@@ -179,3 +189,5 @@
 - Retained the party creation form element before awaiting its API request so a successful creation can reset and reload the register instead of remaining stuck on `Creating…`.
 - Recognized Better Auth password-reset verification URLs whose same-origin redirect target is the configured reset page, without weakening origin validation or logging tokens.
 - Prevented future Prisma migration generation from proposing duplicate or renamed database keys solely because existing reviewed SQL constraints were absent from model metadata.
+- Normalized nested access-event metadata to valid JSON while preserving secret and URL rejection.
+- Scoped the access-history browser assertion to the correct event card when one target legitimately appears in multiple events.
