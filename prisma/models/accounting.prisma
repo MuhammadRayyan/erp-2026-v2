@@ -56,6 +56,17 @@ enum AccountingPeriodStatus {
   CLOSED
 }
 
+enum JournalEntryStatus {
+  PENDING
+  POSTED
+}
+
+enum JournalEntryOrigin {
+  SYSTEM
+  MANUAL
+  REVERSAL
+}
+
 model LedgerAccount {
   id                   String               @id @default(cuid())
   tenantId             String
@@ -79,6 +90,7 @@ model LedgerAccount {
   business             Business             @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "LedgerAccount_business_scope_fkey")
   parent               LedgerAccount?       @relation("LedgerAccountHierarchy", fields: [tenantId, businessId, parentId], references: [tenantId, businessId, id], onDelete: Restrict, map: "LedgerAccount_parent_scope_fkey")
   children             LedgerAccount[]      @relation("LedgerAccountHierarchy")
+  journalLines         JournalLine[]
 
   @@unique([tenantId, businessId, id], map: "LedgerAccount_scope_id_key")
   @@unique([tenantId, businessId, code], map: "LedgerAccount_scope_code_key")
@@ -105,4 +117,55 @@ model AccountingPeriod {
   @@unique([tenantId, businessId, startDate, endDate], map: "AccountingPeriod_scope_dates_key")
   @@index([tenantId, businessId, startDate, endDate], map: "AccountingPeriod_register_idx")
   @@index([tenantId, businessId, status, startDate], map: "AccountingPeriod_status_idx")
+}
+
+model JournalEntry {
+  id             String             @id @default(cuid())
+  tenantId       String
+  businessId     String
+  postingDate    DateTime           @db.Date
+  currencyCode   String             @db.VarChar(3)
+  status         JournalEntryStatus @default(PENDING)
+  origin         JournalEntryOrigin
+  sourceType     String
+  sourceId       String
+  idempotencyKey String
+  payloadHash    String             @db.VarChar(64)
+  memo           String?
+  reversalOfId   String?
+  postedAt       DateTime?
+  createdById    String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  business       Business           @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict, map: "JournalEntry_business_scope_fkey")
+  createdBy      User               @relation(fields: [createdById], references: [id], onDelete: Restrict, map: "JournalEntry_creator_fkey")
+  reversalOf     JournalEntry?      @relation("JournalEntryReversal", fields: [tenantId, businessId, reversalOfId], references: [tenantId, businessId, id], onDelete: Restrict, map: "JournalEntry_reversal_scope_fkey")
+  reversedBy     JournalEntry[]     @relation("JournalEntryReversal")
+  lines          JournalLine[]
+
+  @@unique([tenantId, businessId, id], map: "JournalEntry_scope_id_key")
+  @@unique([tenantId, businessId, sourceType, sourceId], map: "JournalEntry_source_key")
+  @@unique([tenantId, businessId, idempotencyKey], map: "JournalEntry_idempotency_key")
+  @@unique([tenantId, businessId, reversalOfId], map: "JournalEntry_reversal_key")
+  @@index([tenantId, businessId, postingDate, id], map: "JournalEntry_register_idx")
+  @@index([tenantId, businessId, status, postedAt], map: "JournalEntry_status_idx")
+}
+
+model JournalLine {
+  id             String        @id @default(cuid())
+  tenantId       String
+  businessId     String
+  journalEntryId String
+  lineNumber     Int
+  accountId      String
+  description    String?
+  debit          Decimal       @default(0) @db.Decimal(20, 4)
+  credit         Decimal       @default(0) @db.Decimal(20, 4)
+  createdAt      DateTime      @default(now())
+  journalEntry   JournalEntry  @relation(fields: [tenantId, businessId, journalEntryId], references: [tenantId, businessId, id], onDelete: Cascade, map: "JournalLine_entry_scope_fkey")
+  account        LedgerAccount @relation(fields: [tenantId, businessId, accountId], references: [tenantId, businessId, id], onDelete: Restrict, map: "JournalLine_account_scope_fkey")
+
+  @@unique([tenantId, businessId, id], map: "JournalLine_scope_id_key")
+  @@unique([tenantId, businessId, journalEntryId, lineNumber], map: "JournalLine_number_key")
+  @@index([tenantId, businessId, accountId, journalEntryId], map: "JournalLine_account_idx")
 }

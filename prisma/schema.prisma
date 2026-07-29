@@ -81,6 +81,7 @@ model User {
   filesUploaded              StoredFile[]         @relation("FileUploader")
   tenantAccessEventsActed    TenantAccessEvent[]  @relation("TenantAccessEventActor")
   tenantAccessEventsTargeted TenantAccessEvent[]  @relation("TenantAccessEventTarget")
+  journalEntriesCreated      JournalEntry[]
 }
 
 model Session {
@@ -122,9 +123,9 @@ model Verification {
   id         String   @id
   identifier String
   value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([identifier])
   @@index([expiresAt])
@@ -191,6 +192,7 @@ model Business {
   tenantAccessEvents     TenantAccessEvent[]      @relation("TenantAccessEventBusiness")
   ledgerAccounts         LedgerAccount[]
   accountingPeriods      AccountingPeriod[]
+  journalEntries         JournalEntry[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, slug])

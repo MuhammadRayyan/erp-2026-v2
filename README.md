@@ -4,24 +4,28 @@ A UAE-first ERP for owner-operated and small businesses, built as a structured N
 
 ## Current status
 
-**Phase 4 — Accounting kernel. Completed foundations: chart of accounts, account lifecycle, accounting periods, and date locks.**
+**Phase 4 — Accounting kernel. Verified foundations: chart of accounts, account lifecycle, accounting periods and locks, and the internal central posting kernel.**
 
-Phases 1–3 are complete. The current Phase 4 foundation provides:
+Phases 1–3 are complete. The current accounting boundary provides:
 
-- business-scoped ledger-account classes, types, normal balances, hierarchy, lifecycle, stable system keys, and required control accounts;
+- business-scoped ledger-account classes, constrained types, normal balances, hierarchy, lifecycle, stable system keys, and required control accounts;
 - deterministic UAE-oriented default charts for existing and newly onboarded businesses;
 - business-scoped accounting periods with open, soft-locked, and closed states;
 - PostgreSQL-enforced non-overlap, fiscal-year containment, valid transitions, date immutability after locking, and deletion prevention;
-- audited create, edit, lock, close, and reopen workflows;
-- a transaction-bound posting-date guard for the future journal kernel;
-- accounting RBAC, entitlement enforcement, owner/accountant management, and viewer read-only behavior;
-- unit, PostgreSQL integration, concurrency, browser, clean-migration, base-to-head upgrade, Docker, and booted-runtime verification.
+- immutable tenant/business-scoped journal headers and lines with exact four-decimal amounts;
+- exact debit-equals-credit validation in the application and PostgreSQL;
+- base-currency, open-period, active-account, header-account, manual-posting, and control-account policy;
+- source uniqueness and payload-bound idempotency;
+- deterministic advisory locks and bounded Serializable retry handling;
+- exact opposite linked reversals without destructive mutation or reversal chains;
+- atomic business audit events and focused migration-integrity protection;
+- accounting RBAC and entitlement enforcement.
 
-The verified implementation-head run `30465222027`, job `90621155313`, passed every repository gate.
+Implementation-head run `30469369143`, job `90635303570`, passed dependency installation, Prisma generation, forward migrations, migration status, supported schema diff, PostgreSQL catalog integrity, real base-to-head upgrade verification, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, Playwright browser verification, Compose validation, migration/runtime image builds, runtime readiness, and protected outbox smoke.
 
-**No balances, opening entries, journals, document posting, VAT posting, allocation, reconciliation, or financial statements exist yet.** Financial transaction entry remains blocked until one central balanced, idempotent posting kernel with source uniqueness and linked reversals is implemented and verified.
+**The journal kernel is internal. No manual journal form or public posting route exists.** Opening balances, document posting, VAT posting, allocations, reconciliation, foreign-currency accounting, financial statements, and ordinary transaction entry remain blocked.
 
-Read `ACCOUNTING_FOUNDATION.md`, `ACCOUNTING_PERIODS.md`, `PROGRESS.md`, and `DECISIONS.md` for the active accounting boundary.
+Read `ACCOUNTING_FOUNDATION.md`, `ACCOUNTING_PERIODS.md`, `ACCOUNTING_POSTING_KERNEL.md`, `PROGRESS.md`, and `DECISIONS.md` for the active accounting boundary.
 
 ## Implemented foundations
 
@@ -33,8 +37,8 @@ Read `ACCOUNTING_FOUNDATION.md`, `ACCOUNTING_PERIODS.md`, `PROGRESS.md`, and `DE
 - parties, contacts, addresses, duplicate review, products, services, units, and staged imports;
 - typed custom fields, private files, business audit history, document numbering, and controlled CSV exports;
 - durable PostgreSQL email outbox with a separate worker;
-- chart of accounts, account lifecycle, accounting periods, and date-lock enforcement;
-- Playwright verification across authentication, onboarding, master data, accounting, private files, invitations, authorization, and password recovery;
+- chart of accounts, account lifecycle, accounting periods, date locks, and the internal central posting kernel;
+- Playwright verification across authentication, onboarding, master data, accounting administration, private files, invitations, authorization, and password recovery;
 - clean-install and real base-to-head migration integrity verification;
 - Docker image builds plus booted runtime/readiness/outbox smoke checks.
 
@@ -169,29 +173,22 @@ docker compose down -v
 
 In Compose, PostgreSQL is `db`, Mailpit is `mailpit`, the worker calls `web`, and private files use `/app/storage/private`.
 
-## Accounting foundation
+## Accounting boundary
 
-The Accounting workspace currently manages structure and date control only.
-
-- `accounting.view` reads the chart and period register.
-- `accounting.manage` administers accounts and periods.
+- `accounting.view` reads chart, period, and posted-journal data through service boundaries.
+- `accounting.manage` administers accounts and periods and is required by internal posting/reversal services.
 - `accounting.core` must be enabled for the tenant.
-- Viewer roles are read-only.
-- Every meaningful account/period change creates a business audit event.
+- Viewer roles remain read-only.
 - Required system controls cannot be deactivated.
-- Account hierarchy and classification are protected by PostgreSQL and service rules.
 - Periods cannot overlap, cross one fiscal-year boundary, or be deleted.
-- Soft-locked and closed periods reject the future posting guard.
+- Soft-locked and closed periods reject posting.
 - Fiscal-year start cannot change through ordinary settings after periods exist.
-- There is no journal or financial-document posting path yet.
+- Posted journals and lines are immutable.
+- Every posting has exact source identity and payload-bound idempotency.
+- Corrections use linked reversals and later replacement postings rather than mutation.
+- No browser or HTTP posting route exists.
 
-See `ACCOUNTING_FOUNDATION.md` and `ACCOUNTING_PERIODS.md`.
-
-## Tenant access history
-
-The tenant users-and-access page records invitation, membership, business-role/status, and administration-driven session changes. Events are tenant-scoped, transactional, owner-readable after `users.manage`, and protected by a PostgreSQL trigger that rejects updates and deletes. Audit metadata excludes passwords, secrets, tokens, links, sessions, and email bodies.
-
-See `TENANT_ACCESS_AUDIT.md`.
+See `ACCOUNTING_FOUNDATION.md`, `ACCOUNTING_PERIODS.md`, and `ACCOUNTING_POSTING_KERNEL.md`.
 
 ## Database and migration integrity
 
@@ -218,7 +215,7 @@ npx prisma migrate diff \
 npm run db:verify-integrity
 ```
 
-The integrity gate protects approved composite tenant keys, checks, custom indexes, triggers/functions, and required extensions. Pull-request CI also builds a second database from the exact base commit, inserts representative data, applies head migrations, and verifies schema integrity and data preservation. Accounting-period objects have a focused catalog verifier in addition to the general manifest.
+The integrity gate protects approved composite tenant keys, checks, custom indexes, triggers/functions, and required extensions. Pull-request CI also builds a second database from the exact base commit, inserts representative data, applies head migrations, and verifies schema integrity and data preservation. Accounting-period and journal objects have focused catalog verifiers in addition to the general manifest.
 
 Migration rules:
 
@@ -261,32 +258,11 @@ Restore order:
 4. run `npm run db:deploy` and migration-integrity checks;
 5. review pending/retry outbox records and expiry dates;
 6. start the web service, then the worker;
-7. verify health, accounting structure, periods, files, audit history, tenant access history, and delivery.
+7. verify health, chart structure, periods, journal integrity, files, audit history, tenant access history, and delivery.
 
 Never restore the database and private files from different maintenance windows. Test restoration on a disposable environment.
 
 ## Verification
-
-Unit and integration gates:
-
-```bash
-npm run test
-docker compose up -d db
-npm run db:deploy
-npm run test:integration
-```
-
-Browser E2E:
-
-```bash
-npx playwright install chromium
-docker compose up -d db mailpit
-npm run db:deploy
-npm run build
-npm run test:e2e
-```
-
-Playwright starts the production web process and email worker. It verifies anonymous denial, sign-up, onboarding, parties, catalog, chart accounts, accounting periods and transitions, owner/viewer authorization, private files, invitation delivery/acceptance, tenant access history, password reset, session revocation, and reauthentication. Never point tests at production or valuable data.
 
 Standard local gate:
 
@@ -295,7 +271,18 @@ npm run verify
 npm run test:e2e
 ```
 
-GitHub Actions additionally enforces migration status, supported schema diff, PostgreSQL catalog integrity, real base-to-head upgrade preservation, browser E2E, Compose validation, migration/runtime images, runtime boot, database readiness, and protected outbox processing.
+A full pull-request gate requires:
+
+- clean dependency installation and Prisma generation;
+- forward migrations and migration status;
+- supported schema diff and PostgreSQL catalog integrity;
+- real base-to-head upgrade preservation;
+- lint, strict TypeScript, unit tests, and PostgreSQL integration tests;
+- production build and Playwright browser regression;
+- Compose validation and migration/runtime image builds;
+- booted runtime readiness and protected outbox smoke.
+
+Never point test commands at production or valuable data.
 
 ## Health and troubleshooting
 
@@ -322,7 +309,7 @@ Common checks:
 - database failure: confirm `db` is healthy and use `localhost`, not `db`, for host development;
 - authentication/origin failure: align `BETTER_AUTH_URL`, `APP_URL`, and the browser origin;
 - queued email: run the worker and confirm SMTP plus `OUTBOX_WORKER_SECRET`;
-- migration integrity: inspect migration status, schema diff, and named catalog object rather than weakening the gate;
+- migration integrity: inspect migration status, schema diff, and the named catalog object rather than weakening the gate;
 - browser E2E: inspect `playwright-report/` and `test-results/`;
 - stale Prisma client: run `npm run db:generate`.
 
@@ -369,7 +356,7 @@ Route handlers remain thin. Domain modules own authorization, business rules, tr
 12. `FUTURE_DEVELOPMENTS.md`
 13. `RESEARCH_REFERENCES.md`
 
-Use `ACCOUNTING_FOUNDATION.md`, `ACCOUNTING_PERIODS.md`, `MIGRATION_INTEGRITY.md`, `TENANT_ACCESS_AUDIT.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
+Use `ACCOUNTING_FOUNDATION.md`, `ACCOUNTING_PERIODS.md`, `ACCOUNTING_POSTING_KERNEL.md`, `MIGRATION_INTEGRITY.md`, `TENANT_ACCESS_AUDIT.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
 
 The repository, migrations, tests, and verified runtime behavior are the source of truth. Documentation must not overstate implementation.
 
