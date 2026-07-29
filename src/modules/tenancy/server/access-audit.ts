@@ -4,22 +4,24 @@ import { requireTenantAccessAdministration } from "@/modules/tenancy/server/acce
 
 const forbiddenMetadataKey = /(password|secret|token|url)/i;
 
-function assertSafeMetadata(value: unknown, path = "metadata"): void {
-  if (value === null || typeof value === "boolean" || typeof value === "number") return;
+function safeJsonValue(value: unknown, path: string): Prisma.InputJsonValue {
+  if (value === null || typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value === "string") {
     if (/https?:\/\//i.test(value)) throw new Error(`TENANT_ACCESS_AUDIT_UNSAFE:${path}`);
-    return;
+    return value;
   }
+  if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) {
-    value.forEach((entry, index) => assertSafeMetadata(entry, `${path}[${index}]`));
-    return;
+    return value.filter((entry) => entry !== undefined).map((entry, index) => safeJsonValue(entry, `${path}[${index}]`));
   }
   if (typeof value === "object") {
+    const result: Record<string, Prisma.InputJsonValue> = {};
     for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
       if (forbiddenMetadataKey.test(key)) throw new Error(`TENANT_ACCESS_AUDIT_UNSAFE:${path}.${key}`);
-      assertSafeMetadata(entry, `${path}.${key}`);
+      if (entry === undefined) continue;
+      result[key] = safeJsonValue(entry, `${path}.${key}`);
     }
-    return;
+    return result;
   }
   throw new Error(`TENANT_ACCESS_AUDIT_UNSAFE:${path}`);
 }
@@ -40,8 +42,7 @@ export async function appendTenantAccessEvent(
   transaction: Prisma.TransactionClient,
   input: TenantAccessAuditInput,
 ) {
-  const metadata = input.metadata ?? {};
-  assertSafeMetadata(metadata);
+  const metadata = safeJsonValue(input.metadata ?? {}, "metadata");
   const targetEmail = input.targetEmail.trim().toLowerCase();
   if (!targetEmail) throw new Error("TENANT_ACCESS_AUDIT_TARGET_REQUIRED");
 
@@ -55,7 +56,7 @@ export async function appendTenantAccessEvent(
       businessId: input.businessId ?? null,
       invitationId: input.invitationId ?? null,
       summary: input.summary.trim(),
-      metadata: metadata as Prisma.InputJsonValue,
+      metadata,
     },
   });
 }
