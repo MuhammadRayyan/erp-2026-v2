@@ -47,6 +47,9 @@ export async function PATCH(
 
     const message = error instanceof Error ? error.message : "PROFILE_UPDATE_FAILED";
     const status = message === "AUTHENTICATION_REQUIRED" ? 401 : message.includes("DENIED") || message.includes("DISABLED") ? 403 : 409;
-    return NextResponse.json({ message: "The business profile could not be updated." }, { status });
+    const responseMessage = message === "BUSINESS_FISCAL_YEAR_LOCKED_BY_PERIODS"
+      ? "The fiscal-year start cannot change after accounting periods have been created."
+      : "The business profile could not be updated.";
+    return NextResponse.json({ message: responseMessage }, { status });
   }
 }
