@@ -13,8 +13,10 @@
     "worker:email": "node --env-file=.env scripts/email-worker.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --exclude=tests/integration/**",
+    "test": "vitest run --exclude=tests/integration/** --exclude=tests/e2e/**",
     "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:watch": "vitest",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run test:integration && npm run build",
     "db:generate": "prisma generate",
@@ -39,6 +41,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.1",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^24.0.0",
     "@types/nodemailer": "^7.0.0",
