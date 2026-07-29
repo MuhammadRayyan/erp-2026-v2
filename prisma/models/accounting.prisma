@@ -50,7 +50,7 @@ enum AccountType {
   OTHER_EXPENSE
 }
 
-model Account {
+model LedgerAccount {
   id                   String               @id @default(cuid())
   tenantId             String
   businessId           String
@@ -70,13 +70,13 @@ model Account {
   parentId             String?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
-  business             Business             @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "Account_business_scope_fkey")
-  parent               Account?             @relation("AccountHierarchy", fields: [tenantId, businessId, parentId], references: [tenantId, businessId, id], onDelete: Restrict, map: "Account_parent_scope_fkey")
-  children             Account[]            @relation("AccountHierarchy")
+  business             Business             @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "LedgerAccount_business_scope_fkey")
+  parent               LedgerAccount?       @relation("LedgerAccountHierarchy", fields: [tenantId, businessId, parentId], references: [tenantId, businessId, id], onDelete: Restrict, map: "LedgerAccount_parent_scope_fkey")
+  children             LedgerAccount[]      @relation("LedgerAccountHierarchy")
 
-  @@unique([tenantId, businessId, id], map: "Account_scope_id_key")
-  @@unique([tenantId, businessId, code], map: "Account_scope_code_key")
-  @@unique([tenantId, businessId, systemKey], map: "Account_scope_system_key")
-  @@index([tenantId, businessId, class, status, code], map: "Account_register_idx")
-  @@index([tenantId, businessId, parentId, status], map: "Account_parent_status_idx")
+  @@unique([tenantId, businessId, id], map: "LedgerAccount_scope_id_key")
+  @@unique([tenantId, businessId, code], map: "LedgerAccount_scope_code_key")
+  @@unique([tenantId, businessId, systemKey], map: "LedgerAccount_scope_system_key")
+  @@index([tenantId, businessId, class, status, code], map: "LedgerAccount_register_idx")
+  @@index([tenantId, businessId, parentId, status], map: "LedgerAccount_parent_status_idx")
 }
