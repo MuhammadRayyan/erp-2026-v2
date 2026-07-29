@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 29, 2026
-Current branch: `phase-3-browser-e2e`
+Current branch: `main`
 Current phase: Phase 3 — Verification and hardening
 
 ## Evidence-based verified state
@@ -14,8 +14,9 @@ Current phase: Phase 3 — Verification and hardening
 - Controlled exports are scoped, spreadsheet-safe, bounded, and audited without retaining generated payloads.
 - PR #22 merged the blocking corrections found by the independent Phase 3 audit: invitation role/lifecycle/scope, tenant administration entitlement gates, catalog reactivation, numbering settings/idempotency/void concurrency, import decision and target staleness, local worker setup, infrastructure exposure, and business-profile audit coverage.
 - The final PR #22 run `30427561733`, job `90497258414`, passed clean dependency installation, Prisma generation, all migrations, lint, type checking, unit tests, 60 PostgreSQL integration tests, production build, Compose validation, both Docker image builds, runtime-container boot, database readiness, and the protected outbox smoke request.
-- PR #23 adds Playwright browser verification against the production build, real PostgreSQL, Mailpit, SMTP worker processing, private files, and cookie-backed sessions.
-- The code-equivalent PR #23 run `30429567937`, job `90503417733`, passed the complete owner/viewer browser workflow plus every existing unit, PostgreSQL, build, Compose, Docker-image, runtime-readiness, and protected-outbox gate.
+- PR #23 merged Playwright browser verification against the production build, real PostgreSQL, Mailpit, SMTP worker processing, private files, and cookie-backed sessions.
+- The final exact-head PR #23 run `30429920983`, job `90504549396`, passed the complete owner/viewer browser workflow plus every existing unit, PostgreSQL, build, Compose, Docker-image, runtime-readiness, and protected-outbox gate.
+- PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
 
 ## Audit correction
 
@@ -37,7 +38,7 @@ The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICA
 - Added focused regression tests and a booted-runtime CI smoke gate.
 - Reconciled README, security guidance, decisions, changelog, and the Phase 3 audit.
 
-## Verified browser slice in PR #23
+## Verified browser slice merged through PR #23
 
 - Added Playwright 1.61.1 with a reproducible npm lock and one Chromium worker.
 - Added clean CI PostgreSQL and Mailpit services plus production-server and email-worker orchestration.
