@@ -40,8 +40,8 @@ export async function updateBusinessProfile(
   const input = businessProfileInputSchema.parse(rawInput);
 
   return db.$transaction(async (transaction) => {
-    await transaction.$queryRaw`
-      SELECT pg_advisory_xact_lock(hashtextextended(${"accounting-period:" + context.tenantId + ":" + context.businessId}, 0))
+    await transaction.$queryRaw<Array<{ locked: string }>>`
+      SELECT pg_advisory_xact_lock(hashtextextended(${"accounting-period:" + context.tenantId + ":" + context.businessId}, 0))::text AS locked
     `;
     const currentRows = await transaction.$queryRaw<Array<{ fiscalYearStartMonth: number }>>`
       SELECT "fiscalYearStartMonth"
