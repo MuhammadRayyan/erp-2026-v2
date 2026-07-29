@@ -5,9 +5,9 @@ Audit basis: repository code, Prisma models, committed migrations, PostgreSQL ca
 
 ## Current conclusion
 
-Phase 3 shared ERP foundations satisfy the repository completion rule. The transaction, authorization, tenant-scope, lifecycle, concurrency, setup, browser, migration-integrity, and tenant-access-audit gaps found by this independent audit were corrected through PRs #22–#25 and verified through clean executable gates.
+Phase 3 shared ERP foundations are complete. The transaction, authorization, tenant-scope, lifecycle, concurrency, setup, browser, migration-integrity, and tenant-access-audit gaps found by this independent audit were corrected through PRs #22–#25 and verified through clean executable gates.
 
-Phase 3 may be marked complete after the synchronized PR #25 documentation head repeats the full gate and merges normally. Phase 4 may then begin with chart structure and account lifecycle. No accounting transaction workflow may be exposed until periods/locks, the balanced posting kernel, idempotency, reversals, and PostgreSQL integration tests exist.
+PR #25 merged normally as `f13644c3d6248bf074647377b65910af8447ad9a` after its synchronized exact head passed the full gate. Phase 4 may begin with chart structure and account lifecycle. No accounting transaction workflow may be exposed until periods/locks, the balanced posting kernel, idempotency, reversals, and PostgreSQL integration tests exist.
 
 ## Verified foundations
 
@@ -81,7 +81,7 @@ Phase 3 may be marked complete after the synchronized PR #25 documentation head 
 - Existing SQL names use Prisma mappings, avoiding duplicate simpler keys or unintended renames.
 - The party trigram GIN/operator-class index is represented in Prisma.
 - Clean CI requires migration-history status and an empty Prisma schema-to-database diff.
-- The PostgreSQL catalog manifest now verifies 27 critical composite foreign keys, 38 check constraints, three custom indexes, two trigger/function pairs, and `pg_trgm`.
+- The PostgreSQL catalog manifest verifies 27 critical composite foreign keys, 38 check constraints, three custom indexes, two trigger/function pairs, and `pg_trgm`.
 - Pull requests create a second database from the exact base commit, seed representative user/owner/tenant/business/unit/party data, apply head migrations, then repeat status, diff, catalog, and preservation checks.
 
 ### Tenant access history
@@ -101,9 +101,9 @@ Phase 3 may be marked complete after the synchronized PR #25 documentation head 
 - PR #22 run `30427561733`, job `90497258414`, passed hardening regression, production, Docker, and runtime gates; merge `da1e313244fff647c25ca7aedd1ff7a6f78a54e7`.
 - PR #23 run `30429920983`, job `90504549396`, passed the production browser workflow and all prior gates; merge `d1627ca55ca4563f9588a60cff96889bda6f365a`.
 - PR #24 run `30432096576`, job `90511416006`, passed migration history/diff/catalog, base upgrade, application, browser, Docker, and runtime gates; merge `acd0c8eb48d110ed8995842ece3e263a84826af9`.
-- PR #25 implementation-head run `30439811046`, job `90536151781`, passed clean dependency installation, Prisma generation, all migrations, clean migration integrity, real base-to-head upgrade preservation, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, owner access-history Playwright verification, Compose validation, both Docker image builds, runtime boot, database readiness, and protected outbox smoke.
+- PR #25 final exact-head run `30440271034`, job `90537656256`, passed clean dependency installation, Prisma generation, all migrations, clean migration history/diff/catalog verification, real base-to-head upgrade preservation, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, owner access-history Playwright verification, Compose validation, both Docker image builds, runtime boot, database readiness, and protected outbox smoke; merge `f13644c3d6248bf074647377b65910af8447ad9a`.
 
-The final synchronized documentation head must repeat this full gate before merge. This evidence does not replace coordinated restoration drills.
+This evidence does not replace coordinated restoration drills.
 
 ## Non-blocking follow-up
 
