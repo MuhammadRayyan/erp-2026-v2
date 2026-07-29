@@ -46,15 +46,36 @@ export async function listNumberSequences(context: BusinessAccessContext) {
   });
 }
 
+type LockedSequence = {
+  id: string;
+  key: string;
+  label: string;
+  prefixTemplate: string;
+  suffixTemplate: string;
+  padding: number;
+  startValue: number;
+  nextValue: number;
+  resetPolicy: "NEVER" | "YEARLY" | "MONTHLY";
+  currentPeriodKey: string | null;
+  active: boolean;
+};
+
 export async function updateNumberSequence(context: BusinessAccessContext, sequenceId: string, rawInput: UpdateNumberSequenceInput) {
   await requireNumberingSettings(context, "settings.manage");
   const input = updateNumberSequenceSchema.parse(rawInput);
   return db.$transaction(async (transaction) => {
-    const sequence = await transaction.numberSequence.findFirst({
-      where: { id: sequenceId, tenantId: context.tenantId, businessId: context.businessId },
-    });
+    const locked = await transaction.$queryRaw<LockedSequence[]>`
+      SELECT "id", "key", "label", "prefixTemplate", "suffixTemplate", "padding", "startValue", "nextValue", "resetPolicy"::text, "currentPeriodKey", "active"
+      FROM "NumberSequence"
+      WHERE "id" = ${sequenceId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    const sequence = locked[0];
     if (!sequence) throw new Error("NUMBER_SEQUENCE_NOT_FOUND");
     const allocationCount = await transaction.numberAllocation.count({ where: { sequenceId: sequence.id } });
+    if (allocationCount > 0 && (sequence.startValue !== input.startValue || sequence.resetPolicy !== input.resetPolicy)) {
+      throw new Error("NUMBER_SEQUENCE_POLICY_LOCKED");
+    }
     const updated = await transaction.numberSequence.update({
       where: { id: sequence.id },
       data: {
@@ -89,19 +110,17 @@ export async function updateNumberSequence(context: BusinessAccessContext, seque
   });
 }
 
-type LockedSequence = {
-  id: string;
-  key: string;
-  label: string;
-  prefixTemplate: string;
-  suffixTemplate: string;
-  padding: number;
-  startValue: number;
-  nextValue: number;
-  resetPolicy: "NEVER" | "YEARLY" | "MONTHLY";
-  currentPeriodKey: string | null;
-  active: boolean;
-};
+function assertIdempotentAllocation(
+  existing: { effectiveDate: Date; referenceType: string | null; referenceId: string | null },
+  input: ReturnType<typeof allocateNumberSchema.parse>,
+) {
+  const effectiveDate = existing.effectiveDate.toISOString().slice(0, 10);
+  if (effectiveDate !== input.effectiveDate
+    || existing.referenceType !== (input.referenceType || null)
+    || existing.referenceId !== (input.referenceId || null)) {
+    throw new Error("NUMBER_IDEMPOTENCY_CONFLICT");
+  }
+}
 
 export async function allocateNumberInTransaction(
   transaction: Prisma.TransactionClient,
@@ -109,6 +128,7 @@ export async function allocateNumberInTransaction(
   rawInput: AllocateNumberInput,
 ) {
   const input = allocateNumberSchema.parse(rawInput);
+  const effectiveDate = parseEffectiveDate(input.effectiveDate);
   const existing = await transaction.numberAllocation.findFirst({
     where: {
       tenantId: context.tenantId,
@@ -117,7 +137,10 @@ export async function allocateNumberInTransaction(
       idempotencyKey: input.idempotencyKey,
     },
   });
-  if (existing) return existing;
+  if (existing) {
+    assertIdempotentAllocation(existing, input);
+    return existing;
+  }
 
   const locked = await transaction.$queryRaw<LockedSequence[]>`
     SELECT "id", "key", "label", "prefixTemplate", "suffixTemplate", "padding", "startValue", "nextValue", "resetPolicy"::text, "currentPeriodKey", "active"
@@ -131,9 +154,11 @@ export async function allocateNumberInTransaction(
   const repeated = await transaction.numberAllocation.findFirst({
     where: { tenantId: context.tenantId, businessId: context.businessId, sequenceId: sequence.id, idempotencyKey: input.idempotencyKey },
   });
-  if (repeated) return repeated;
+  if (repeated) {
+    assertIdempotentAllocation(repeated, input);
+    return repeated;
+  }
 
-  const effectiveDate = parseEffectiveDate(input.effectiveDate);
   const allocationPeriod = periodKey(sequence.resetPolicy, input.effectiveDate);
   const numericValue = sequence.currentPeriodKey === allocationPeriod ? sequence.nextValue : sequence.startValue;
   const formattedValue = `${renderTemplate(sequence.prefixTemplate, input.effectiveDate)}${String(numericValue).padStart(sequence.padding, "0")}${renderTemplate(sequence.suffixTemplate, input.effectiveDate)}`;
@@ -170,7 +195,7 @@ export async function allocateNumberInTransaction(
 }
 
 export async function allocateBusinessNumber(context: BusinessAccessContext, rawInput: AllocateNumberInput) {
-  await requireTenantFeature(context.tenantId, "core.settings");
+  await requireNumberingSettings(context, "settings.manage");
   return db.$transaction((transaction) => allocateNumberInTransaction(transaction, context, rawInput));
 }
 
@@ -178,11 +203,15 @@ export async function voidNumberAllocation(context: BusinessAccessContext, alloc
   await requireNumberingSettings(context, "settings.manage");
   const { reason } = voidNumberAllocationSchema.parse(rawInput);
   return db.$transaction(async (transaction) => {
-    const allocation = await transaction.numberAllocation.findFirst({
-      where: { id: allocationId, tenantId: context.tenantId, businessId: context.businessId },
-    });
+    const locked = await transaction.$queryRaw<Array<{ id: string; sequenceId: string; formattedValue: string; status: "ALLOCATED" | "VOIDED" }>>`
+      SELECT "id", "sequenceId", "formattedValue", "status"::text
+      FROM "NumberAllocation"
+      WHERE "id" = ${allocationId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    const allocation = locked[0];
     if (!allocation) throw new Error("NUMBER_ALLOCATION_NOT_FOUND");
-    if (allocation.status === "VOIDED") return allocation;
+    if (allocation.status === "VOIDED") return transaction.numberAllocation.findUniqueOrThrow({ where: { id: allocation.id } });
     const updated = await transaction.numberAllocation.update({
       where: { id: allocation.id },
       data: { status: "VOIDED", voidedAt: new Date(), voidedById: context.userId, voidReason: reason },
