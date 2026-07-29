@@ -3,7 +3,7 @@
 Last updated: July 29, 2026
 Current branch: `agent/read-only-journal-evidence`
 Current phase: Phase 4 — Accounting kernel
-Current slice: Read-only posted-journal evidence boundary — implementation branch open
+Current slice: Read-only posted-journal evidence boundary — PR #29 CI passed
 
 ## Evidence-based verified state
 
@@ -12,6 +12,7 @@ Current slice: Read-only posted-journal evidence boundary — implementation bra
 - PR #27 merged normally into `main` as `e4d8e7af1e8baad116dc7ef09d56800cf68d4544`.
 - PR #28 implements the internal central posting kernel without exposing manual journal or document transaction entry.
 - Implementation-head run `30469369143`, job `90635303570`, passed clean dependency installation, Prisma generation, forward migrations, migration status, supported schema diff, PostgreSQL catalog integrity, real base-to-head upgrade verification, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, Playwright browser verification, Compose validation, migration/runtime image builds, booted runtime readiness, and protected outbox smoke.
+- PR #29 run `30474739061`, job `90653508471`, passed clean dependency installation, Prisma generation, forward migrations, clean migration integrity, real base-to-head upgrade verification, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, Playwright browser verification, Compose validation, migration/runtime image builds, booted runtime readiness, and protected outbox smoke for the read-only journal evidence slice.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -24,7 +25,6 @@ Current slice: Read-only posted-journal evidence boundary — implementation bra
 - The register and detail pages expose posted journal dates, origin, source identity, line count, balanced debit/credit totals, account lines, idempotency key, memo, and reversal lineage.
 - The chart-of-accounts page now links to posted journals and clarifies that journal evidence is read-only.
 - This branch intentionally adds no manual posting form, no public posting route, no opening-balance workflow, no journal mutation path, and no schema change.
-- CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
 
@@ -65,7 +65,7 @@ Current slice: Read-only posted-journal evidence boundary — implementation bra
 
 ## Current Phase 4 priority
 
-Implement controlled opening balances after the read-only posted-journal evidence boundary passes review and CI.
+Implement controlled opening balances after the read-only posted-journal evidence boundary passes review and merge.
 
 The opening-balance slice must provide:
 
