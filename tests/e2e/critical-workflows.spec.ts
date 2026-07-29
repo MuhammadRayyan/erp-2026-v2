@@ -136,7 +136,8 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await expect(page.getByRole("heading", { name: "Access history" })).toBeVisible();
     await expect(page.getByText("Invitation Accepted", { exact: true })).toBeVisible();
     await expect(page.getByText("Business Access Granted", { exact: true })).toBeVisible();
-    await expect(page.getByText(`Target: E2E Viewer · ${viewerEmail}`, { exact: true })).toBeVisible();
+    const acceptedEvent = page.getByRole("heading", { name: "Invitation accepted", exact: true }).locator("xpath=ancestor::div[contains(@class,'flex')][1]");
+    await expect(acceptedEvent.getByText(`Target: E2E Viewer · ${viewerEmail}`, { exact: true })).toBeVisible();
   });
 
   await test.step("viewer can read shared data and files but cannot write", async () => {
