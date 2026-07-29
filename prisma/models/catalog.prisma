@@ -52,6 +52,7 @@ model UnitOfMeasure {
   active        Boolean       @default(true)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  business      Business      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "UnitOfMeasure_business_fkey")
   items         CatalogItem[]
 
   @@unique([tenantId, businessId, id])
@@ -80,7 +81,9 @@ model CatalogItem {
   searchText                 String
   createdAt                  DateTime           @default(now())
   updatedAt                  DateTime           @updatedAt
-  unit                       UnitOfMeasure      @relation(fields: [tenantId, businessId, unitId], references: [tenantId, businessId, id], onDelete: Restrict)
+  business                   Business           @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "CatalogItem_business_fkey")
+  unit                       UnitOfMeasure      @relation(fields: [tenantId, businessId, unitId], references: [tenantId, businessId, id], onDelete: Restrict, map: "CatalogItem_unit_fkey")
+  importRows                 CatalogImportRow[] @relation("CatalogImportExistingItem")
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, sku])
@@ -99,6 +102,8 @@ model CatalogImportBatch {
   createdAt    DateTime            @default(now())
   committedAt  DateTime?
   cancelledAt  DateTime?
+  business     Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "CatalogImportBatch_business_scope_fkey")
+  createdBy    User                @relation("CatalogImportCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "CatalogImportBatch_createdById_fkey")
   rows         CatalogImportRow[]
 
   @@unique([tenantId, businessId, id])
@@ -119,7 +124,8 @@ model CatalogImportRow {
   issues                Json
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
-  batch                 CatalogImportBatch  @relation(fields: [tenantId, businessId, batchId], references: [tenantId, businessId, id], onDelete: Cascade)
+  batch                 CatalogImportBatch  @relation(fields: [tenantId, businessId, batchId], references: [tenantId, businessId, id], onDelete: Cascade, map: "CatalogImportRow_batch_scope_fkey")
+  existingItem          CatalogItem?        @relation("CatalogImportExistingItem", fields: [tenantId, businessId, existingItemId], references: [tenantId, businessId, id], onDelete: Restrict, map: "CatalogImportRow_existing_item_scope_fkey")
 
   @@unique([batchId, rowNumber])
   @@index([tenantId, businessId, batchId, action])
