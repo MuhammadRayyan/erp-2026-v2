@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 29, 2026
-Current branch: `phase-3-migration-integrity`
+Current branch: `main`
 Current phase: Phase 3 — Verification and hardening
 
 ## Evidence-based verified state
@@ -16,7 +16,8 @@ Current phase: Phase 3 — Verification and hardening
 - PR #22 run `30427561733`, job `90497258414`, passed migration, unit, PostgreSQL, production, Docker, runtime, readiness, and outbox gates.
 - PR #23 merged Playwright verification against the production build, real PostgreSQL, Mailpit, email worker, private files, and cookie sessions.
 - PR #23 run `30429920983`, job `90504549396`, passed the complete owner/viewer browser workflow plus every existing gate. PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
-- PR #24 implements clean-install and base-to-head migration integrity protection while preserving all existing application and runtime gates.
+- PR #24 merged clean-install and base-to-head migration integrity protection while preserving all existing application and runtime gates.
+- PR #24 run `30432096576`, job `90511416006`, passed clean migration status, empty supported-object schema diff, PostgreSQL catalog integrity, base-to-head upgrade preservation, lint, strict TypeScript, unit tests, 60 PostgreSQL integration tests, production build, Playwright E2E, Compose validation, both Docker image builds, runtime boot, readiness, and protected outbox smoke. PR #24 merged as `acd0c8eb48d110ed8995842ece3e263a84826af9`.
 
 ## Audit correction
 
@@ -41,7 +42,7 @@ The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICA
 - Fixed the party-create form’s asynchronous element-lifetime defect.
 - Preserved all prior unit, PostgreSQL, build, Compose, Docker, readiness, and outbox gates.
 
-## Migration integrity slice in PR #24
+## Verified migration integrity merged through PR #24
 
 - Reconciled the multi-file Prisma schema with live supported foreign keys, relation names, unique/index names, and the party trigram GIN operator class.
 - Added reverse Business, Tenant, and User relations for existing database keys without adding duplicate constraints or requiring a migration.
@@ -50,7 +51,6 @@ The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICA
 - Added a second pull-request database built from the exact base commit.
 - Seeded representative user, owner membership, tenant, business, unit, and party records before applying head migrations.
 - Re-ran migration status, schema diff, catalog integrity, and sentinel preservation after base-to-head upgrade.
-- Removed the temporary report-only workflow and inventory script after the permanent gate replaced them.
 - Added `MIGRATION_INTEGRITY.md`, ADR-018, npm commands, and setup guidance.
 
 ## Remaining Phase 3 priority
