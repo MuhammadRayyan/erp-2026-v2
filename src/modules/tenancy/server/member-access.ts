@@ -1,6 +1,7 @@
 import { EmailOutboxStatus, InvitationStatus, MembershipStatus, TenantStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getBusinessRole } from "@/modules/access/roles";
+import { requireTenantFeature } from "@/modules/entitlements/server/resolve";
 
 async function requireTenantOwner(actorUserId: string, tenantId: string) {
   const owner = await db.tenantMembership.findFirst({
@@ -10,6 +11,11 @@ async function requireTenantOwner(actorUserId: string, tenantId: string) {
   if (!owner) throw new Error("TENANT_OWNER_REQUIRED");
 }
 
+async function requireTenantAccessAdministration(actorUserId: string, tenantId: string) {
+  await requireTenantOwner(actorUserId, tenantId);
+  await requireTenantFeature(tenantId, "users.manage");
+}
+
 export async function updateTenantMemberAccess(input: {
   actorUserId: string;
   tenantId: string;
@@ -17,7 +23,7 @@ export async function updateTenantMemberAccess(input: {
   status?: "ACTIVE" | "DISABLED";
   businessGrants?: Array<{ businessId: string; roleKey: string; status: "ACTIVE" | "DISABLED" }>;
 }) {
-  await requireTenantOwner(input.actorUserId, input.tenantId);
+  await requireTenantAccessAdministration(input.actorUserId, input.tenantId);
   const membership = await db.tenantMembership.findUnique({
     where: { tenantId_userId: { tenantId: input.tenantId, userId: input.targetUserId } },
     select: { id: true, isOwner: true, status: true },
@@ -62,7 +68,7 @@ export async function updateTenantMemberAccess(input: {
 }
 
 export async function revokeTenantInvitation(input: { actorUserId: string; tenantId: string; invitationId: string }) {
-  await requireTenantOwner(input.actorUserId, input.tenantId);
+  await requireTenantAccessAdministration(input.actorUserId, input.tenantId);
   return db.$transaction(async (transaction) => {
     const result = await transaction.tenantInvitation.updateMany({
       where: { id: input.invitationId, tenantId: input.tenantId, status: InvitationStatus.PENDING },
