@@ -37,7 +37,7 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
 
   const [units, existingItems] = await Promise.all([
     db.unitOfMeasure.findMany({ where: { tenantId: context.tenantId, businessId: context.businessId, active: true } }),
-    db.catalogItem.findMany({ where: { tenantId: context.tenantId, businessId: context.businessId }, select: { id: true, sku: true, name: true } }),
+    db.catalogItem.findMany({ where: { tenantId: context.tenantId, businessId: context.businessId }, select: { id: true, sku: true, name: true, updatedAt: true } }),
   ]);
   const unitByCode = new Map(units.map((unit) => [unit.code.toUpperCase(), unit]));
   const itemBySku = new Map(existingItems.filter((item) => item.sku).map((item) => [item.sku!, item]));
@@ -48,6 +48,7 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
     const issues: string[] = [];
     let action: ImportAction = "CREATE";
     let existingItemId: string | null = null;
+    let existingItemUpdatedAt: Date | null = null;
     let normalizedData: NormalizedCatalogRow | null = null;
     try {
       const sku = data.sku.trim().toUpperCase() || null;
@@ -78,6 +79,7 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
         if (existing) {
           action = "CONFLICT";
           existingItemId = existing.id;
+          existingItemUpdatedAt = existing.updatedAt;
           issues.push("SKU already exists. Choose update or skip.");
         }
       }
@@ -86,6 +88,7 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
         if (nameMatch) {
           action = "CONFLICT";
           existingItemId = nameMatch.id;
+          existingItemUpdatedAt = nameMatch.updatedAt;
           issues.push("An item with the same normalized name already exists.");
         }
       }
@@ -93,7 +96,7 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
       action = "INVALID";
       issues.push(error instanceof Error ? error.message : "Invalid row.");
     }
-    return { rowNumber, rawData: data, normalizedData, action, existingItemId, issues };
+    return { rowNumber, rawData: data, normalizedData, action, existingItemId, existingItemUpdatedAt, issues };
   });
 
   return db.$transaction(async (transaction) => {
@@ -116,6 +119,7 @@ export async function previewCatalogImport(context: BusinessAccessContext, input
         normalizedData: row.normalizedData ? row.normalizedData as Prisma.InputJsonValue : Prisma.JsonNull,
         action: row.action,
         existingItemId: row.existingItemId,
+        existingItemUpdatedAt: row.existingItemUpdatedAt,
         issues: row.issues as Prisma.InputJsonValue,
       })),
     });
@@ -135,11 +139,19 @@ export async function getCatalogImport(context: BusinessAccessContext, batchId: 
 
 export async function resolveCatalogImportRow(context: BusinessAccessContext, batchId: string, rowId: string, action: "CREATE" | "UPDATE" | "SKIP") {
   await requireImportAccess(context, "catalog.manage");
-  const row = await db.catalogImportRow.findFirst({ where: { id: rowId, batchId, tenantId: context.tenantId, businessId: context.businessId }, include: { batch: true } });
-  if (!row || row.batch.status !== "PREVIEW") throw new Error("CATALOG_IMPORT_ROW_NOT_FOUND");
-  if (row.action === "INVALID") throw new Error("CATALOG_IMPORT_ROW_INVALID");
-  if (action === "UPDATE" && !row.existingItemId) throw new Error("CATALOG_IMPORT_UPDATE_TARGET_MISSING");
-  return db.catalogImportRow.update({ where: { id: row.id }, data: { action } });
+  return db.$transaction(async (transaction) => {
+    const batches = await transaction.$queryRaw<Array<{ id: string; status: string }>>`
+      SELECT "id", "status"::text FROM "CatalogImportBatch"
+      WHERE "id" = ${batchId} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    if (!batches[0] || batches[0].status !== "PREVIEW") throw new Error("CATALOG_IMPORT_ROW_NOT_FOUND");
+    const row = await transaction.catalogImportRow.findFirst({ where: { id: rowId, batchId, tenantId: context.tenantId, businessId: context.businessId } });
+    if (!row) throw new Error("CATALOG_IMPORT_ROW_NOT_FOUND");
+    if (row.action === "INVALID") throw new Error("CATALOG_IMPORT_ROW_INVALID");
+    if (action === "UPDATE" && (!row.existingItemId || !row.existingItemUpdatedAt)) throw new Error("CATALOG_IMPORT_UPDATE_TARGET_MISSING");
+    return transaction.catalogImportRow.update({ where: { id: row.id }, data: { action } });
+  });
 }
 
 export async function commitCatalogImport(context: BusinessAccessContext, batchId: string) {
@@ -182,8 +194,15 @@ export async function commitCatalogImport(context: BusinessAccessContext, batchI
         searchText: [data.sku, data.name, data.description].filter(Boolean).join(" ").toLowerCase(),
       };
       if (row.action === "UPDATE") {
-        const updated = await transaction.catalogItem.updateMany({ where: { id: row.existingItemId!, tenantId: context.tenantId, businessId: context.businessId }, data: values });
-        if (updated.count !== 1) throw new Error("CATALOG_IMPORT_UPDATE_TARGET_MISSING");
+        const targets = await transaction.$queryRaw<Array<{ id: string; updatedAt: Date }>>`
+          SELECT "id", "updatedAt" FROM "CatalogItem"
+          WHERE "id" = ${row.existingItemId!} AND "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+          FOR UPDATE
+        `;
+        const target = targets[0];
+        if (!target || !row.existingItemUpdatedAt) throw new Error("CATALOG_IMPORT_UPDATE_TARGET_MISSING");
+        if (target.updatedAt.getTime() !== row.existingItemUpdatedAt.getTime()) throw new Error("CATALOG_IMPORT_TARGET_CHANGED");
+        await transaction.catalogItem.update({ where: { id: target.id }, data: values });
       } else {
         await transaction.catalogItem.create({ data: { tenantId: context.tenantId, businessId: context.businessId, ...values } });
       }
