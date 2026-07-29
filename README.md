@@ -4,22 +4,24 @@ A UAE-first ERP for owner-operated and small businesses, built as a structured N
 
 ## Current status
 
-**Phase 4 — Accounting kernel. Active slice: chart of accounts and account lifecycle.**
+**Phase 4 — Accounting kernel. Completed foundations: chart of accounts, account lifecycle, accounting periods, and date locks.**
 
-Phases 1–3 are complete. PR #26 adds the first accounting structure without introducing financial transactions:
+Phases 1–3 are complete. The current Phase 4 foundation provides:
 
-- business-scoped account classes, constrained types, normal balances, contra accounts, headers, posting accounts, and control accounts;
-- tenant-safe hierarchy, stable system keys, required controls, and active/inactive lifecycle;
-- deterministic UAE-oriented default chart for existing and newly onboarded businesses;
-- accounting RBAC, entitlement enforcement, protected register/detail UI, and business audit events;
-- PostgreSQL classification and hierarchy invariants;
-- clean-install, base-to-head upgrade, PostgreSQL, browser, Docker, and runtime verification.
+- business-scoped ledger-account classes, types, normal balances, hierarchy, lifecycle, stable system keys, and required control accounts;
+- deterministic UAE-oriented default charts for existing and newly onboarded businesses;
+- business-scoped accounting periods with open, soft-locked, and closed states;
+- PostgreSQL-enforced non-overlap, fiscal-year containment, valid transitions, date immutability after locking, and deletion prevention;
+- audited create, edit, lock, close, and reopen workflows;
+- a transaction-bound posting-date guard for the future journal kernel;
+- accounting RBAC, entitlement enforcement, owner/accountant management, and viewer read-only behavior;
+- unit, PostgreSQL integration, concurrency, browser, clean-migration, base-to-head upgrade, Docker, and booted-runtime verification.
 
-The implementation-head PR #26 run `30442778259`, job `90545780793`, passed every repository gate. The next slice is accounting periods and locks.
+The verified implementation-head run `30465222027`, job `90621155313`, passed every repository gate.
 
-**No balances, opening entries, journals, document posting, VAT posting, allocation, reconciliation, or financial statements exist yet.** Transaction entry remains blocked until period enforcement and one balanced, idempotent posting kernel with reversals are implemented and PostgreSQL integration-tested.
+**No balances, opening entries, journals, document posting, VAT posting, allocation, reconciliation, or financial statements exist yet.** Financial transaction entry remains blocked until one central balanced, idempotent posting kernel with source uniqueness and linked reversals is implemented and verified.
 
-Read `ACCOUNTING_FOUNDATION.md`, `PROGRESS.md`, and `DECISIONS.md` for the active accounting boundary.
+Read `ACCOUNTING_FOUNDATION.md`, `ACCOUNTING_PERIODS.md`, `PROGRESS.md`, and `DECISIONS.md` for the active accounting boundary.
 
 ## Implemented foundations
 
@@ -31,7 +33,7 @@ Read `ACCOUNTING_FOUNDATION.md`, `PROGRESS.md`, and `DECISIONS.md` for the activ
 - parties, contacts, addresses, duplicate review, products, services, units, and staged imports;
 - typed custom fields, private files, business audit history, document numbering, and controlled CSV exports;
 - durable PostgreSQL email outbox with a separate worker;
-- chart of accounts and account lifecycle structure;
+- chart of accounts, account lifecycle, accounting periods, and date-lock enforcement;
 - Playwright verification across authentication, onboarding, master data, accounting, private files, invitations, authorization, and password recovery;
 - clean-install and real base-to-head migration integrity verification;
 - Docker image builds plus booted runtime/readiness/outbox smoke checks.
@@ -55,7 +57,7 @@ cd erp-2026-v2
 cp .env.example .env
 ```
 
-Generate separate authentication and worker secrets of at least 32 characters:
+Generate different authentication and worker secrets of at least 32 characters:
 
 ```bash
 openssl rand -base64 32
@@ -167,22 +169,23 @@ docker compose down -v
 
 In Compose, PostgreSQL is `db`, Mailpit is `mailpit`, the worker calls `web`, and private files use `/app/storage/private`.
 
-## Accounting structure
+## Accounting foundation
 
-The Accounting workspace currently manages chart structure only.
+The Accounting workspace currently manages structure and date control only.
 
-- `accounting.view` reads the chart.
-- `accounting.manage` creates, edits, activates, and deactivates accounts.
+- `accounting.view` reads the chart and period register.
+- `accounting.manage` administers accounts and periods.
 - `accounting.core` must be enabled for the tenant.
 - Viewer roles are read-only.
-- Create/update/status changes produce business audit events.
+- Every meaningful account/period change creates a business audit event.
 - Required system controls cannot be deactivated.
-- System-managed classification and hierarchy are immutable; code, name, and description may be localized while `systemKey` remains stable.
-- Header parents must be active, same-class, and in the same business.
-- PostgreSQL rejects cycles and invalid class/type/balance/kind combinations.
-- There is no hard-delete path.
+- Account hierarchy and classification are protected by PostgreSQL and service rules.
+- Periods cannot overlap, cross one fiscal-year boundary, or be deleted.
+- Soft-locked and closed periods reject the future posting guard.
+- Fiscal-year start cannot change through ordinary settings after periods exist.
+- There is no journal or financial-document posting path yet.
 
-See `ACCOUNTING_FOUNDATION.md` for the default chart, lifecycle, hierarchy, migration, and explicit non-posting rules.
+See `ACCOUNTING_FOUNDATION.md` and `ACCOUNTING_PERIODS.md`.
 
 ## Tenant access history
 
@@ -215,14 +218,14 @@ npx prisma migrate diff \
 npm run db:verify-integrity
 ```
 
-The catalog verifier protects approved composite tenant keys, business checks, custom indexes, triggers/functions, and required extensions. Pull-request CI also builds a second database from the exact base commit, inserts representative data, applies head migrations, and verifies both schema integrity and data preservation. PR #26 additionally verifies default-chart backfill during this real upgrade.
+The integrity gate protects approved composite tenant keys, checks, custom indexes, triggers/functions, and required extensions. Pull-request CI also builds a second database from the exact base commit, inserts representative data, applies head migrations, and verifies schema integrity and data preservation. Accounting-period objects have a focused catalog verifier in addition to the general manifest.
 
 Migration rules:
 
 - use new forward migrations;
 - inspect generated and custom SQL;
 - map existing database object names in Prisma where supported;
-- update the catalog manifest only for intentional reviewed invariant changes;
+- update integrity checks only for intentional reviewed invariant changes;
 - verify clean installation and base-to-head upgrade;
 - back up important data before destructive changes.
 
@@ -258,21 +261,16 @@ Restore order:
 4. run `npm run db:deploy` and migration-integrity checks;
 5. review pending/retry outbox records and expiry dates;
 6. start the web service, then the worker;
-7. verify health, chart structure, files, audit history, tenant access history, and delivery.
+7. verify health, accounting structure, periods, files, audit history, tenant access history, and delivery.
 
 Never restore the database and private files from different maintenance windows. Test restoration on a disposable environment.
 
 ## Verification
 
-Unit tests:
+Unit and integration gates:
 
 ```bash
 npm run test
-```
-
-PostgreSQL integration tests:
-
-```bash
 docker compose up -d db
 npm run db:deploy
 npm run test:integration
@@ -288,7 +286,7 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright starts the production web process and email worker. It verifies anonymous denial, sign-up, onboarding, parties, catalog, default/custom chart accounts, owner/viewer accounting authorization, private files, invitation delivery/acceptance, tenant access history, password reset, session revocation, and reauthentication. Never point tests at production or valuable data. See `E2E_TESTING.md`.
+Playwright starts the production web process and email worker. It verifies anonymous denial, sign-up, onboarding, parties, catalog, chart accounts, accounting periods and transitions, owner/viewer authorization, private files, invitation delivery/acceptance, tenant access history, password reset, session revocation, and reauthentication. Never point tests at production or valuable data.
 
 Standard local gate:
 
@@ -319,44 +317,14 @@ docker compose logs -f worker
 docker compose logs -f mailpit
 ```
 
-### Database connection failure
+Common checks:
 
-- confirm `db` is healthy;
-- use `localhost`, not `db`, for host development;
-- confirm port `5432` is available.
-
-### Authentication/origin failure
-
-- confirm `BETTER_AUTH_SECRET` is at least 32 characters;
-- keep `BETTER_AUTH_URL`, `APP_URL`, and the browser origin identical;
-- restart after environment changes.
-
-### Queued email is not delivered
-
-- start `npm run worker:email` during host development;
-- ensure the application and worker use the same `OUTBOX_WORKER_SECRET`;
-- verify Mailpit or the configured SMTP provider is reachable.
-
-### Migration integrity fails
-
-- run `npm run db:status`;
-- inspect the Prisma diff;
-- review the named missing or changed catalog object;
-- fix the migration/schema relationship rather than weakening the manifest.
-
-### Browser E2E fails
-
-- install Chromium;
-- confirm PostgreSQL and Mailpit are running;
-- build the production application;
-- keep application origins aligned;
-- inspect `playwright-report/` and `test-results/`.
-
-### Stale Prisma client
-
-```bash
-npm run db:generate
-```
+- database failure: confirm `db` is healthy and use `localhost`, not `db`, for host development;
+- authentication/origin failure: align `BETTER_AUTH_URL`, `APP_URL`, and the browser origin;
+- queued email: run the worker and confirm SMTP plus `OUTBOX_WORKER_SECRET`;
+- migration integrity: inspect migration status, schema diff, and named catalog object rather than weakening the gate;
+- browser E2E: inspect `playwright-report/` and `test-results/`;
+- stale Prisma client: run `npm run db:generate`.
 
 ## Project structure
 
@@ -401,7 +369,7 @@ Route handlers remain thin. Domain modules own authorization, business rules, tr
 12. `FUTURE_DEVELOPMENTS.md`
 13. `RESEARCH_REFERENCES.md`
 
-Use `ACCOUNTING_FOUNDATION.md`, `MIGRATION_INTEGRITY.md`, `TENANT_ACCESS_AUDIT.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
+Use `ACCOUNTING_FOUNDATION.md`, `ACCOUNTING_PERIODS.md`, `MIGRATION_INTEGRITY.md`, `TENANT_ACCESS_AUDIT.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
 
 The repository, migrations, tests, and verified runtime behavior are the source of truth. Documentation must not overstate implementation.
 
