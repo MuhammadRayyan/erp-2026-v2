@@ -38,6 +38,7 @@ export default async function JournalDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
+  const reversedBy = entry.reversedBy[0];
   const totalDebit = entry.lines.reduce((sum, line) => sum + Number(line.debit), 0).toFixed(4);
   const totalCredit = entry.lines.reduce((sum, line) => sum + Number(line.credit), 0).toFixed(4);
 
@@ -65,11 +66,11 @@ export default async function JournalDetailPage({ params }: { params: Promise<{ 
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm"><p className="text-sm text-[var(--muted)]">Idempotency key</p><p className="mt-2 break-all text-sm font-semibold">{entry.idempotencyKey}</p></div>
     </section>
 
-    {(entry.reversalOf || entry.reversedBy) && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
+    {(entry.reversalOf || reversedBy) && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
       <h2 className="text-xl font-semibold">Reversal lineage</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {entry.reversalOf && <div><p className="text-sm text-[var(--muted)]">This journal reverses</p><Link href={`/business/${businessId}/accounting/journals/${entry.reversalOf.id}`} className="mt-1 inline-block font-medium text-[var(--brand)] hover:underline">{entry.reversalOf.id.slice(0, 8)} · {formatDate(entry.reversalOf.postingDate)}</Link></div>}
-        {entry.reversedBy && <div><p className="text-sm text-[var(--muted)]">Reversed by</p><Link href={`/business/${businessId}/accounting/journals/${entry.reversedBy.id}`} className="mt-1 inline-block font-medium text-[var(--brand)] hover:underline">{entry.reversedBy.id.slice(0, 8)} · {formatDate(entry.reversedBy.postingDate)}</Link></div>}
+        {reversedBy && <div><p className="text-sm text-[var(--muted)]">Reversed by</p><Link href={`/business/${businessId}/accounting/journals/${reversedBy.id}`} className="mt-1 inline-block font-medium text-[var(--brand)] hover:underline">{reversedBy.id.slice(0, 8)} · {formatDate(reversedBy.postingDate)}</Link></div>}
       </div>
     </section>}
 
