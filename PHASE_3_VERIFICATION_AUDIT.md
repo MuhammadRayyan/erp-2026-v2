@@ -1,26 +1,27 @@
 # Phase 3 Verification Audit
 
 Audit date: July 29, 2026
-Audit basis: repository code, Prisma models, committed migrations, API and server use cases, unit tests, PostgreSQL integration tests, Playwright browser workflows, Docker configuration, Git history, and executable GitHub Actions evidence. `PROGRESS.md` and `CHANGELOG.md` are treated as claims to verify, not as evidence by themselves.
+Audit basis: repository code, Prisma models, committed migrations, PostgreSQL catalogs, clean-install and base-to-head upgrade databases, API and server use cases, unit tests, PostgreSQL integration tests, Playwright browser workflows, Docker configuration, Git history, and executable GitHub Actions evidence. `PROGRESS.md` and `CHANGELOG.md` are claims to verify, not evidence by themselves.
 
 ## Current conclusion
 
-Phase 3 contains substantial working foundations. The confirmed transaction, authorization, lifecycle, setup, numbering, and browser-integration defects found during this audit have been corrected through merged PRs #22 and #23 and covered by regression or end-to-end verification. Browser E2E is no longer a blocker. Phase 3 must remain open because migration-drift protection and complete tenant access-change auditing are still missing. Phase 4 accounting remains blocked.
+Phase 3 contains substantial working foundations. The confirmed transaction, authorization, lifecycle, setup, numbering, browser-integration, and migration-integrity defects or gaps found during this audit have been corrected through PRs #22–#24 and covered by regression, browser, clean-install, catalog, or upgrade verification. Browser E2E and migration-drift protection are no longer blockers. Phase 3 remains open only because complete tenant access-change auditing is still missing. Phase 4 accounting remains blocked until that final gate and a complete Phase 3 reassessment.
 
 ## Verified strengths
 
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access resolves through active tenant and business memberships and an active subscription.
-- Most operational records use tenant/business-scoped queries and composite PostgreSQL foreign keys.
+- Operational records use tenant/business-scoped queries and composite PostgreSQL foreign keys.
 - Parties, catalog, custom fields, files, numbering, exports, and email outbox have PostgreSQL integration coverage.
 - Private file objects remain outside the public web root and downloads are authenticated and non-cacheable.
-- Catalog imports use persisted preview rows, explicit decisions, a locked commit transaction, unit locks, and target-version checks.
-- Number allocation and settings updates use the same sequence-row lock; allocations preserve explicit dates, immutable formatted values, and non-reusable void history.
-- CSV exports enforce source-module visibility, neutralize spreadsheet formulas, cap synchronous results, and retain only run metadata.
-- Custom-field values use typed columns and database target validation.
-- Email work is durable, claimed with `FOR UPDATE SKIP LOCKED`, retried with bounded backoff, correlated with current invitation state, and scrubbed after terminal outcomes.
-- A production-built application and separate email worker have completed the critical browser workflow against real PostgreSQL, Mailpit, SMTP, private storage, and cookie-backed sessions.
-- The built runtime image has been booted in CI against PostgreSQL; database-aware readiness and the protected outbox endpoint both succeeded.
+- Catalog imports use persisted preview rows, explicit decisions, locked commit transactions, unit locks, and target-version checks.
+- Number allocations and settings updates use the same sequence lock and preserve immutable, non-reusable history.
+- Controlled exports are permission-scoped, spreadsheet-safe, bounded, and audited without retaining payloads.
+- Custom fields use typed values plus database target validation.
+- Email work is durable, concurrently claimed, retried with bounded backoff, correlated with current invitation state, and scrubbed after terminal outcomes.
+- A production build and separate worker complete the critical browser workflow against real PostgreSQL, Mailpit, SMTP, private storage, and cookie sessions.
+- The runtime image boots against PostgreSQL and passes database readiness and protected outbox smoke checks.
+- Clean migration replay, Prisma-supported schema drift, PostgreSQL-specific invariants, base-to-head upgrade, and representative-data preservation are now enforced in CI.
 
 ## Corrected during this audit
 
@@ -28,86 +29,92 @@ Phase 3 contains substantial working foundations. The confirmed transaction, aut
 
 - Protected `business.owner` invitation grants are rejected by the service and rechecked during acceptance.
 - Expired invitation and outbox states commit before `INVITATION_EXPIRED` is returned.
-- Tenant administration services consistently enforce the `users.manage` entitlement.
-- `BusinessInvitationGrant` is bound to its invitation tenant through a composite Prisma relation and PostgreSQL foreign key.
-- Pending invitations are normalized for expiry before administration display.
-- Claimed invitation messages recheck that the invitation is still pending and unexpired before SMTP delivery.
+- Tenant administration services consistently enforce `users.manage`.
+- Invitation grants are bound to the invitation tenant through a composite Prisma relation and PostgreSQL foreign key.
+- Pending invitations normalize expiry before administration display.
+- Claimed invitation messages recheck actionable state before SMTP delivery.
 
 ### Catalog lifecycle and imports
 
 - Item edits and lifecycle changes lock the item row.
-- Reactivation locks and validates the referenced unit, preventing active items from using inactive units or racing unit deactivation.
-- Import row decisions lock the batch and cannot race final commit.
-- Update rows snapshot the target version at preview and reject commit when the target changed afterward.
+- Reactivation locks and validates the referenced unit.
+- Import row decisions cannot race final commit.
+- Update rows reject targets changed after preview.
 
 ### Numbering
 
 - Settings updates and allocations lock the same sequence row.
-- Reset policy and start value are immutable after the first allocation.
-- Reused idempotency keys must match the original effective date and reference.
-- Allocation voids lock the allocation row and produce one state transition and one audit event.
+- Reset policy and start value become immutable after first allocation.
+- Reused idempotency keys must match the original date and reference.
+- Voids lock the allocation and produce one transition/audit event.
 
 ### Delivery, setup, and deployment
 
-- Changed email payloads cannot reuse an existing idempotency key.
-- A new password-reset request cancels older pending/retry reset messages for the user.
-- Module phase metadata matches the authoritative roadmap and is unit-tested.
-- README host setup starts the email worker and documents all outbox settings.
-- PostgreSQL and Mailpit host ports are loopback-only.
-- The worker waits for database-aware web readiness.
-- Sensitive business-profile and registration changes create audit events.
+- Changed email payloads cannot reuse an idempotency key.
+- New password-reset requests cancel older queued resets.
+- Module phase metadata matches the roadmap and is unit-tested.
+- Host setup starts the email worker and documents outbox settings.
+- PostgreSQL and Mailpit are loopback-bound.
+- The worker waits for database-aware readiness.
+- Sensitive business-profile changes create audit events.
 
 ### Browser integration
 
-- Playwright runs the production build with one Chromium worker against clean PostgreSQL and Mailpit services.
-- The critical scenario proves anonymous denial, owner sign-up, tenant/business onboarding, party and catalog creation, private upload/download, invitation delivery and acceptance, viewer read-only enforcement, password reset, old-session revocation, and sign-in with the new credential.
-- Viewer authorization is checked through both rendered UI controls and a direct authenticated write request that must return `403`.
-- Private file downloads are byte-verified from both owner and viewer browser contexts.
-- Invitation and reset links are extracted from Mailpit without logging tokens and are accepted only when they remain on the configured application origin.
-- Browser failure evidence retains short-lived traces, screenshots, videos, and an HTML report.
-- The browser gate found a real `PartyCreateForm` defect: the API created the record, but the client accessed `event.currentTarget` after an asynchronous request and failed before reset/reload. The form now captures the element before awaiting, and the browser verifies the refreshed party register.
-- Stateful authentication workflows run once per clean job rather than automatically retrying and triggering legitimate rate limits that obscure the original failure.
+- Playwright runs one stateful Chromium workflow against the production build and clean PostgreSQL/Mailpit services.
+- The scenario proves anonymous denial, sign-up, onboarding, party/catalog creation, private upload/download, invitation delivery/acceptance, viewer read-only enforcement, password reset, session revocation, and reauthentication.
+- Viewer authorization is checked through both UI absence and a direct authenticated `403` write denial.
+- Private downloads are byte-verified for owner and viewer contexts.
+- Invitation/reset links stay on the configured origin and tokens are not logged.
+- Failure evidence retains short-lived traces, screenshots, videos, and an HTML report.
+- The browser gate found and verified the fix for `PartyCreateForm` losing `event.currentTarget` after an asynchronous request.
+- Stateful security workflows run once per clean job so legitimate rate limits do not hide the primary failure.
+
+### Migration integrity
+
+- Supported live foreign keys and stable database names are represented in the multi-file Prisma schema.
+- Existing SQL names use Prisma `map:` metadata, preventing duplicate simpler keys or unintended renames.
+- The party trigram GIN/operator-class index is represented in Prisma.
+- Clean CI requires migration-history status and an empty Prisma schema-to-database diff.
+- A fail-closed PostgreSQL catalog manifest verifies 26 critical composite foreign keys, 34 check constraints, the trigram and two partial unique indexes, the custom-field trigger/function pair, and `pg_trgm`.
+- Pull requests create a second database from the exact base commit, seed user/owner/tenant/business/unit/party records, apply the head migrations, then re-run status, diff, catalog, and data-preservation checks.
+- The initial diagnostic step and inventory-only script were removed after the permanent gate replaced them.
 
 ## Executable evidence
 
-PR #22 run `30427561733`, job `90497258414`, passed:
+PR #22 run `30427561733`, job `90497258414`, passed the hardening regression, production, Docker, and runtime gates.
 
-- clean dependency installation;
-- multi-file Prisma generation;
-- all forward migrations on a clean PostgreSQL database;
-- lint and strict TypeScript checking;
-- unit tests;
-- 60 PostgreSQL integration tests, including the hardening regressions;
-- Next.js production build;
-- Docker Compose validation;
-- migration and runtime Docker image builds;
-- runtime-container boot;
-- database readiness response;
-- authenticated internal outbox-processing smoke request.
+PR #23 run `30429920983`, job `90504549396`, added and passed the complete production browser workflow while repeating all prior gates. PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
 
-The final exact-head PR #23 run `30429920983`, job `90504549396`, additionally passed the complete Playwright workflow against the production build and real email worker, then repeated Compose validation, both image builds, runtime boot, readiness, and protected outbox smoke verification. PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
+PR #24 migration-integrity evidence requires:
 
-This evidence is not a substitute for migration-upgrade/drift verification or restoration testing.
+- clean `prisma migrate deploy` and `prisma migrate status`;
+- an empty Prisma-supported schema diff;
+- the PostgreSQL catalog manifest;
+- a base-commit worktree and second upgrade database;
+- preserved user, owner membership, tenant, business, unit, and party sentinels;
+- current migration status, empty diff, and catalog integrity after upgrade;
+- all existing unit, PostgreSQL, browser, Compose, Docker-image, runtime-readiness, and outbox-smoke gates.
 
-## Remaining Phase 3 blockers
+The final exact-head PR #24 run is recorded in `PROGRESS.md` after completion. This evidence does not replace restoration drills.
 
-1. **Migration drift protection:** several critical composite constraints were added with reviewed SQL. Remaining relations must be modeled where practical, and CI must detect when a future Prisma migration would remove or weaken them.
-2. **Tenant access audit trail:** role changes, member disable/reactivate, invitation creation/revocation/acceptance, and entitlement-sensitive administration need a coherent tenant-level audit design. The current business-scoped audit model does not fully represent them.
+## Remaining Phase 3 blocker
+
+**Tenant access audit trail:** invitation creation, supersession, revocation, expiry and acceptance; member disable/reactivate; business-role changes; and administration-driven session revocation need coherent immutable tenant-level events and a protected owner-readable history. The current business-scoped audit model cannot fully represent these changes.
 
 ## Tracked non-blocking gaps
 
-- Party, catalog, file, and audit registers use fixed row caps instead of pagination.
-- Contacts and addresses can be added and selected but not fully edited or removed.
+- Party, catalog, file, and audit registers use fixed caps instead of pagination.
+- Contacts and addresses cannot yet be fully edited or removed.
 - Party/catalog/import changes are not comprehensively audited.
-- File attachments accept arbitrary entity identifiers without target validation.
-- OOXML validation checks ZIP signatures rather than internal document structure.
-- Multipart uploads are buffered before the configured application size check; deployment request limits are still required.
-- Entitlement records are not database-constrained by feature value type, and subscription start/end dates are not yet resolved.
-- Full restore drills remain an operational task even though browser and runtime checks now verify private file write/download behavior.
+- File attachments accept arbitrary entity identifiers.
+- OOXML validation checks ZIP signatures rather than internal structure.
+- Multipart uploads are buffered before application-level size validation; deployment request limits remain required.
+- Entitlement value-type constraints and subscription date enforcement remain incomplete.
+- Full coordinated restore drills remain operational work.
 
 ## Best next sequence
 
-1. Add a migration-drift gate and reconcile remaining manually enforced composite constraints with Prisma models.
-2. Add tenant-level access audit records and expose protected owner-readable history.
-3. Re-run the complete unit, PostgreSQL, browser, migration, runtime, and Docker gate from a clean branch.
-4. Reassess Phase 3 from evidence. Only then begin Phase 4 with chart structure and account lifecycle, followed by periods and locks, then the central balanced posting kernel.
+1. Merge the verified migration-integrity gate without declaring Phase 3 complete.
+2. Add tenant-level access events and protected owner-readable history.
+3. Re-run the complete migration, unit, PostgreSQL, browser, Docker, and runtime gate from a clean branch.
+4. Reassess Phase 3 from evidence. Only then begin Phase 4 with chart structure and account lifecycle, followed by periods/locks and the central balanced posting kernel.
