@@ -28,6 +28,8 @@ const requiredCompositeForeignKeys = [
   ["ExportRun_business_scope_fkey", "ExportRun", ["tenantId", "businessId"], "Business", ["tenantId", "id"], "CASCADE"],
   ["FileAttachment_file_scope_fkey", "FileAttachment", ["tenantId", "businessId", "fileId"], "StoredFile", ["tenantId", "businessId", "id"], "CASCADE"],
   ["AuditEvent_business_scope_fkey", "AuditEvent", ["tenantId", "businessId"], "Business", ["tenantId", "id"], "CASCADE"],
+  ["LedgerAccount_business_scope_fkey", "LedgerAccount", ["tenantId", "businessId"], "Business", ["tenantId", "id"], "CASCADE"],
+  ["LedgerAccount_parent_scope_fkey", "LedgerAccount", ["tenantId", "businessId", "parentId"], "LedgerAccount", ["tenantId", "businessId", "id"], "RESTRICT"],
   ["NumberSequence_business_scope_fkey", "NumberSequence", ["tenantId", "businessId"], "Business", ["tenantId", "id"], "CASCADE"],
   ["NumberAllocation_sequence_scope_fkey", "NumberAllocation", ["tenantId", "businessId", "sequenceId"], "NumberSequence", ["tenantId", "businessId", "id"], "RESTRICT"],
   ["OnboardingOperation_tenantId_businessId_fkey", "OnboardingOperation", ["tenantId", "businessId"], "Business", ["tenantId", "id"], "RESTRICT"],
@@ -63,6 +65,14 @@ const requiredChecks = {
   EmailOutbox_subject_check: ["subject", ">= 1", "<= 300"],
   ExportRun_rowCount_check: ["rowcount", ">= 0"],
   ExportRun_sha256_check: ["sha256", "[0-9a-f]{64}"],
+  LedgerAccount_balance_check: ["class", "iscontra", "normalbalance", "debit", "credit"],
+  LedgerAccount_code_check: ["code", "[a-z0-9]", "{0,19}"],
+  LedgerAccount_kind_check: ["header", "control", "posting", "manualpostingallowed", "general"],
+  LedgerAccount_name_check: ["char_length", "btrim", ">= 1", "<= 160"],
+  LedgerAccount_required_check: ["required", "systemmanaged", "systemkey", "active"],
+  LedgerAccount_system_key_check: ["systemkey", "[a-z][a-z0-9_]", "{0,79}"],
+  LedgerAccount_system_managed_check: ["systemmanaged", "systemkey", "is not null"],
+  LedgerAccount_type_class_check: ["accounts_receivable", "accounts_payable", "retained_earnings", "cost_of_goods_sold", "service_revenue"],
   NumberAllocation_numeric_check: ["numericvalue", "> 0"],
   NumberAllocation_void_check: ["allocated", "voided", "voidedat", "voidedbyid", "voidreason", ">= 3"],
   NumberSequence_key_check: ["key", "[a-z][a-z0-9_]"],
@@ -254,6 +264,16 @@ try {
     name: "prevent_tenant_access_event_mutation",
     fragments: ["tenant_access_event_immutable", "raise exception"],
   });
+  await verifyTrigger(client, failures, {
+    name: "LedgerAccount_hierarchy_check",
+    table: "LedgerAccount",
+    functionName: "validate_ledger_account_hierarchy",
+    fragments: ["before insert or update", "for each row", "validate_ledger_account_hierarchy"],
+  });
+  await verifyFunction(client, failures, {
+    name: "validate_ledger_account_hierarchy",
+    fragments: ["ledger_account_system_structure_immutable", "ledger_account_parent_not_header", "ledger_account_hierarchy_cycle", "ledger_account_active_children", "ledger_account_parent_class_mismatch"],
+  });
 
   const extensions = await client.query("SELECT extname AS name FROM pg_extension");
   const extensionNames = new Set(extensions.rows.map((row) => row.name));
@@ -264,7 +284,7 @@ try {
     for (const failure of failures) console.error(`- ${failure}`);
     process.exitCode = 1;
   } else {
-    console.log(`Migration integrity verified: ${requiredCompositeForeignKeys.length} composite foreign keys, ${Object.keys(requiredChecks).length} checks, ${Object.keys(requiredIndexes).length} custom indexes, two trigger/function pairs, and pg_trgm.`);
+    console.log(`Migration integrity verified: ${requiredCompositeForeignKeys.length} composite foreign keys, ${Object.keys(requiredChecks).length} checks, ${Object.keys(requiredIndexes).length} custom indexes, three trigger/function pairs, and pg_trgm.`);
   }
 } finally {
   await client.end();
