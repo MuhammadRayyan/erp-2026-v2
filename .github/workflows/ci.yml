@@ -86,7 +86,6 @@ jobs:
       - name: Smoke runtime and outbox endpoint
         run: |
           set -euo pipefail
-          docker run -d --name mailpit-ci --network host axllent/mailpit:latest
           docker run -d --name erp-web-ci --network host \
             -e DATABASE_URL="$DATABASE_URL" \
             -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
@@ -117,6 +116,6 @@ jobs:
             --header "Authorization: Bearer $OUTBOX_WORKER_SECRET" \
             http://localhost:3000/api/internal/outbox/process > outbox.json
           grep -q '"claimed"' outbox.json
-      - name: Stop smoke containers
+      - name: Stop smoke container
         if: always()
-        run: docker rm -f erp-web-ci mailpit-ci 2>/dev/null || true
+        run: docker rm -f erp-web-ci 2>/dev/null || true
