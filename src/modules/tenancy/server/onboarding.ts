@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { MembershipStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { defaultLedgerAccountRows } from "@/modules/accounting/default-chart";
 import { INTERNAL_UNLIMITED_PLAN_KEY } from "@/modules/entitlements/catalog";
 import { z } from "zod";
 
@@ -85,6 +86,10 @@ export async function onboardOwner(rawInput: OnboardingInput) {
             { tenantId: tenant.id, businessId: business.id, key: "PAYMENT", label: "Payment", prefixTemplate: "PAY-{YYYY}-", padding: 5, resetPolicy: "YEARLY" },
           ],
         });
+        const chartRows = defaultLedgerAccountRows(tenant.id, business.id);
+        await transaction.ledgerAccount.createMany({ data: chartRows.filter((row) => row.parentId === null) });
+        await transaction.ledgerAccount.createMany({ data: chartRows.filter((row) => row.parentId !== null && row.kind === "HEADER") });
+        await transaction.ledgerAccount.createMany({ data: chartRows.filter((row) => row.kind !== "HEADER") });
         await transaction.businessMembership.create({
           data: { tenantId: tenant.id, businessId: business.id, userId: input.userId, roleKey: "business.owner", status: MembershipStatus.ACTIVE },
         });
