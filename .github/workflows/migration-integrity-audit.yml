@@ -1,0 +1,87 @@
+name: Migration integrity audit
+
+on:
+  push:
+    branches: [phase-3-migration-integrity]
+
+permissions:
+  contents: read
+
+env:
+  DATABASE_URL: postgresql://erp:erp@localhost:5432/erp
+  BETTER_AUTH_SECRET: "12345678901234567890123456789012"
+  BETTER_AUTH_URL: http://localhost:3000
+  APP_URL: http://localhost:3000
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: erp
+          POSTGRES_USER: erp
+          POSTGRES_PASSWORD: erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp -d erp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run db:generate
+      - run: npm run db:deploy
+      - name: Check migration history status
+        run: npx prisma migrate status
+      - name: Report Prisma schema-to-database diff
+        run: |
+          set +e
+          npx prisma migrate diff --from-schema prisma --to-config-datasource --script --exit-code > prisma-schema-diff.sql
+          code=$?
+          echo "PRISMA_DIFF_EXIT_CODE=$code"
+          cat prisma-schema-diff.sql
+          exit 0
+      - name: Report database constraints, indexes, triggers, and extensions
+        env:
+          PGPASSWORD: erp
+        run: |
+          psql -h localhost -U erp -d erp -X -v ON_ERROR_STOP=1 <<'SQL'
+          \pset pager off
+          \echo '=== FOREIGN KEYS ==='
+          SELECT conname, conrelid::regclass AS table_name, pg_get_constraintdef(oid, true) AS definition
+          FROM pg_constraint
+          WHERE contype = 'f' AND connamespace = 'public'::regnamespace
+          ORDER BY table_name::text, conname;
+
+          \echo '=== CHECK CONSTRAINTS ==='
+          SELECT conname, conrelid::regclass AS table_name, pg_get_constraintdef(oid, true) AS definition
+          FROM pg_constraint
+          WHERE contype = 'c' AND connamespace = 'public'::regnamespace
+          ORDER BY table_name::text, conname;
+
+          \echo '=== NON-PRIMARY UNIQUE/PARTIAL INDEXES ==='
+          SELECT schemaname, tablename, indexname, indexdef
+          FROM pg_indexes
+          WHERE schemaname = 'public'
+            AND (indexdef ILIKE '% UNIQUE %' OR indexdef ILIKE '% WHERE %')
+            AND indexname NOT LIKE '%_pkey'
+          ORDER BY tablename, indexname;
+
+          \echo '=== USER TRIGGERS ==='
+          SELECT event_object_table, trigger_name, action_timing, event_manipulation, action_statement
+          FROM information_schema.triggers
+          WHERE trigger_schema = 'public'
+          ORDER BY event_object_table, trigger_name, event_manipulation;
+
+          \echo '=== EXTENSIONS ==='
+          SELECT extname, extversion FROM pg_extension ORDER BY extname;
+          SQL
