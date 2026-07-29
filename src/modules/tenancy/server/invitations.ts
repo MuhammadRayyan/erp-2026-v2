@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { serverEnv } from "@/lib/server-env";
 import { getBusinessRole } from "@/modules/access/roles";
 import { enqueueEmail } from "@/modules/communication/server/email-outbox";
+import { requireTenantFeature } from "@/modules/entitlements/server/resolve";
 import { escapeEmailHtml } from "@/modules/communication/server/platform-email";
 import { requireTenantUserInvitationCapacityInTransaction } from "@/modules/entitlements/server/usage";
 
@@ -19,6 +20,36 @@ async function requireTenantOwner(userId: string, tenantId: string) {
   if (!membership) throw new Error("TENANT_OWNER_REQUIRED");
 }
 
+async function requireTenantAccessAdministration(userId: string, tenantId: string) {
+  await requireTenantOwner(userId, tenantId);
+  await requireTenantFeature(tenantId, "users.manage");
+}
+
+async function expirePendingInvitations(tenantId: string, now = new Date()) {
+  return db.$transaction(async (transaction) => {
+    const expired = await transaction.tenantInvitation.findMany({
+      where: { tenantId, status: InvitationStatus.PENDING, expiresAt: { lte: now } },
+      select: { id: true },
+    });
+    const ids = expired.map(({ id }) => id);
+    if (ids.length === 0) return 0;
+    await transaction.tenantInvitation.updateMany({
+      where: { tenantId, id: { in: ids }, status: InvitationStatus.PENDING },
+      data: { status: InvitationStatus.EXPIRED },
+    });
+    await transaction.emailOutbox.updateMany({
+      where: {
+        tenantId,
+        correlationType: "TENANT_INVITATION",
+        correlationId: { in: ids },
+        status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] },
+      },
+      data: { status: EmailOutboxStatus.EXPIRED, textBody: null, htmlBody: null, lastError: "INVITATION_EXPIRED" },
+    });
+    return ids.length;
+  });
+}
+
 export async function createTenantInvitation(input: {
   actorUserId: string;
   tenantId: string;
@@ -26,14 +57,17 @@ export async function createTenantInvitation(input: {
   expiresInDays: number;
   businessGrants: Array<{ businessId: string; roleKey: string }>;
 }) {
-  await requireTenantOwner(input.actorUserId, input.tenantId);
-  for (const grant of input.businessGrants) if (!getBusinessRole(grant.roleKey)) throw new Error("INVALID_BUSINESS_ROLE");
+  await requireTenantAccessAdministration(input.actorUserId, input.tenantId);
+  for (const grant of input.businessGrants) {
+    const role = getBusinessRole(grant.roleKey);
+    if (!role || role.key === "business.owner") throw new Error("INVALID_BUSINESS_ROLE");
+  }
 
   const businesses = await db.business.findMany({
     where: { tenantId: input.tenantId, id: { in: input.businessGrants.map((grant) => grant.businessId) } },
     select: { id: true },
   });
-  if (businesses.length !== input.businessGrants.length) throw new Error("INVALID_BUSINESS_GRANT");
+  if (businesses.length !== new Set(input.businessGrants.map((grant) => grant.businessId)).size) throw new Error("INVALID_BUSINESS_GRANT");
 
   const token = randomBytes(32).toString("base64url");
   const tokenDigest = digestToken(token);
@@ -49,11 +83,12 @@ export async function createTenantInvitation(input: {
     const supersededIds = superseded.map((row) => row.id);
     if (supersededIds.length > 0) {
       await transaction.tenantInvitation.updateMany({
-        where: { id: { in: supersededIds } },
+        where: { tenantId: input.tenantId, id: { in: supersededIds }, status: InvitationStatus.PENDING },
         data: { status: InvitationStatus.REVOKED },
       });
       await transaction.emailOutbox.updateMany({
         where: {
+          tenantId: input.tenantId,
           correlationType: "TENANT_INVITATION",
           correlationId: { in: supersededIds },
           status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] },
@@ -101,7 +136,7 @@ export async function createTenantInvitation(input: {
 export async function acceptTenantInvitation(input: { userId: string; userEmail: string; token: string }) {
   const tokenDigest = digestToken(input.token);
   const normalizedEmail = input.userEmail.trim().toLowerCase();
-  return db.$transaction(async (transaction) => {
+  const outcome = await db.$transaction(async (transaction) => {
     const invitation = await transaction.tenantInvitation.findUnique({ where: { tokenDigest }, include: { tenant: true, businessGrants: true } });
     if (!invitation || invitation.status !== InvitationStatus.PENDING) throw new Error("INVITATION_INVALID");
     if (invitation.expiresAt.getTime() <= Date.now()) {
@@ -110,7 +145,7 @@ export async function acceptTenantInvitation(input: { userId: string; userEmail:
         where: { correlationType: "TENANT_INVITATION", correlationId: invitation.id, status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] } },
         data: { status: EmailOutboxStatus.EXPIRED, textBody: null, htmlBody: null, lastError: "INVITATION_EXPIRED" },
       });
-      throw new Error("INVITATION_EXPIRED");
+      return { kind: "expired" as const };
     }
     if (invitation.email !== normalizedEmail) throw new Error("INVITATION_EMAIL_MISMATCH");
     if (invitation.tenant.status !== TenantStatus.ACTIVE) throw new Error("TENANT_NOT_ACTIVE");
@@ -121,6 +156,8 @@ export async function acceptTenantInvitation(input: { userId: string; userEmail:
       create: { tenantId: invitation.tenantId, userId: input.userId, status: MembershipStatus.ACTIVE },
     });
     for (const grant of invitation.businessGrants) {
+      const role = getBusinessRole(grant.roleKey);
+      if (!role || role.key === "business.owner") throw new Error("INVALID_BUSINESS_ROLE");
       await transaction.businessMembership.upsert({
         where: { businessId_userId: { businessId: grant.businessId, userId: input.userId } },
         update: { tenantId: invitation.tenantId, roleKey: grant.roleKey, status: MembershipStatus.ACTIVE },
@@ -131,16 +168,20 @@ export async function acceptTenantInvitation(input: { userId: string; userEmail:
       where: { correlationType: "TENANT_INVITATION", correlationId: invitation.id, status: { in: [EmailOutboxStatus.PENDING, EmailOutboxStatus.RETRY] } },
       data: { status: EmailOutboxStatus.CANCELLED, textBody: null, htmlBody: null, lastError: "INVITATION_ALREADY_ACCEPTED" },
     });
-    return transaction.tenantInvitation.update({
+    const accepted = await transaction.tenantInvitation.update({
       where: { id: invitation.id },
       data: { status: InvitationStatus.ACCEPTED, acceptedByUserId: input.userId, acceptedAt: new Date() },
       include: { businessGrants: true },
     });
+    return { kind: "accepted" as const, invitation: accepted };
   });
+  if (outcome.kind === "expired") throw new Error("INVITATION_EXPIRED");
+  return outcome.invitation;
 }
 
 export async function listTenantAccessAdministration(input: { actorUserId: string; tenantId: string }) {
-  await requireTenantOwner(input.actorUserId, input.tenantId);
+  await requireTenantAccessAdministration(input.actorUserId, input.tenantId);
+  await expirePendingInvitations(input.tenantId);
   const administration = await db.tenant.findUniqueOrThrow({
     where: { id: input.tenantId },
     select: {
@@ -156,7 +197,7 @@ export async function listTenantAccessAdministration(input: { actorUserId: strin
         },
       },
       invitations: {
-        where: { status: InvitationStatus.PENDING },
+        where: { status: InvitationStatus.PENDING, expiresAt: { gt: new Date() } },
         orderBy: { createdAt: "desc" },
         select: {
           id: true, email: true, expiresAt: true, createdAt: true,
