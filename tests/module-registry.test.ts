@@ -37,4 +37,9 @@ describe("module registry", () => {
   it("stays aligned with the authoritative phase roadmap", () => {
     expect(Object.fromEntries(moduleRegistry.map((entry) => [entry.key, entry.phase]))).toEqual(expectedPhaseByModule);
   });
+
+  it("exposes accounting as the active Phase 4 foundation", () => {
+    expect(moduleRegistry.find((entry) => entry.key === "accounting")).toMatchObject({ phase: 4, status: "foundation" });
+    expect(moduleRegistry.find((entry) => entry.key === "sales")?.status).toBe("planned");
+  });
 });
