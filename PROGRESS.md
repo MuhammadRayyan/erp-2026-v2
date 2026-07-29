@@ -3,19 +3,21 @@
 Last updated: July 29, 2026
 Current branch: `phase-4-accounting-periods`
 Current phase: Phase 4 — Accounting kernel
-Current slice: Accounting periods and locks
+Current slice: Accounting periods and locks — verified complete
 
 ## Evidence-based verified state
 
 - Phases 1–3 are complete and merged through PR #25.
 - PR #26 merged normally into `main` as `87782734a3ee32d8edf0d0e6353a5e40dc87ae5c`.
+- The chart-of-accounts foundation is complete and merged.
+- PR #27 implements business-scoped accounting periods and date locks without exposing financial transaction entry.
+- Implementation-head run `30465222027`, job `90621155313`, passed clean dependency installation, Prisma generation, forward migrations, migration status, supported schema diff, PostgreSQL catalog integrity, real base-to-head upgrade verification, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, Playwright browser verification, Compose validation, migration/runtime image builds, booted runtime readiness, and protected outbox smoke.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
-- The chart-of-accounts slice is complete: business-scoped account structure, hierarchy, lifecycle, UAE-oriented defaults, accounting RBAC, entitlement enforcement, audit events, PostgreSQL constraints, browser verification, and migration-upgrade evidence are merged.
-- No financial transaction entry is exposed.
+- No balances, journals, document postings, VAT postings, allocations, reconciliation, or financial statements are exposed.
 
-## Verified chart-of-accounts boundary
+## Verified accounting structure
 
 - `LedgerAccount` is tenant/business scoped and separate from Better Auth's `Account` model.
 - Asset, liability, equity, revenue, and expense classes use constrained account types and debit/credit normal balances.
@@ -26,40 +28,43 @@ Current slice: Accounting periods and locks
 - Owners and accountants may manage accounts; viewers remain read-only.
 - Account creation, update, activation, and deactivation create business audit events.
 
-## Current Phase 4 objective
+## Verified accounting-period boundary
 
-Implement business-scoped accounting periods and date locks before any journal or document posting is exposed.
+- Periods are tenant/business scoped and use `OPEN`, `SOFT_LOCKED`, or `CLOSED` states.
+- PostgreSQL prevents overlap, cross-fiscal-year ranges, unsafe transitions, deletion, and date edits after locking.
+- A business-level advisory transaction lock serializes period creation and fiscal-year-setting changes.
+- Lock, close, and reopen transitions require a persisted reason and timestamp.
+- Owners and accountants may manage periods; viewers remain read-only.
+- Period creation, edits, and transitions create business audit events.
+- The reusable posting-date guard requires a covering open period and rejects missing, soft-locked, or closed dates inside the caller's transaction.
+- Changing the fiscal-year start month is rejected after periods exist.
 
-The slice must provide:
+## Current Phase 4 priority
 
-1. open, soft-locked, and closed period states;
-2. non-overlapping business periods;
-3. date ranges contained within one configured fiscal year;
-4. explicit reason metadata for lock, close, and reopen transitions;
-5. locked and audited edits/status changes;
-6. owner/accountant management with viewer read-only access;
-7. a reusable posting-date guard for the later central journal kernel;
-8. PostgreSQL constraints/triggers, migration-integrity protection, unit tests, integration tests, browser verification, Docker/runtime evidence, and updated operating documentation.
+Implement one central balanced and idempotent posting kernel before exposing any journal or document transaction entry.
+
+The next slice must provide:
+
+1. immutable posted journal headers and lines with exact decimal amounts;
+2. enforced debit-equals-credit balance inside one transaction;
+3. tenant/business scope and active posting-account validation;
+4. control-account and manual-posting policy enforcement;
+5. accounting-period validation inside the posting transaction;
+6. stable source type/source ID/idempotency uniqueness;
+7. linked reversal and correction lineage without destructive mutation;
+8. atomic audit and future outbox integration;
+9. PostgreSQL constraints, migration-integrity protection, unit tests, integration tests, concurrency/retry tests, browser-safe boundaries, Docker/runtime evidence, and updated operating documentation.
 
 ## Explicitly not implemented
 
 - Opening balances.
-- Journal entries or lines.
-- Posted balances or general ledger.
-- Document posting.
-- VAT calculation/returns.
+- Manual journal-entry UI.
+- Sales, purchase, bank, inventory, payroll, or project posting.
+- VAT calculation or returns.
 - Receivable/payable allocation.
 - Bank reconciliation.
-- Financial statements.
-- Closing and retained-earnings transfer.
-- Reversal or correction journals.
-
-## Next Phase 4 sequence
-
-1. Complete and verify accounting periods and locks.
-2. Implement one central balanced posting kernel with source idempotency, period enforcement, and linked reversals.
-3. Add PostgreSQL integration tests for balance, scope, lock, retry, correction, and reversal invariants.
-4. Keep journal and document transaction entry hidden until those invariants pass the complete repository gate.
+- Trial balance, general ledger, profit and loss, or balance sheet reports.
+- Period-closing and retained-earnings transfer.
 
 ## Tracked non-blocking follow-up
 
@@ -72,5 +77,4 @@ The slice must provide:
 
 ## Active blockers
 
-- Accounting periods and locks are not yet implemented.
-- Accounting transaction entry remains blocked by periods/locks, the balanced posting kernel, source idempotency, and reversal policy.
+- Accounting transaction entry remains blocked until the balanced posting kernel, source idempotency, account/period enforcement, and linked reversal policy pass the complete repository gate.
