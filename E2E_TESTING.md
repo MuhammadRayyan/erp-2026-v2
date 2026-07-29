@@ -20,7 +20,7 @@ The initial Chromium scenario proves:
 - password-reset delivery through Mailpit;
 - password update, old-session revocation, and sign-in with the new credential.
 
-Each run uses unique account and master-data identifiers. CI retries use a different suffix so a partial first attempt cannot make the retry pass or fail because of duplicate data.
+Each run uses unique account and master-data identifiers. The full stateful security workflow runs once per clean CI job rather than using automatic Playwright retries, because repeated sign-up and recovery attempts from the same runner can correctly trigger authentication rate limits and obscure the original failure.
 
 ## First local run
 
@@ -76,4 +76,4 @@ The remaining Docker image and booted-runtime checks run only after browser veri
 - Keep Mailpit local or CI-only; it is not a production mail provider.
 - Do not weaken permissions, disable secure session behavior, or expose invitation/reset tokens solely to simplify tests.
 - Prefer role- and label-based selectors over implementation-specific CSS selectors.
-- A browser retry must create fresh identities instead of reusing partially created data.
+- Diagnose the first failure from retained evidence; do not hide stateful authentication failures behind automatic retries.
