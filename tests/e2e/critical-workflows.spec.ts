@@ -131,6 +131,15 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await expect(viewerPage.getByText("viewer", { exact: true })).toBeVisible();
   });
 
+  await test.step("owner can review immutable tenant access history", async () => {
+    await page.goto(`/tenants/${tenantId}/users`);
+    await expect(page.getByRole("heading", { name: "Access history" })).toBeVisible();
+    await expect(page.getByText("Invitation Accepted", { exact: true })).toBeVisible();
+    await expect(page.getByText("Business Access Granted", { exact: true })).toBeVisible();
+    const acceptedEvent = page.getByRole("heading", { name: "Invitation accepted", exact: true }).locator("xpath=ancestor::section[1]");
+    await expect(acceptedEvent.getByText(`Target: E2E Viewer · ${viewerEmail}`, { exact: true })).toBeVisible();
+  });
+
   await test.step("viewer can read shared data and files but cannot write", async () => {
     await viewerPage.goto(`/business/${businessId}/parties`);
     await expect(viewerPage.getByRole("heading", { name: partyName })).toBeVisible();

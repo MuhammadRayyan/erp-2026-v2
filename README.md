@@ -4,7 +4,7 @@ A UAE-first ERP for owner-operated and small businesses, developed as a structur
 
 ## Current status
 
-**Phase 3 — Verification and hardening.**
+**Phase 3 — Shared ERP foundations: verified completion candidate.**
 
 Implemented and executable foundations include:
 
@@ -12,22 +12,25 @@ Implemented and executable foundations include:
 - Better Auth with database-backed revocable sessions;
 - tenant/business isolation, RBAC, capabilities, plans, entitlements, and usage limits;
 - owner onboarding, Account Hub, business workspaces, invitations, and member administration;
+- immutable tenant access history for invitation, membership, role/status, and administration-driven session changes;
 - UAE business profile and VAT-registration settings;
 - parties, contacts, addresses, duplicate review, products, services, units, and staged imports;
-- typed custom fields, private files, audit history, document numbering, and controlled CSV exports;
+- typed custom fields, private files, business audit history, document numbering, and controlled CSV exports;
 - durable PostgreSQL email outbox with a separate worker;
-- Playwright browser verification for authentication, onboarding, master data, private files, invitations, authorization, and password recovery;
-- clean-install and base-to-head migration integrity verification;
+- Playwright verification for authentication, onboarding, master data, private files, invitations, owner access history, authorization, and password recovery;
+- clean-install and real base-to-head migration integrity verification;
 - Docker image builds and a booted runtime/readiness/outbox smoke check.
 
-Migration integrity is now verified through migration history, an empty Prisma-supported schema diff, a PostgreSQL catalog manifest, and a real base-commit upgrade database with preserved sentinel data. The remaining Phase 3 blocker is the tenant access-change audit trail. Phase 4 accounting remains blocked until Phase 3 is reassessed from complete evidence.
+PR #25 closes the final Phase 3 audit blocker. Its implementation head passed migration history/diff/catalog, base upgrade, lint, TypeScript, unit and PostgreSQL tests, production build, browser E2E, Compose, both images, runtime boot, readiness, and protected outbox processing. After the synchronized documentation head repeats that gate and merges, Phase 4 begins with chart structure and account lifecycle.
 
-Read `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for the authoritative state.
+No accounting transaction workflow exists yet. Journals or document posting must not be exposed until account structure, periods/locks, balanced posting, idempotency, and reversals are implemented and PostgreSQL integration-tested.
+
+Read `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for the authoritative evidence and next sequence.
 
 ## Requirements
 
 - Node.js 24 LTS;
-- npm 11 or the npm version bundled with Node.js 24;
+- npm 11 or the version bundled with Node.js 24;
 - Docker Desktop or Docker Engine with Compose;
 - Git.
 
@@ -80,15 +83,15 @@ npm run db:generate
 npm run db:deploy
 ```
 
-When intentionally creating a new migration:
+When intentionally creating a migration:
 
 ```bash
 npm run db:migrate -- --name meaningful_migration_name
 ```
 
-Never use `prisma db push` as the normal project workflow and never edit a migration that has already been shared or applied.
+Never use `prisma db push` as the normal workflow and never edit a migration that has already been shared or applied.
 
-### 5. Start the application and worker
+### 5. Start the web application and worker
 
 Terminal one:
 
@@ -164,6 +167,19 @@ In Compose, PostgreSQL is `db`, Mailpit is `mailpit`, the worker calls `web`, an
 
 See `OUTBOX_OPERATIONS.md` for delivery lifecycle, retries, payload retention, failure handling, and secret rotation.
 
+## Tenant access history
+
+The tenant users-and-access page records and displays:
+
+- invitation creation, replacement, revocation, expiry, and acceptance;
+- member activation and disablement;
+- business access grants, role/status changes, and disablement;
+- administration-driven session revocation counts.
+
+Events are tenant-scoped, written in the same transaction as the access change, readable only by an active tenant owner with `users.manage`, and protected by a PostgreSQL trigger that rejects updates and deletes. Audit metadata excludes passwords, secrets, tokens, links, sessions, and email bodies.
+
+See `TENANT_ACCESS_AUDIT.md` for the complete event, safety, concurrency, and operating rules.
+
 ## Database and migration integrity
 
 Common commands:
@@ -177,7 +193,7 @@ npm run db:verify-integrity
 npm run db:studio
 ```
 
-For a migrated disposable database, the local clean-integrity sequence is:
+For a migrated disposable database, run:
 
 ```bash
 npm run db:status
@@ -189,13 +205,13 @@ npx prisma migrate diff \
 npm run db:verify-integrity
 ```
 
-The catalog verifier checks approved composite tenant keys, business checks, partial/operator-class indexes, trigger/function behavior, and required extensions. Pull-request CI additionally builds a second database from the exact base commit, inserts representative user/tenant/business/unit/party records, applies the head migrations, and verifies both schema integrity and data preservation.
+The catalog verifier protects approved composite tenant keys, business checks, partial/operator-class indexes, trigger/function behavior, and required extensions. Pull-request CI additionally builds a second database from the exact base commit, inserts representative user/tenant/business/unit/party records, applies head migrations, and verifies schema integrity plus data preservation.
 
 Migration rules:
 
 - use new forward migrations;
 - inspect generated and custom SQL;
-- represent supported relations and index names in Prisma using stable mappings;
+- represent supported relations/index names in Prisma using stable mappings;
 - update the catalog manifest only for an intentional reviewed invariant change;
 - verify clean installation and base-to-head upgrade;
 - back up important data before destructive changes.
@@ -229,10 +245,10 @@ Restore order:
 1. stop the worker and application writes;
 2. restore PostgreSQL;
 3. restore the matching private-file archive;
-4. run `npm run db:deploy` and the migration-integrity checks;
+4. run `npm run db:deploy` and migration-integrity checks;
 5. review pending/retry outbox records and expiry dates;
 6. start the web service, then the worker;
-7. verify health, files, audit history, and delivery.
+7. verify health, files, audit history, tenant access history, and delivery.
 
 Never restore the database and private files from different maintenance windows. Test restoration on a disposable environment.
 
@@ -262,7 +278,7 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright starts the production web process and email worker. It verifies anonymous denial, sign-up, onboarding, parties, catalog, private upload/download, invitation delivery/acceptance, viewer authorization, password reset, session revocation, and reauthentication. Never point tests at production or valuable data. See `E2E_TESTING.md`.
+Playwright starts the production web process and email worker. It verifies anonymous denial, sign-up, onboarding, parties, catalog, private upload/download, invitation delivery/acceptance, owner access-history visibility, viewer authorization, password reset, session revocation, and reauthentication. Never point tests at production or valuable data. See `E2E_TESTING.md`.
 
 Standard local gate:
 
@@ -271,7 +287,7 @@ npm run verify
 npm run test:e2e
 ```
 
-`npm run verify` runs lint, strict TypeScript, unit tests, PostgreSQL integration tests, and production build. GitHub Actions additionally enforces migration status, supported schema diff, PostgreSQL catalog integrity, base-to-head upgrade preservation, browser E2E, Compose validation, migration/runtime images, runtime boot, database readiness, and the protected outbox smoke request.
+`npm run verify` runs lint, strict TypeScript, unit tests, PostgreSQL integration tests, and the production build. GitHub Actions additionally enforces migration status, supported schema diff, PostgreSQL catalog integrity, base-to-head upgrade preservation, browser E2E, Compose validation, migration/runtime images, runtime boot, database readiness, and the protected outbox smoke request.
 
 ## Health and troubleshooting
 
@@ -302,13 +318,13 @@ docker compose logs -f mailpit
 ### Authentication/origin failure
 
 - confirm `BETTER_AUTH_SECRET` is at least 32 characters;
-- keep `BETTER_AUTH_URL`, `APP_URL`, and the opened browser origin identical;
+- keep `BETTER_AUTH_URL`, `APP_URL`, and the browser origin identical;
 - restart after environment changes.
 
 ### Queued email is not delivered
 
 - start `npm run worker:email` during host development;
-- ensure application and worker use the same `OUTBOX_WORKER_SECRET`;
+- ensure the application and worker use the same `OUTBOX_WORKER_SECRET`;
 - verify Mailpit or the configured SMTP provider is reachable.
 
 ### Migration integrity fails
@@ -351,7 +367,7 @@ Route handlers remain thin. Domain modules own authorization, business rules, tr
 ## Development workflow
 
 1. Read the context files and relevant operating guide.
-2. Verify the branch, Git history, schema, migrations, code, and tests.
+2. Verify branch, history, schema, migrations, code, and tests.
 3. Implement one coherent slice.
 4. Add reviewed forward migrations when needed.
 5. Run relevant local checks or GitHub Actions.
@@ -375,7 +391,7 @@ Route handlers remain thin. Domain modules own authorization, business rules, tr
 12. `FUTURE_DEVELOPMENTS.md`
 13. `RESEARCH_REFERENCES.md`
 
-Use `MIGRATION_INTEGRITY.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
+Use `MIGRATION_INTEGRITY.md`, `TENANT_ACCESS_AUDIT.md`, `E2E_TESTING.md`, and `OUTBOX_OPERATIONS.md` for their respective boundaries.
 
 The repository, migrations, tests, and verified runtime behavior are the source of truth. Documentation must not overstate implementation.
 
