@@ -25,11 +25,12 @@ model NumberSequence {
   active           Boolean            @default(true)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+  business         Business           @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "NumberSequence_business_scope_fkey")
   allocations      NumberAllocation[]
 
   @@unique([tenantId, businessId, id])
-  @@unique([tenantId, businessId, key])
-  @@index([tenantId, businessId, active, label])
+  @@unique([tenantId, businessId, key], map: "NumberSequence_scope_key")
+  @@index([tenantId, businessId, active, label], map: "NumberSequence_scope_active_idx")
 }
 
 model NumberAllocation {
@@ -50,11 +51,13 @@ model NumberAllocation {
   voidedById     String?
   voidReason     String?
   createdAt      DateTime               @default(now())
-  sequence       NumberSequence         @relation(fields: [tenantId, businessId, sequenceId], references: [tenantId, businessId, id], onDelete: Restrict)
+  sequence       NumberSequence         @relation(fields: [tenantId, businessId, sequenceId], references: [tenantId, businessId, id], onDelete: Restrict, map: "NumberAllocation_sequence_scope_fkey")
+  allocatedBy    User                   @relation("NumberAllocator", fields: [allocatedById], references: [id], onDelete: Restrict, map: "NumberAllocation_allocatedById_fkey")
+  voidedBy       User?                  @relation("NumberVoider", fields: [voidedById], references: [id], onDelete: Restrict, map: "NumberAllocation_voidedById_fkey")
 
-  @@unique([tenantId, businessId, sequenceId, idempotencyKey])
-  @@unique([tenantId, businessId, sequenceId, formattedValue])
-  @@unique([tenantId, businessId, sequenceId, periodKey, numericValue])
-  @@index([tenantId, businessId, sequenceId, createdAt])
-  @@index([tenantId, businessId, referenceType, referenceId])
+  @@unique([tenantId, businessId, sequenceId, idempotencyKey], map: "NumberAllocation_idempotency_key")
+  @@unique([tenantId, businessId, sequenceId, formattedValue], map: "NumberAllocation_formatted_key")
+  @@unique([tenantId, businessId, sequenceId, periodKey, numericValue], map: "NumberAllocation_numeric_period_key")
+  @@index([tenantId, businessId, sequenceId, createdAt], map: "NumberAllocation_sequence_created_idx")
+  @@index([tenantId, businessId, referenceType, referenceId], map: "NumberAllocation_reference_idx")
 }

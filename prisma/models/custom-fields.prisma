@@ -27,12 +27,13 @@ model CustomFieldDefinition {
   options     Json?
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
+  business    Business              @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "CustomFieldDefinition_business_scope_fkey")
   values      CustomFieldValue[]
 
-  @@unique([tenantId, businessId, id])
-  @@unique([tenantId, businessId, id, entityType, valueType])
-  @@unique([tenantId, businessId, entityType, key])
-  @@index([tenantId, businessId, entityType, active, sortOrder])
+  @@unique([tenantId, businessId, id], map: "CustomFieldDefinition_scope_id_key")
+  @@unique([tenantId, businessId, id, entityType, valueType], map: "CustomFieldDefinition_scope_id_type_key")
+  @@unique([tenantId, businessId, entityType, key], map: "CustomFieldDefinition_scope_entity_key_key")
+  @@index([tenantId, businessId, entityType, active, sortOrder], map: "CustomFieldDefinition_scope_entity_active_order_idx")
 }
 
 model CustomFieldValue {
@@ -50,9 +51,10 @@ model CustomFieldValue {
   updatedByUserId String
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
-  definition      CustomFieldDefinition @relation(fields: [tenantId, businessId, definitionId, entityType, valueType], references: [tenantId, businessId, id, entityType, valueType], onDelete: Cascade)
+  definition      CustomFieldDefinition @relation(fields: [tenantId, businessId, definitionId, entityType, valueType], references: [tenantId, businessId, id, entityType, valueType], onDelete: Cascade, map: "CustomFieldValue_definition_scope_fkey")
+  updatedBy       User                  @relation("CustomFieldValueUpdater", fields: [updatedByUserId], references: [id], onDelete: Restrict, map: "CustomFieldValue_updatedByUserId_fkey")
 
-  @@unique([tenantId, businessId, definitionId, entityId])
-  @@index([tenantId, businessId, entityType, entityId])
-  @@index([tenantId, businessId, definitionId])
+  @@unique([tenantId, businessId, definitionId, entityId], map: "CustomFieldValue_scope_definition_entity_key")
+  @@index([tenantId, businessId, entityType, entityId], map: "CustomFieldValue_scope_entity_record_idx")
+  @@index([tenantId, businessId, definitionId], map: "CustomFieldValue_scope_definition_idx")
 }

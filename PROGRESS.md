@@ -1,7 +1,7 @@
 # Progress
 
 Last updated: July 29, 2026
-Current branch: `main`
+Current branch: `phase-3-migration-integrity`
 Current phase: Phase 3 — Verification and hardening
 
 ## Evidence-based verified state
@@ -12,49 +12,52 @@ Current phase: Phase 3 — Verification and hardening
 - Business access resolves through active tenant and business memberships and an active subscription.
 - Private files are stored outside the public web root and downloaded through authenticated no-store routes.
 - Controlled exports are scoped, spreadsheet-safe, bounded, and audited without retaining generated payloads.
-- PR #22 merged the blocking corrections found by the independent Phase 3 audit: invitation role/lifecycle/scope, tenant administration entitlement gates, catalog reactivation, numbering settings/idempotency/void concurrency, import decision and target staleness, local worker setup, infrastructure exposure, and business-profile audit coverage.
-- The final PR #22 run `30427561733`, job `90497258414`, passed clean dependency installation, Prisma generation, all migrations, lint, type checking, unit tests, 60 PostgreSQL integration tests, production build, Compose validation, both Docker image builds, runtime-container boot, database readiness, and the protected outbox smoke request.
-- PR #23 merged Playwright browser verification against the production build, real PostgreSQL, Mailpit, SMTP worker processing, private files, and cookie-backed sessions.
-- The final exact-head PR #23 run `30429920983`, job `90504549396`, passed the complete owner/viewer browser workflow plus every existing unit, PostgreSQL, build, Compose, Docker-image, runtime-readiness, and protected-outbox gate.
-- PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
+- PR #22 merged the independent hardening corrections for invitations, entitlements, catalog lifecycle, numbering, imports, setup, infrastructure exposure, and profile auditing.
+- PR #22 run `30427561733`, job `90497258414`, passed migration, unit, PostgreSQL, production, Docker, runtime, readiness, and outbox gates.
+- PR #23 merged Playwright verification against the production build, real PostgreSQL, Mailpit, email worker, private files, and cookie sessions.
+- PR #23 run `30429920983`, job `90504549396`, passed the complete owner/viewer browser workflow plus every existing gate. PR #23 merged as `d1627ca55ca4563f9588a60cff96889bda6f365a`.
+- PR #24 implements clean-install and base-to-head migration integrity protection while preserving all existing application and runtime gates.
 
 ## Audit correction
 
-The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICATION_AUDIT.md` records the code-level findings, corrective evidence, and remaining gaps. `PROGRESS.md` and `CHANGELOG.md` are not treated as proof by themselves.
+The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICATION_AUDIT.md` records the findings, corrective evidence, and remaining gap. Progress and changelog statements are not proof by themselves.
 
 ## Verified hardening merged through PR #22
 
-- Aligned module phase metadata with the authoritative roadmap and added a regression test.
-- Rejected protected owner invitation grants and persisted invitation expiry correctly.
-- Enforced `users.manage` within tenant administration services.
-- Added composite invitation/grant tenant scope in Prisma and PostgreSQL.
-- Revalidated invitation correlation before queued delivery and tightened email idempotency.
-- Cancelled older queued password resets when a new request is created.
-- Serialized catalog item edits/reactivation with unit lifecycle changes.
-- Serialized numbering settings with allocation, froze unsafe post-use policy changes, validated retry equivalence, and locked void transitions.
-- Serialized import row decisions with commit and rejected stale update targets.
-- Added sensitive business-profile audit events.
-- Bound PostgreSQL and Mailpit host ports to loopback, added database-aware readiness, and made the worker wait for a healthy web service.
-- Added focused regression tests and a booted-runtime CI smoke gate.
-- Reconciled README, security guidance, decisions, changelog, and the Phase 3 audit.
+- Aligned module phase metadata with the authoritative roadmap.
+- Rejected protected owner invitations and persisted expiry correctly.
+- Enforced tenant administration entitlements in services.
+- Added composite invitation tenant scope.
+- Revalidated queued invitation delivery and tightened idempotency.
+- Cancelled older password-reset deliveries.
+- Serialized catalog lifecycle, numbering administration, voids, and import decisions.
+- Added profile audit events, loopback infrastructure binding, readiness, regression tests, and runtime smoke verification.
 
 ## Verified browser slice merged through PR #23
 
-- Added Playwright 1.61.1 with a reproducible npm lock and one Chromium worker.
-- Added clean CI PostgreSQL and Mailpit services plus production-server and email-worker orchestration.
-- Verified anonymous Account Hub denial, owner sign-up, tenant/business onboarding, party and catalog creation, and private upload/download.
-- Verified invitation enqueueing, worker delivery to Mailpit, viewer account creation, invitation acceptance, and correct Account Hub identity/role presentation.
-- Verified viewer read access while management controls are absent and a direct authenticated write request returns `403`.
-- Verified password-reset delivery, same-origin reset navigation, credential update, old-session revocation, and sign-in with the new password.
-- Retained traces, screenshots, videos, and an HTML report only on browser failure.
-- Fixed the real party-creation UI defect discovered by the browser: the form now retains its element before awaiting the request so reset/reload completes after successful creation.
-- Preserved and passed all existing unit, PostgreSQL, build, Compose, Docker-image, runtime-readiness, and outbox-smoke gates.
+- Added reproducible Playwright/Chromium verification.
+- Verified anonymous denial, owner onboarding, party/catalog creation, private upload/download, invitation delivery/acceptance, viewer read-only enforcement, password reset, session revocation, and reauthentication.
+- Added browser failure artifacts.
+- Fixed the party-create form’s asynchronous element-lifetime defect.
+- Preserved all prior unit, PostgreSQL, build, Compose, Docker, readiness, and outbox gates.
 
-## Remaining Phase 3 priorities
+## Migration integrity slice in PR #24
 
-1. Add migration-drift protection and reconcile remaining critical manually enforced composite constraints with Prisma models.
-2. Add a tenant-level access audit trail for invitation, membership, role, disable/reactivate, and acceptance events.
-3. Re-run unit, PostgreSQL, browser, migration, runtime, and Docker verification from a clean branch.
+- Reconciled the multi-file Prisma schema with live supported foreign keys, relation names, unique/index names, and the party trigram GIN operator class.
+- Added reverse Business, Tenant, and User relations for existing database keys without adding duplicate constraints or requiring a migration.
+- Required clean `prisma migrate status` and an empty schema-to-database diff.
+- Added a fail-closed catalog manifest for 26 critical composite keys, 34 business checks, three custom indexes, the custom-field trigger/function, and `pg_trgm`.
+- Added a second pull-request database built from the exact base commit.
+- Seeded representative user, owner membership, tenant, business, unit, and party records before applying head migrations.
+- Re-ran migration status, schema diff, catalog integrity, and sentinel preservation after base-to-head upgrade.
+- Removed the temporary report-only workflow and inventory script after the permanent gate replaced them.
+- Added `MIGRATION_INTEGRITY.md`, ADR-018, npm commands, and setup guidance.
+
+## Remaining Phase 3 priority
+
+1. Add immutable tenant-level access events for invitation creation/supersession/revocation/expiry/acceptance, member disable/reactivate, role changes, and administration-driven session revocation.
+2. Expose protected owner-readable tenant access history.
+3. Re-run migration, unit, PostgreSQL, browser, Docker, and runtime verification from a clean branch.
 4. Reassess Phase 3 from evidence before enabling Phase 4.
 
 ## Tracked non-blocking follow-up
@@ -62,10 +65,10 @@ The prior declaration that Phase 3 was complete was premature. `PHASE_3_VERIFICA
 - Pagination for capped party, catalog, file, and audit lists.
 - Full contact/address editing and removal.
 - Broader party/catalog/import audit coverage.
-- File attachment target validation, stronger OOXML inspection, deployment request-size limits, and restore drills.
-- Entitlement value-type constraints and subscription start/end-date enforcement.
+- File target validation, stronger OOXML inspection, deployment request-size limits, and restore drills.
+- Entitlement value-type constraints and subscription date enforcement.
 
-## Active blockers
+## Active blocker
 
-- Phase 4 remains blocked by migration-drift protection and tenant access-change auditing.
-- No accounting transaction should be exposed until Phase 3 is explicitly re-verified and chart structure, periods, posting invariants, and reversal policy are implemented and integration-tested.
+- Phase 4 remains blocked by tenant access-change auditing and the final complete Phase 3 reassessment.
+- No accounting transaction should be exposed until chart structure, periods, posting invariants, and reversal policy are implemented and integration-tested.

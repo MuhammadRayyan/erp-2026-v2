@@ -27,31 +27,33 @@ enum PartyDuplicateReviewStatus {
 }
 
 model Party {
-  id                    String      @id @default(cuid())
-  tenantId              String
-  businessId            String
-  type                  PartyType
-  status                PartyStatus @default(ACTIVE)
-  displayName           String
-  legalName             String?
-  firstName             String?
-  lastName              String?
-  email                 String?
-  phone                 String?
-  taxRegistrationNumber String?
-  notes                 String?
-  searchText            String
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-  roles                 PartyRole[]
-  contacts              PartyContact[]
-  addresses             PartyAddress[]
+  id                       String                 @id @default(cuid())
+  tenantId                 String
+  businessId               String
+  type                     PartyType
+  status                   PartyStatus            @default(ACTIVE)
+  displayName              String
+  legalName                String?
+  firstName                String?
+  lastName                 String?
+  email                    String?
+  phone                    String?
+  taxRegistrationNumber    String?
+  notes                    String?
+  searchText               String
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  business                 Business               @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "Party_business_fkey")
+  roles                    PartyRole[]
+  contacts                 PartyContact[]
+  addresses                PartyAddress[]
   duplicateReviewsAsFirst  PartyDuplicateReview[] @relation("DuplicateFirstParty")
   duplicateReviewsAsSecond PartyDuplicateReview[] @relation("DuplicateSecondParty")
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status, displayName])
   @@index([tenantId, businessId, taxRegistrationNumber])
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "Party_search_text_trgm_idx")
 }
 
 model PartyRole {
@@ -61,7 +63,7 @@ model PartyRole {
   partyId    String
   role       PartyRoleKey
   createdAt  DateTime     @default(now())
-  party      Party        @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade)
+  party      Party        @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade, map: "PartyRole_party_fkey")
 
   @@unique([partyId, role])
   @@index([tenantId, businessId, role])
@@ -79,7 +81,7 @@ model PartyContact {
   isPrimary  Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  party      Party    @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade)
+  party      Party    @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade, map: "PartyContact_party_fkey")
 
   @@index([tenantId, businessId, partyId])
   @@index([tenantId, businessId, email])
@@ -101,27 +103,27 @@ model PartyAddress {
   isDefault   Boolean          @default(false)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
-  party       Party            @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade)
+  party       Party            @relation(fields: [tenantId, businessId, partyId], references: [tenantId, businessId, id], onDelete: Cascade, map: "PartyAddress_party_fkey")
 
   @@index([tenantId, businessId, partyId, type])
 }
 
 model PartyDuplicateReview {
-  id              String                     @id @default(cuid())
-  tenantId        String
-  businessId      String
-  firstPartyId    String
-  secondPartyId   String
-  status          PartyDuplicateReviewStatus @default(OPEN)
-  score           Float
-  evidence        Json
+  id               String                     @id @default(cuid())
+  tenantId         String
+  businessId       String
+  firstPartyId     String
+  secondPartyId    String
+  status           PartyDuplicateReviewStatus @default(OPEN)
+  score            Float
+  evidence         Json
   reviewedByUserId String?
-  reviewedAt      DateTime?
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
-  firstParty      Party                      @relation("DuplicateFirstParty", fields: [tenantId, businessId, firstPartyId], references: [tenantId, businessId, id], onDelete: Cascade)
-  secondParty     Party                      @relation("DuplicateSecondParty", fields: [tenantId, businessId, secondPartyId], references: [tenantId, businessId, id], onDelete: Cascade)
+  reviewedAt       DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  firstParty       Party                      @relation("DuplicateFirstParty", fields: [tenantId, businessId, firstPartyId], references: [tenantId, businessId, id], onDelete: Cascade, map: "PartyDuplicateReview_firstParty_fkey")
+  secondParty      Party                      @relation("DuplicateSecondParty", fields: [tenantId, businessId, secondPartyId], references: [tenantId, businessId, id], onDelete: Cascade, map: "PartyDuplicateReview_secondParty_fkey")
 
-  @@unique([tenantId, businessId, firstPartyId, secondPartyId])
-  @@index([tenantId, businessId, status, score])
+  @@unique([tenantId, businessId, firstPartyId, secondPartyId], map: "PartyDuplicateReview_pair_key")
+  @@index([tenantId, businessId, status, score], map: "PartyDuplicateReview_status_score_idx")
 }

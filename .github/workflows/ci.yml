@@ -47,6 +47,8 @@ jobs:
           - 8025:8025
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -54,6 +56,30 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run db:generate
       - run: npm run db:deploy
+      - name: Verify clean migration integrity
+        run: |
+          set -euo pipefail
+          npm run db:status
+          set +e
+          npx prisma migrate diff \
+            --from-schema prisma \
+            --to-config-datasource \
+            --script \
+            --exit-code > prisma-schema-diff.sql
+          schema_diff_code=$?
+          set -e
+          if [ "$schema_diff_code" -ne 0 ]; then
+            echo "Prisma-supported schema drift detected:" >&2
+            cat prisma-schema-diff.sql >&2
+            exit "$schema_diff_code"
+          fi
+          npm run db:verify-integrity
+      - name: Verify base-to-head migration upgrade
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          UPGRADE_DATABASE_URL: postgresql://erp:erp@localhost:5432/erp_upgrade
+        run: bash scripts/verify-migration-upgrade.sh
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test

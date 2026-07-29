@@ -101,3 +101,9 @@ Invitation and password-reset emails are written to PostgreSQL before request co
 **Status:** Accepted
 
 A phase is not complete because `PROGRESS.md`, a changelog entry, or a merged pull request says so. Completion requires code and migration review against the authoritative roadmap, regression coverage for authorization, tenant isolation, concurrency, stale state, correction flows, setup, and deployment boundaries, plus a clean executable verification gate. Known defects or missing mandatory test layers must keep the phase open or be explicitly accepted as deferred with a safe boundary. Documentation-only phase transitions do not constitute verification.
+
+## ADR-018 — Migration safety requires history, schema, catalog, and upgrade evidence
+
+**Status:** Accepted
+
+Prisma migration history alone is insufficient because deployment does not detect database drift and Prisma cannot represent every PostgreSQL protection. Every pull request must therefore replay committed migrations on a clean database, require `prisma migrate status`, require an empty Prisma schema-to-database diff for supported objects, and verify a PostgreSQL catalog manifest for critical composite tenant keys, check constraints, partial or operator-class indexes, triggers, functions, and extensions. The same pull request must build a second database from the actual base commit, insert representative tenant/business/master-data sentinels, apply the head migrations, and prove both catalog integrity and data preservation. Existing SQL names are mapped in Prisma where supported so future migrations do not create duplicate or weakened relationships. The manifest is updated only through reviewed migrations and documented invariant changes; it must never be relaxed merely to make CI pass.
