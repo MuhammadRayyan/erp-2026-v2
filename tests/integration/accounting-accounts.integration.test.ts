@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { MembershipStatus } from "../../src/generated/prisma/client";
 import { db } from "../../src/lib/db";
+import type { CreateLedgerAccountInput } from "../../src/modules/accounting/contracts/accounts";
 import { defaultChartOfAccounts } from "../../src/modules/accounting/default-chart";
 import {
   createLedgerAccount,
@@ -37,7 +38,7 @@ async function setupBusiness(label = "Accounting") {
   return { owner, onboarding, context };
 }
 
-function customAccount(overrides: Record<string, unknown> = {}) {
+function customAccount(overrides: Partial<CreateLedgerAccountInput> = {}): CreateLedgerAccountInput {
   return {
     code: "7010",
     name: "Marketing Expense",
