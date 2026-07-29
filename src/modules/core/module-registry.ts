@@ -20,14 +20,14 @@ export const moduleRegistry: readonly ErpModule[] = [
   { key: "catalog", label: "Items & Services", group: "work", href: "/business/catalog", description: "Products, services, units, prices, and default classifications", entitlement: "catalog.core", permission: "catalog.view", phase: 3, status: "foundation" },
   { key: "files", label: "Files & History", group: "operations", href: "/business/files", description: "Private files, attachment links, and audit history", entitlement: "files.core", permission: "files.view", phase: 3, status: "foundation" },
   { key: "exports", label: "Exports", group: "insights", href: "/business/exports", description: "Controlled CSV exports and immutable run history", entitlement: "exports.core", permission: "exports.run", phase: 3, status: "foundation" },
-  { key: "sales", label: "Sales", group: "work", href: "/business/sales", description: "Quote-to-cash workflows", entitlement: "sales.core", permission: "sales.view", phase: 7, status: "planned" },
-  { key: "purchases", label: "Purchases", group: "work", href: "/business/purchases", description: "Procure-to-pay workflows", entitlement: "purchases.core", permission: "purchases.view", phase: 8, status: "planned" },
-  { key: "banking", label: "Banking", group: "finance", href: "/business/banking", description: "Cash, statements, and reconciliation", entitlement: "banking.core", permission: "banking.view", phase: 9, status: "planned" },
-  { key: "accounting", label: "Accounting", group: "finance", href: "/business/accounting", description: "Ledger, periods, VAT, and reports", entitlement: "accounting.core", permission: "accounting.view", phase: 5, status: "planned" },
-  { key: "inventory", label: "Inventory", group: "operations", href: "/business/inventory", description: "Stock, valuation, and movement control", entitlement: "inventory.core", permission: "inventory.view", phase: 11, status: "planned" },
-  { key: "projects", label: "Projects & Jobs", group: "operations", href: "/business/projects", description: "Projects, jobs, costs, and completion", entitlement: "projects.core", permission: "projects.view", phase: 12, status: "planned" },
-  { key: "reports", label: "Reports", group: "insights", href: "/business/reports", description: "Financial and operational insights", entitlement: "reports.core", permission: "reports.view", phase: 16, status: "planned" },
-  { key: "settings", label: "Business Settings", group: "settings", href: "/business/settings", description: "Business identity and configuration", entitlement: "core.settings", permission: "settings.view", phase: 4, status: "foundation" },
+  { key: "sales", label: "Sales", group: "work", href: "/business/sales", description: "Quote-to-cash workflows", entitlement: "sales.core", permission: "sales.view", phase: 6, status: "planned" },
+  { key: "purchases", label: "Purchases", group: "work", href: "/business/purchases", description: "Procure-to-pay workflows", entitlement: "purchases.core", permission: "purchases.view", phase: 7, status: "planned" },
+  { key: "banking", label: "Banking", group: "finance", href: "/business/banking", description: "Cash, statements, and reconciliation", entitlement: "banking.core", permission: "banking.view", phase: 8, status: "planned" },
+  { key: "accounting", label: "Accounting", group: "finance", href: "/business/accounting", description: "Chart of accounts, journals, periods, allocations, and core financial reports", entitlement: "accounting.core", permission: "accounting.view", phase: 4, status: "planned" },
+  { key: "inventory", label: "Inventory", group: "operations", href: "/business/inventory", description: "Stock, valuation, and movement control", entitlement: "inventory.core", permission: "inventory.view", phase: 10, status: "planned" },
+  { key: "projects", label: "Projects & Jobs", group: "operations", href: "/business/projects", description: "Projects, jobs, costs, and completion", entitlement: "projects.core", permission: "projects.view", phase: 11, status: "planned" },
+  { key: "reports", label: "Reports", group: "insights", href: "/business/reports", description: "Financial and operational insights", entitlement: "reports.core", permission: "reports.view", phase: 13, status: "planned" },
+  { key: "settings", label: "Business Settings", group: "settings", href: "/business/settings", description: "Business identity and configuration", entitlement: "core.settings", permission: "settings.view", phase: 3, status: "foundation" },
 ] as const;
 
 export function modulesByGroup(group: ModuleGroup) {
