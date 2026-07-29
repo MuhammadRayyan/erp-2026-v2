@@ -42,10 +42,11 @@ export default async function AccountingPage({
       <div>
         <p className="text-sm font-medium text-[var(--brand)]">Accounting kernel · structure</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Chart of accounts</h1>
-        <p className="mt-2 max-w-3xl text-[var(--muted)]">Business-scoped account classes, hierarchy, control accounts, normal balances, and lifecycle. This foundation does not create balances or journal postings.</p>
+        <p className="mt-2 max-w-3xl text-[var(--muted)]">Business-scoped account classes, hierarchy, control accounts, normal balances, and lifecycle. Posted journal history is available as read-only evidence.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={`/business/${businessId}/accounting/periods`} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white">Accounting periods</Link>
+        <Link href={`/business/${businessId}/accounting/journals`} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white">Posted journals</Link>
+        <Link href={`/business/${businessId}/accounting/periods`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Accounting periods</Link>
         <form className="flex flex-wrap gap-2">
           <input name="q" defaultValue={filters.q} placeholder="Search code or name" className="min-w-64 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" />
           <select name="class" defaultValue={filters.class ?? ""} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"><option value="">All classes</option>{accountClasses.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select>
@@ -56,8 +57,8 @@ export default async function AccountingPage({
     </div>
 
     <div className="rounded-2xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-sm">
-      <p className="font-medium">Structure and period control only</p>
-      <p className="mt-1 text-[var(--muted)]">Journal entry, opening balance, receivable/payable allocation, and financial report workflows remain blocked until later Phase 4 slices verify the balanced posting kernel.</p>
+      <p className="font-medium">Read-only journal evidence only</p>
+      <p className="mt-1 text-[var(--muted)]">The central posting kernel stores immutable posted journals, but opening balances, ordinary manual journals, document posting, allocations, reconciliation, and financial statements remain blocked until later verified slices.</p>
     </div>
 
     {canManage && <LedgerAccountForm businessId={businessId} headers={headers} />}
