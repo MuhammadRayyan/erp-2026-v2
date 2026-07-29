@@ -25,6 +25,15 @@ A deferred PostgreSQL constraint trigger rejects any transaction that attempts t
 
 Posted headers and lines are immutable. Corrections are represented by later linked postings rather than updates or deletes.
 
+## Read-only journal evidence
+
+The business accounting workspace exposes posted journal history through read-only route-owned pages:
+
+- `/business/[businessId]/accounting/journals` lists posted journals for the active business;
+- `/business/[businessId]/accounting/journals/[journalId]` shows source identity, idempotency key, memo, accounting date, posting time, reversal lineage, and immutable lines.
+
+These pages use `accounting.view` and `accounting.core` through the same server-side business access boundary as the chart and period pages. They do not expose create, update, delete, import, reversal, or manual-posting controls.
+
 ## Balance and line rules
 
 The application service and PostgreSQL independently require:
@@ -121,7 +130,7 @@ Coverage verifies:
 - migration catalog integrity and upgrade preservation;
 - lint, strict TypeScript, unit tests, the complete PostgreSQL suite, production build, Playwright regression, Compose validation, migration/runtime images, runtime readiness, and protected outbox smoke.
 
-Implementation-head run `30469369143`, job `90635303570`, passed the complete repository gate.
+Implementation-head run `30469369143`, job `90635303570`, passed the complete repository gate. The read-only journal evidence branch must pass a fresh pull-request gate before merge.
 
 ## Explicitly not implemented
 
@@ -134,8 +143,8 @@ Implementation-head run `30469369143`, job `90635303570`, passed the complete re
 - VAT calculation or tax-document posting;
 - allocations and settlements;
 - bank reconciliation;
-- trial balance, general ledger, profit and loss, balance sheet, cash-flow, or aging reports;
+- trial balance, general-ledger report, profit and loss, balance sheet, cash-flow, or aging reports;
 - soft-lock override posting;
 - period-closing checklist or retained-earnings transfer.
 
-The next coherent Phase 4 slice is controlled opening balances plus a read-only journal/general-ledger evidence boundary. Opening balances must post through this kernel, remain idempotent and reversible, prohibit unsupported control-account shortcuts, and preserve a clear cutover date before any manual transaction-entry workflow is considered.
+The next coherent Phase 4 slice is controlled opening balances. Opening balances must post through this kernel, remain idempotent and reversible, prohibit unsupported control-account shortcuts, and preserve a clear cutover date before any manual transaction-entry workflow is considered.
