@@ -79,6 +79,8 @@ model User {
   numberAllocationsCreated   NumberAllocation[]   @relation("NumberAllocator")
   numberAllocationsVoided    NumberAllocation[]   @relation("NumberVoider")
   filesUploaded              StoredFile[]         @relation("FileUploader")
+  tenantAccessEventsActed    TenantAccessEvent[]  @relation("TenantAccessEventActor")
+  tenantAccessEventsTargeted TenantAccessEvent[]  @relation("TenantAccessEventTarget")
 }
 
 model Session {
@@ -142,6 +144,7 @@ model Tenant {
   subscription         TenantSubscription?
   entitlementOverrides TenantEntitlementOverride[]
   emailOutbox           EmailOutbox[]
+  accessEvents          TenantAccessEvent[]
 }
 
 model TenantMembership {
@@ -185,6 +188,7 @@ model Business {
   numberSequences        NumberSequence[]
   exportRuns             ExportRun[]
   customFieldDefinitions CustomFieldDefinition[]
+  tenantAccessEvents     TenantAccessEvent[]      @relation("TenantAccessEventBusiness")
 
   @@unique([tenantId, id])
   @@unique([tenantId, slug])
