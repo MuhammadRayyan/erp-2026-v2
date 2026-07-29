@@ -45,6 +45,10 @@ async function seedDatabase() {
   const timestamp = new Date("2026-07-29T00:00:00.000Z");
   try {
     await client.connect();
+    const catalog = await client.query(`SELECT to_regclass('public."LedgerAccount"') IS NOT NULL AS has_chart`);
+    const baseHasChart = catalog.rows[0]?.has_chart === true;
+    const tradingName = baseHasChart ? "Migration Upgrade Business [base-has-chart]" : "Migration Upgrade Business";
+
     await client.query("BEGIN");
     await client.query(
       `INSERT INTO "User" ("id", "name", "email", "emailVerified", "createdAt", "updatedAt")
@@ -63,8 +67,8 @@ async function seedDatabase() {
     );
     await client.query(
       `INSERT INTO "Business" ("id", "tenantId", "slug", "legalName", "tradingName", "countryCode", "baseCurrency", "timezone", "createdAt", "updatedAt")
-       VALUES ($1, $2, 'migration-upgrade-business', 'Migration Upgrade Business LLC', 'Migration Upgrade Business', 'AE', 'AED', 'Asia/Dubai', $3, $3)`,
-      [identifiers.businessId, identifiers.tenantId, timestamp],
+       VALUES ($1, $2, 'migration-upgrade-business', 'Migration Upgrade Business LLC', $3, 'AE', 'AED', 'Asia/Dubai', $4, $4)`,
+      [identifiers.businessId, identifiers.tenantId, tradingName, timestamp],
     );
     await client.query(
       `INSERT INTO "UnitOfMeasure" ("id", "tenantId", "businessId", "code", "name", "symbol", "dimension", "decimalPlaces", "active", "createdAt", "updatedAt")
@@ -77,7 +81,7 @@ async function seedDatabase() {
       [identifiers.partyId, identifiers.tenantId, identifiers.businessId, timestamp],
     );
     await client.query("COMMIT");
-    console.log("Inserted migration upgrade sentinels.");
+    console.log(`Inserted migration upgrade sentinels (${baseHasChart ? "base already contains chart migration" : "chart migration pending in head"}).`);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -96,6 +100,7 @@ async function verifyDatabase() {
          t."name" AS tenant_name,
          tm."isOwner" AS is_owner,
          b."legalName" AS business_name,
+         b."tradingName" AS trading_name,
          unit."code" AS unit_code,
          p."displayName" AS party_name
        FROM "User" u
@@ -121,6 +126,7 @@ async function verifyDatabase() {
       if (row[key] !== value) throw new Error(`Migration upgrade sentinel ${key} is ${row[key]}, expected ${value}.`);
     }
 
+    const baseHadChart = row.trading_name === "Migration Upgrade Business [base-has-chart]";
     const chart = await client.query(
       `SELECT count(*)::int AS account_count,
               count(*) FILTER (WHERE "systemKey" = 'ACCOUNTS_RECEIVABLE' AND "required" = true AND "kind" = 'CONTROL')::int AS receivable_count,
@@ -130,10 +136,19 @@ async function verifyDatabase() {
       [identifiers.tenantId, identifiers.businessId],
     );
     const chartRow = chart.rows[0];
-    if (!chartRow || chartRow.account_count < 30 || chartRow.receivable_count !== 1 || chartRow.retained_count !== 1) {
+    if (!baseHadChart && (!chartRow || chartRow.account_count < 30 || chartRow.receivable_count !== 1 || chartRow.retained_count !== 1)) {
       throw new Error(`Migration upgrade chart backfill is incomplete: ${JSON.stringify(chartRow)}.`);
     }
-    console.log("Migration upgrade sentinels preserved and default chart installed.");
+
+    const periodCount = await client.query(
+      `SELECT count(*)::int AS period_count FROM "AccountingPeriod" WHERE "tenantId" = $1 AND "businessId" = $2`,
+      [identifiers.tenantId, identifiers.businessId],
+    );
+    if (periodCount.rows[0]?.period_count !== 0) throw new Error("Accounting-period migration created unexpected transactional data.");
+
+    console.log(baseHadChart
+      ? "Migration upgrade sentinels preserved; base chart behavior retained; accounting periods added without transactional data."
+      : "Migration upgrade sentinels preserved, default chart installed, and accounting periods added without transactional data.");
   } finally {
     await client.end();
   }

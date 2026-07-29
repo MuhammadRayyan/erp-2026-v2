@@ -1,8 +1,8 @@
 # Accounting Foundation
 
-This guide defines the implemented Phase 4 chart-of-accounts boundary. The current accounting workspace manages structure only. It does not create balances, journals, opening entries, tax postings, allocations, or financial statements.
+This guide defines the implemented Phase 4 accounting structure boundary. The Accounting workspace manages the chart of accounts and business accounting periods. It still does not create balances, journals, opening entries, tax postings, allocations, or financial statements.
 
-## Scope
+## Chart of accounts
 
 Each business owns a tenant-scoped chart containing:
 
@@ -18,119 +18,102 @@ Each business owns a tenant-scoped chart containing:
 
 `LedgerAccount` is intentionally named separately from Better Auth's `Account` model.
 
-## Account kinds
+### Account kinds
 
-### Header
+- **Header accounts** organize same-class child accounts and never accept manual postings.
+- **Posting accounts** are eligible for future journal lines only after the posting kernel validates status, period, source, policy, and authority.
+- **Control accounts** are reserved for module-owned balances such as receivables, payables, inventory, VAT, and retained earnings. Future subledgers may use them only through the central accounting kernel.
 
-Header accounts organize the chart. They:
+### Default chart
 
-- use the `GENERAL` type;
-- cannot receive manual postings;
-- may contain same-class child accounts;
-- cannot be deactivated while active children remain.
+Existing businesses receive the default chart through a forward migration. New businesses receive the same deterministic template inside serializable onboarding.
 
-### Posting
+The UAE-oriented small-business template includes current and non-current assets, cash, bank, receivables, inventory, prepayments, recoverable VAT, fixed assets, depreciation, payables, VAT payable, accruals, loans, owner equity, retained earnings, revenue, cost of goods sold, direct costs, and common operating expenses.
 
-Posting accounts are intended for future journal lines. The current phase only stores their structure. A later posting kernel must still check account status, period state, posting policy, and document source before using them.
+Stable `systemKey` values identify future posting policies. Required system accounts remain active. Optional VAT and inventory controls may exist before those modules are enabled; their presence creates no balances or statutory treatment.
 
-### Control
+### Lifecycle and hierarchy rules
 
-Control accounts are reserved for module-owned balances such as receivables, payables, inventory, VAT, and retained earnings. They cannot receive manual postings. Future subledgers and period close workflows must post to them only through the central accounting kernel.
+There is no hard-delete service or API.
 
-## Default chart
+- System-managed classification, normal balance, kind, hierarchy, required status, and system identity remain immutable.
+- System account code, name, and description may be localized while `systemKey` remains stable.
+- Required controls cannot be deactivated.
+- Headers cannot be deactivated while active children exist.
+- Accounts cannot reactivate beneath inactive parents.
+- Parent and child must belong to the same tenant/business and class.
+- Parents must be headers, self-parenting and cycles are rejected, and a header with children cannot become a posting/control account.
 
-Existing businesses receive the default chart through the forward migration. New businesses receive the same deterministic template inside the serializable onboarding transaction.
+Future journal history will require even stronger restrictions on economically meaningful account changes.
 
-The template is designed for a small UAE business and includes:
+## Accounting periods and locks
 
-- current and non-current assets;
-- cash, bank, trade receivables, inventory, prepayments, and recoverable VAT;
-- property/equipment and accumulated depreciation;
-- current and non-current liabilities;
-- trade payables, VAT payable, accruals, and loans;
-- owner capital and retained earnings;
-- sales, service, and other income;
-- cost of goods sold and direct costs;
-- common operating expenses.
+Each business owns non-overlapping date periods contained in one configured fiscal year.
 
-Stable `systemKey` values identify future posting policies. Required system accounts remain active. Optional VAT and inventory controls may exist before those modules are enabled; their presence does not create balances or statutory treatment.
+- **Open** periods allow the future posting kernel to accept dates, subject to all other accounting controls.
+- **Soft locked** periods reject ordinary posting while month-end review is in progress.
+- **Closed** periods reject posting until an authorized, reasoned reopen.
 
-## Lifecycle and edit rules
+Every lock, close, and reopen requires a reason and creates business audit evidence. Dates become immutable after a period leaves open status. Periods cannot be deleted.
 
-There is no hard-delete API or service.
+The fiscal-year start month becomes immutable through ordinary business settings after the first period exists. This prevents settings changes from invalidating established period coverage.
 
-- Custom accounts may change structural classification when hierarchy rules remain valid.
-- System-managed account structure is immutable: class, type, balance, kind, contra flag, manual-posting policy, hierarchy, required flag, and system-managed state cannot be changed.
-- System account code, name, and description remain editable for local presentation while `systemKey` stays stable.
-- Required system accounts cannot be deactivated.
-- A header cannot be deactivated while active children exist.
-- An account cannot reactivate beneath an inactive parent.
-- Deactivation preserves the record and business audit history.
+`assertAccountingDateOpen` is the reusable transaction-bound guard for the next posting-kernel slice. The future journal transaction must call it inside the same database transaction as source idempotency, journal creation, and reversal linkage.
 
-Future posting data must add stronger restrictions: once an account has journal history, economically meaningful classification changes must be prohibited or handled through an explicit migration/correction workflow.
-
-## Hierarchy invariants
-
-PostgreSQL and the service boundary enforce:
-
-- parent and child belong to the same tenant and business;
-- parent is a header account;
-- parent and child share the same class;
-- active children require an active parent;
-- an account cannot parent itself;
-- hierarchy cycles are rejected;
-- a header with children cannot become a posting/control account;
-- a parent class cannot change while children exist.
+See `ACCOUNTING_PERIODS.md` for status transitions, PostgreSQL enforcement, concurrency, authorization, migration, and verification details.
 
 ## Authorization and entitlement
 
-- `accounting.view` reads the chart.
-- `accounting.manage` creates, edits, activates, and deactivates accounts.
+- `accounting.view` reads the chart and period register.
+- `accounting.manage` administers accounts and periods.
 - `accounting.core` must be enabled for the tenant.
 - Viewer roles remain read-only.
-- Every create, update, and status transition produces a business-scoped audit event.
+- Every account or period create, update, and status transition produces a business-scoped audit event.
 
 ## Migration safety
 
-The migration-integrity manifest protects:
+The migration-integrity gates protect:
 
-- composite business and parent foreign keys;
-- classification, balance, kind, system, required, code, and name checks;
-- the hierarchy trigger and function;
-- real base-to-head upgrades.
+- composite business and hierarchy foreign keys;
+- account classification, balance, kind, system, required, code, and name checks;
+- the chart hierarchy trigger/function;
+- accounting-period scope, content, state, and metadata checks;
+- the period validation trigger/function;
+- clean migration replay and real base-to-head upgrades.
 
-The upgrade fixture proves that existing user, tenant, business, unit, and party records survive while the preserved business receives the default chart with required receivable and retained-earnings controls.
+The upgrade fixture distinguishes whether the chart migration already exists in the PR base. It requires chart backfill when that migration is introduced by the head, preserves established chart behavior when it is already in the base, and verifies that the period migration introduces no transactional accounting data.
 
 ## Verification
 
 Automated coverage verifies:
 
-- template consistency and normal-balance derivation;
-- onboarding installation and migration backfill;
+- chart-template consistency and normal-balance derivation;
+- onboarding chart installation and historical migration backfill;
 - account create/edit/activate/deactivate behavior;
-- business audit events;
-- system/required protection;
-- invalid class/type/balance/kind combinations;
-- hierarchy cycles and active-child rules;
-- cross-tenant parent rejection;
-- RBAC and entitlement denial;
-- owner creation and viewer read-only behavior through the production browser workflow;
-- resilient serializable onboarding retries after the larger atomic setup transaction.
+- account hierarchy, lifecycle, system, RBAC, entitlement, audit, and tenant-isolation rules;
+- accounting-period date contracts and fiscal-year calculations;
+- period create, edit, list, soft lock, close, reopen, and audit behavior;
+- non-overlap, concurrent creation, fiscal-year boundaries, invalid transitions, and direct-delete rejection;
+- the posting-date guard for missing, open, soft-locked, and closed dates;
+- period RBAC, entitlement, and tenant isolation;
+- fiscal-year settings protection after period creation;
+- production browser workflows;
+- clean installation, real upgrade, build, Docker, readiness, and runtime gates.
 
 ## Explicitly not implemented
 
 The following remain blocked:
 
-- accounting periods and locks;
 - opening balances;
 - journal entry or journal line models;
 - posted balances;
 - document posting;
+- soft-lock posting override authority;
 - tax calculation and VAT returns;
 - receivable/payable allocation;
 - bank reconciliation;
 - trial balance, profit and loss, balance sheet, or general ledger reports;
-- closing and retained-earnings transfer;
+- closing checklist and retained-earnings transfer;
 - reversals and correction journals.
 
-The next Phase 4 slice is accounting periods and locks. The balanced, idempotent posting kernel follows only after period enforcement is verified.
+The next Phase 4 slice is one central balanced and idempotent posting kernel with source uniqueness, period enforcement, active-account validation, control-account policy, and linked reversals. No financial transaction entry may be exposed before that kernel passes the complete repository gate.

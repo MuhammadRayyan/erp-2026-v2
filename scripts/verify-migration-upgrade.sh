@@ -52,7 +52,7 @@ if [ "$schema_diff_code" -ne 0 ]; then
   exit "$schema_diff_code"
 fi
 
-DATABASE_URL="$UPGRADE_DATABASE_URL" node scripts/verify-migration-integrity.mjs
+DATABASE_URL="$UPGRADE_DATABASE_URL" npm run db:verify-integrity
 node scripts/migration-upgrade-fixture.mjs verify
 
 echo "Base-to-head migration upgrade verified from $BASE_SHA."

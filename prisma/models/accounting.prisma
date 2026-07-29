@@ -50,6 +50,12 @@ enum AccountType {
   OTHER_EXPENSE
 }
 
+enum AccountingPeriodStatus {
+  OPEN
+  SOFT_LOCKED
+  CLOSED
+}
+
 model LedgerAccount {
   id                   String               @id @default(cuid())
   tenantId             String
@@ -79,4 +85,24 @@ model LedgerAccount {
   @@unique([tenantId, businessId, systemKey], map: "LedgerAccount_scope_system_key")
   @@index([tenantId, businessId, class, status, code], map: "LedgerAccount_register_idx")
   @@index([tenantId, businessId, parentId, status], map: "LedgerAccount_parent_status_idx")
+}
+
+model AccountingPeriod {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  businessId      String
+  name            String
+  startDate       DateTime               @db.Date
+  endDate         DateTime               @db.Date
+  status          AccountingPeriodStatus @default(OPEN)
+  statusReason    String?
+  statusChangedAt DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  business        Business               @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "AccountingPeriod_business_scope_fkey")
+
+  @@unique([tenantId, businessId, id], map: "AccountingPeriod_scope_id_key")
+  @@unique([tenantId, businessId, startDate, endDate], map: "AccountingPeriod_scope_dates_key")
+  @@index([tenantId, businessId, startDate, endDate], map: "AccountingPeriod_register_idx")
+  @@index([tenantId, businessId, status, startDate], map: "AccountingPeriod_status_idx")
 }

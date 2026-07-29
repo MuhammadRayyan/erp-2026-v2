@@ -40,6 +40,23 @@ export async function updateBusinessProfile(
   const input = businessProfileInputSchema.parse(rawInput);
 
   return db.$transaction(async (transaction) => {
+    await transaction.$queryRaw<Array<{ locked: string }>>`
+      SELECT pg_advisory_xact_lock(hashtextextended(${"accounting-period:" + context.tenantId + ":" + context.businessId}, 0))::text AS locked
+    `;
+    const currentRows = await transaction.$queryRaw<Array<{ fiscalYearStartMonth: number }>>`
+      SELECT "fiscalYearStartMonth"
+      FROM "BusinessProfile"
+      WHERE "tenantId" = ${context.tenantId} AND "businessId" = ${context.businessId}
+      FOR UPDATE
+    `;
+    const current = currentRows[0];
+    if (current && current.fiscalYearStartMonth !== input.fiscalYearStartMonth) {
+      const periodCount = await transaction.accountingPeriod.count({
+        where: { tenantId: context.tenantId, businessId: context.businessId },
+      });
+      if (periodCount > 0) throw new Error("BUSINESS_FISCAL_YEAR_LOCKED_BY_PERIODS");
+    }
+
     const profile = await transaction.businessProfile.upsert({
       where: {
         tenantId_businessId: {
