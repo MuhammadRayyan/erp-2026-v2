@@ -4,9 +4,9 @@ A UAE-first ERP for owner-operated and small businesses, developed as a structur
 
 ## Current status
 
-**Phase 3 — Shared ERP foundations: verified completion candidate.**
+**Phase 4 — Accounting kernel: chart structure and account lifecycle.**
 
-Implemented and executable foundations include:
+Phase 3 shared ERP foundations are complete and verified. Implemented and executable foundations include:
 
 - Next.js 16, React 19, strict TypeScript, PostgreSQL 16, and Prisma 7;
 - Better Auth with database-backed revocable sessions;
@@ -21,9 +21,9 @@ Implemented and executable foundations include:
 - clean-install and real base-to-head migration integrity verification;
 - Docker image builds and a booted runtime/readiness/outbox smoke check.
 
-PR #25 closes the final Phase 3 audit blocker. Its implementation head passed migration history/diff/catalog, base upgrade, lint, TypeScript, unit and PostgreSQL tests, production build, browser E2E, Compose, both images, runtime boot, readiness, and protected outbox processing. After the synchronized documentation head repeats that gate and merges, Phase 4 begins with chart structure and account lifecycle.
+PR #25 closed the final Phase 3 audit blocker and merged as `f13644c3d6248bf074647377b65910af8447ad9a`. Its exact head passed migration history/diff/catalog, base upgrade, lint, TypeScript, unit and PostgreSQL tests, production build, browser E2E, Compose, both images, runtime boot, readiness, and protected outbox processing.
 
-No accounting transaction workflow exists yet. Journals or document posting must not be exposed until account structure, periods/locks, balanced posting, idempotency, and reversals are implemented and PostgreSQL integration-tested.
+The active Phase 4 slice is chart structure and account lifecycle only. No accounting transaction workflow exists yet. Journals or document posting must not be exposed until account structure, periods/locks, balanced posting, idempotency, and reversals are implemented and PostgreSQL integration-tested.
 
 Read `PHASE_3_VERIFICATION_AUDIT.md` and `PROGRESS.md` for the authoritative evidence and next sequence.
 
