@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { applicationLink, clearMailbox, waitForMessage } from "./helpers/mailpit";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const fixturePath = fileURLToPath(new URL("./fixtures/e2e-evidence.csv", import.meta.url));
 
 function safeRunKey(value: string) {
@@ -69,8 +69,8 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await page.goto(`/business/${businessId}/parties`);
     const partyForm = page.getByRole("heading", { name: "Add customer or supplier" }).locator("xpath=ancestor::form");
     await partyForm.getByLabel("Organization name").fill(partyName);
-    await partyForm.getByLabel("Email").fill(`customer-${runKey}@example.com`);
-    await partyForm.getByLabel("Phone").fill("+971501234567");
+    await partyForm.getByLabel("Email", { exact: true }).fill(`customer-${runKey}@example.com`);
+    await partyForm.getByLabel("Phone", { exact: true }).fill("+971501234567");
     await partyForm.getByRole("button", { name: "Create party" }).click();
     await expect(page.getByRole("heading", { name: partyName })).toBeVisible();
 
