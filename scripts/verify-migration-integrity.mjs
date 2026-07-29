@@ -38,6 +38,7 @@ const requiredCompositeForeignKeys = [
   ["PartyDuplicateReview_secondParty_fkey", "PartyDuplicateReview", ["tenantId", "businessId", "secondPartyId"], "Party", ["tenantId", "businessId", "id"], "CASCADE"],
   ["PartyRole_party_fkey", "PartyRole", ["tenantId", "businessId", "partyId"], "Party", ["tenantId", "businessId", "id"], "CASCADE"],
   ["StoredFile_business_scope_fkey", "StoredFile", ["tenantId", "businessId"], "Business", ["tenantId", "id"], "CASCADE"],
+  ["TenantAccessEvent_business_scope_fkey", "TenantAccessEvent", ["tenantId", "businessId"], "Business", ["tenantId", "id"], "RESTRICT"],
   ["UnitOfMeasure_business_fkey", "UnitOfMeasure", ["tenantId", "businessId"], "Business", ["tenantId", "id"], "CASCADE"],
 ];
 
@@ -73,6 +74,10 @@ const requiredChecks = {
   PlanEntitlement_value_present: ["enabled", "limitvalue", "unlimited"],
   StoredFile_sha256_check: ["sha256", "[0-9a-f]{64}"],
   StoredFile_size_check: ["sizebytes", "> 0"],
+  TenantAccessEvent_email_check: ["targetemail", "lower", "btrim", ">= 3", "<= 320"],
+  TenantAccessEvent_metadata_check: ["jsonb_typeof", "metadata", "object"],
+  TenantAccessEvent_summary_check: ["char_length", "btrim", ">= 1", "<= 300"],
+  TenantAccessEvent_target_check: ["targetuserid", "targetemail", "is not null"],
   TenantEntitlementOverride_limit_nonnegative: ["limitvalue", ">= 0"],
   TenantEntitlementOverride_value_present: ["enabled", "limitvalue", "unlimited"],
   UnitOfMeasure_decimal_places_check: ["decimalplaces", ">= 0", "<= 6"],
@@ -94,6 +99,55 @@ function equalArrays(first, second) {
 
 function addFailure(failures, label, detail) {
   failures.push(`${label}: ${detail}`);
+}
+
+async function verifyTrigger(client, failures, input) {
+  const result = await client.query(`
+    SELECT
+      t.tgname AS name,
+      rel.relname AS table_name,
+      proc.proname AS function_name,
+      t.tgenabled AS enabled,
+      pg_get_triggerdef(t.oid, true) AS definition
+    FROM pg_trigger t
+    JOIN pg_class rel ON rel.oid = t.tgrelid
+    JOIN pg_proc proc ON proc.oid = t.tgfoid
+    WHERE NOT t.tgisinternal AND t.tgname = $1
+  `, [input.name]);
+  const trigger = result.rows[0];
+  if (!trigger) {
+    addFailure(failures, input.name, "missing trigger");
+    return;
+  }
+  if (trigger.table_name !== input.table) addFailure(failures, input.name, `table is ${trigger.table_name}`);
+  if (trigger.function_name !== input.functionName) addFailure(failures, input.name, `function is ${trigger.function_name}`);
+  if (trigger.enabled === "D") addFailure(failures, input.name, "trigger is disabled");
+  const definition = normalize(trigger.definition);
+  for (const fragment of input.fragments) {
+    if (!definition.includes(normalize(fragment))) addFailure(failures, input.name, `definition is missing ${fragment}`);
+  }
+}
+
+async function verifyFunction(client, failures, input) {
+  const result = await client.query(`
+    SELECT pg_get_functiondef(p.oid) AS definition, l.lanname AS language
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    JOIN pg_language l ON l.oid = p.prolang
+    WHERE n.nspname = 'public'
+      AND p.proname = $1
+      AND pg_get_function_identity_arguments(p.oid) = ''
+  `, [input.name]);
+  const fn = result.rows[0];
+  if (!fn) {
+    addFailure(failures, input.name, "missing function");
+    return;
+  }
+  if (fn.language !== "plpgsql") addFailure(failures, input.name, `language is ${fn.language}`);
+  const definition = normalize(fn.definition);
+  for (const fragment of input.fragments) {
+    if (!definition.includes(normalize(fragment))) addFailure(failures, input.name, `definition is missing ${fragment}`);
+  }
 }
 
 const client = new Client({ connectionString });
@@ -180,50 +234,26 @@ try {
     }
   }
 
-  const trigger = await client.query(`
-    SELECT
-      t.tgname AS name,
-      rel.relname AS table_name,
-      proc.proname AS function_name,
-      t.tgenabled AS enabled,
-      pg_get_triggerdef(t.oid, true) AS definition
-    FROM pg_trigger t
-    JOIN pg_class rel ON rel.oid = t.tgrelid
-    JOIN pg_proc proc ON proc.oid = t.tgfoid
-    WHERE NOT t.tgisinternal AND t.tgname = 'CustomFieldValue_target_check'
-  `);
-  const targetTrigger = trigger.rows[0];
-  if (!targetTrigger) {
-    addFailure(failures, "CustomFieldValue_target_check", "missing trigger");
-  } else {
-    if (targetTrigger.table_name !== "CustomFieldValue") addFailure(failures, targetTrigger.name, `table is ${targetTrigger.table_name}`);
-    if (targetTrigger.function_name !== "validate_custom_field_target") addFailure(failures, targetTrigger.name, `function is ${targetTrigger.function_name}`);
-    if (targetTrigger.enabled === "D") addFailure(failures, targetTrigger.name, "trigger is disabled");
-    const definition = normalize(targetTrigger.definition);
-    for (const fragment of ["before insert or update", "for each row", "validate_custom_field_target"]) {
-      if (!definition.includes(fragment)) addFailure(failures, targetTrigger.name, `definition is missing ${fragment}`);
-    }
-  }
-
-  const functionResult = await client.query(`
-    SELECT pg_get_functiondef(p.oid) AS definition, l.lanname AS language
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    JOIN pg_language l ON l.oid = p.prolang
-    WHERE n.nspname = 'public'
-      AND p.proname = 'validate_custom_field_target'
-      AND pg_get_function_identity_arguments(p.oid) = ''
-  `);
-  const targetFunction = functionResult.rows[0];
-  if (!targetFunction) {
-    addFailure(failures, "validate_custom_field_target", "missing function");
-  } else {
-    if (targetFunction.language !== "plpgsql") addFailure(failures, "validate_custom_field_target", `language is ${targetFunction.language}`);
-    const definition = normalize(targetFunction.definition);
-    for (const fragment of ["party", "catalog_item", "tenantid", "businessid", "custom_field_target_not_found"]) {
-      if (!definition.includes(fragment)) addFailure(failures, "validate_custom_field_target", `definition is missing ${fragment}`);
-    }
-  }
+  await verifyTrigger(client, failures, {
+    name: "CustomFieldValue_target_check",
+    table: "CustomFieldValue",
+    functionName: "validate_custom_field_target",
+    fragments: ["before insert or update", "for each row", "validate_custom_field_target"],
+  });
+  await verifyFunction(client, failures, {
+    name: "validate_custom_field_target",
+    fragments: ["party", "catalog_item", "tenantid", "businessid", "custom_field_target_not_found"],
+  });
+  await verifyTrigger(client, failures, {
+    name: "TenantAccessEvent_immutable",
+    table: "TenantAccessEvent",
+    functionName: "prevent_tenant_access_event_mutation",
+    fragments: ["before delete or update", "for each row", "prevent_tenant_access_event_mutation"],
+  });
+  await verifyFunction(client, failures, {
+    name: "prevent_tenant_access_event_mutation",
+    fragments: ["tenant_access_event_immutable", "raise exception"],
+  });
 
   const extensions = await client.query("SELECT extname AS name FROM pg_extension");
   const extensionNames = new Set(extensions.rows.map((row) => row.name));
@@ -234,7 +264,7 @@ try {
     for (const failure of failures) console.error(`- ${failure}`);
     process.exitCode = 1;
   } else {
-    console.log(`Migration integrity verified: ${requiredCompositeForeignKeys.length} composite foreign keys, ${Object.keys(requiredChecks).length} checks, ${Object.keys(requiredIndexes).length} custom indexes, one trigger/function pair, and pg_trgm.`);
+    console.log(`Migration integrity verified: ${requiredCompositeForeignKeys.length} composite foreign keys, ${Object.keys(requiredChecks).length} checks, ${Object.keys(requiredIndexes).length} custom indexes, two trigger/function pairs, and pg_trgm.`);
   }
 } finally {
   await client.end();
