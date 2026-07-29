@@ -1,6 +1,6 @@
 # Accounting Periods and Locks
 
-This guide defines the Phase 4 accounting-period boundary. Periods control the accounting dates that the future balanced posting kernel may accept. This slice does not create journals, balances, opening entries, document postings, allocations, tax postings, or financial statements.
+This guide defines the Phase 4 accounting-period boundary. Periods control the accounting dates accepted by the central posting kernel. The repository still does not expose ordinary manual journals, opening-balance entry, document posting, allocations, VAT posting, reconciliation, or financial statements.
 
 ## Scope
 
@@ -18,7 +18,7 @@ Periods belong to exactly one tenant and business. They cannot overlap within a 
 
 ### Open
 
-An open period allows the future posting kernel to accept accounting dates inside the period, subject to all other journal, account, authorization, idempotency, and document rules.
+An open period allows the posting kernel to accept accounting dates inside the period, subject to journal, account, authorization, idempotency, currency, source, and module-policy rules.
 
 Names and dates may be edited while a period is open. Edits remain subject to overlap and fiscal-year validation.
 
@@ -26,7 +26,7 @@ Names and dates may be edited while a period is open. Edits remain subject to ov
 
 A soft-locked period blocks ordinary posting. It represents a review or month-end preparation state.
 
-The current posting-date guard rejects soft-locked dates. A later override workflow may be added only with an explicit stronger capability, reason, and audit evidence; this slice does not provide an override.
+The posting-date guard rejects soft-locked dates. A later override workflow may be added only with an explicit stronger capability, reason, audit evidence, and module-specific policy; this repository does not provide an override.
 
 Dates cannot be changed while soft locked.
 
@@ -75,6 +75,8 @@ PostgreSQL and the application boundary enforce:
 
 Period writes and fiscal-year configuration changes use the same tenant/business advisory transaction lock. Row-level locks serialize edits and status changes to an existing period.
 
+The posting kernel calls the period guard inside a Serializable transaction. A concurrent period transition and posting cannot both commit in a way that leaves the journal posted against a non-open final period state.
+
 ## Authorization and entitlement
 
 - `accounting.view` reads periods.
@@ -87,7 +89,7 @@ Every create, update, lock, close, and reopen action creates a business audit ev
 
 ## Posting-kernel contract
 
-`assertAccountingDateOpen` is the authoritative reusable date guard for the next Phase 4 slice.
+`assertAccountingDateOpen` is the authoritative reusable date guard.
 
 It requires exactly one period covering the requested accounting date and rejects:
 
@@ -95,11 +97,13 @@ It requires exactly one period covering the requested accounting date and reject
 - soft-locked periods;
 - closed periods.
 
-The future journal kernel must call this guard inside the same transaction that writes the journal and its source/idempotency records. Calling it before a transaction or only in the browser would not protect against concurrent lock or close actions.
+The journal kernel calls this guard inside the same transaction that locks source and idempotency identities, validates accounts and currency, creates the journal and lines, finalizes the journal, and writes audit evidence. Calling it before a transaction or only in the browser would not protect against concurrent lock or close actions.
+
+Opening balances and every future document/subledger posting workflow must use the same guard through the central kernel.
 
 ## Migration and verification
 
-The forward migration introduces the period enum, table, composite scope, checks, indexes, and validation trigger/function. The repository integrity gate separately verifies these PostgreSQL objects in addition to the general manifest.
+The forward migration introduces the period enum, table, composite scope, checks, indexes, and validation trigger/function. The repository integrity gate separately verifies these PostgreSQL objects in addition to the general manifest and the focused journal verifier.
 
 Automated coverage includes:
 
@@ -110,6 +114,7 @@ Automated coverage includes:
 - concurrent overlapping creation;
 - invalid transition and direct-delete rejection;
 - posting-date guard behavior for missing, open, soft-locked, and closed dates;
+- central journal rejection against soft-locked and closed periods;
 - tenant isolation, RBAC, and entitlement denial;
 - fiscal-year setting lock after period creation;
 - browser creation and status transitions;
@@ -117,14 +122,13 @@ Automated coverage includes:
 
 ## Explicitly not implemented
 
-- accounting transactions;
 - opening balances;
-- journal entries and lines;
+- ordinary manual journal-entry UI or public write route;
 - posting override authority for soft-locked periods;
 - closing checklist or retained-earnings transfer;
 - subledger closing;
 - VAT-period submission locks;
 - financial statements;
-- reversal and correction journals.
+- foreign-currency revaluation.
 
-The next Phase 4 slice is one central balanced, idempotent posting kernel with source uniqueness, active-account validation, period enforcement, and linked reversals.
+The central balanced posting kernel is implemented and verified. The next Phase 4 slice is controlled opening balances plus read-only journal/general-ledger evidence, while ordinary transaction entry remains blocked.
