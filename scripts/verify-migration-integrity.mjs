@@ -108,13 +108,13 @@ try {
       rel.relname AS table_name,
       ref.relname AS referenced_table,
       ARRAY(
-        SELECT a.attname
+        SELECT a.attname::text
         FROM unnest(c.conkey) WITH ORDINALITY AS key(attnum, position)
         JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = key.attnum
         ORDER BY key.position
       ) AS columns,
       ARRAY(
-        SELECT a.attname
+        SELECT a.attname::text
         FROM unnest(c.confkey) WITH ORDINALITY AS key(attnum, position)
         JOIN pg_attribute a ON a.attrelid = c.confrelid AND a.attnum = key.attnum
         ORDER BY key.position
