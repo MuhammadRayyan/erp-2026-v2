@@ -25,6 +25,8 @@ model StoredFile {
   uploadedById    String
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  business        Business         @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "StoredFile_business_scope_fkey")
+  uploadedBy      User             @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: Restrict, map: "StoredFile_uploadedById_fkey")
   attachments     FileAttachment[]
 
   @@unique([tenantId, businessId, id])
@@ -42,10 +44,10 @@ model FileAttachment {
   entityId   String
   label      String?
   createdAt  DateTime   @default(now())
-  file       StoredFile @relation(fields: [tenantId, businessId, fileId], references: [tenantId, businessId, id], onDelete: Cascade)
+  file       StoredFile @relation(fields: [tenantId, businessId, fileId], references: [tenantId, businessId, id], onDelete: Cascade, map: "FileAttachment_file_scope_fkey")
 
-  @@unique([tenantId, businessId, fileId, entityType, entityId])
-  @@index([tenantId, businessId, entityType, entityId])
+  @@unique([tenantId, businessId, fileId, entityType, entityId], map: "FileAttachment_scope_key")
+  @@index([tenantId, businessId, entityType, entityId], map: "FileAttachment_entity_idx")
 }
 
 model AuditEvent {
@@ -59,8 +61,10 @@ model AuditEvent {
   summary     String
   metadata    Json
   occurredAt  DateTime @default(now())
+  business    Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "AuditEvent_business_scope_fkey")
+  actor       User?    @relation("AuditEventActor", fields: [actorUserId], references: [id], onDelete: SetNull, map: "AuditEvent_actorUserId_fkey")
 
-  @@index([tenantId, businessId, occurredAt])
-  @@index([tenantId, businessId, entityType, entityId, occurredAt])
-  @@index([tenantId, businessId, actorUserId, occurredAt])
+  @@index([tenantId, businessId, occurredAt], map: "AuditEvent_scope_time_idx")
+  @@index([tenantId, businessId, entityType, entityId, occurredAt], map: "AuditEvent_entity_time_idx")
+  @@index([tenantId, businessId, actorUserId, occurredAt], map: "AuditEvent_actor_time_idx")
 }
