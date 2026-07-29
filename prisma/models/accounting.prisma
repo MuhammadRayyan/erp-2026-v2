@@ -1,0 +1,82 @@
+enum AccountClass {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum AccountNormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum AccountKind {
+  HEADER
+  POSTING
+  CONTROL
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AccountType {
+  GENERAL
+  CASH
+  BANK
+  ACCOUNTS_RECEIVABLE
+  INVENTORY
+  PREPAYMENT
+  VAT_INPUT
+  OTHER_CURRENT_ASSET
+  FIXED_ASSET
+  ACCUMULATED_DEPRECIATION
+  ACCOUNTS_PAYABLE
+  VAT_OUTPUT
+  ACCRUED_EXPENSE
+  OTHER_CURRENT_LIABILITY
+  LONG_TERM_LIABILITY
+  OWNER_EQUITY
+  RETAINED_EARNINGS
+  SALES_REVENUE
+  SERVICE_REVENUE
+  OTHER_INCOME
+  COST_OF_GOODS_SOLD
+  DIRECT_COST
+  OPERATING_EXPENSE
+  DEPRECIATION_EXPENSE
+  OTHER_EXPENSE
+}
+
+model LedgerAccount {
+  id                   String               @id @default(cuid())
+  tenantId             String
+  businessId           String
+  code                 String
+  name                 String
+  description          String?
+  class                AccountClass
+  type                 AccountType
+  normalBalance        AccountNormalBalance
+  kind                 AccountKind
+  isContra             Boolean              @default(false)
+  manualPostingAllowed Boolean              @default(true)
+  systemKey            String?
+  systemManaged        Boolean              @default(false)
+  required             Boolean              @default(false)
+  status               AccountStatus        @default(ACTIVE)
+  parentId             String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  business             Business             @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade, map: "LedgerAccount_business_scope_fkey")
+  parent               LedgerAccount?       @relation("LedgerAccountHierarchy", fields: [tenantId, businessId, parentId], references: [tenantId, businessId, id], onDelete: Restrict, map: "LedgerAccount_parent_scope_fkey")
+  children             LedgerAccount[]      @relation("LedgerAccountHierarchy")
+
+  @@unique([tenantId, businessId, id], map: "LedgerAccount_scope_id_key")
+  @@unique([tenantId, businessId, code], map: "LedgerAccount_scope_code_key")
+  @@unique([tenantId, businessId, systemKey], map: "LedgerAccount_scope_system_key")
+  @@index([tenantId, businessId, class, status, code], map: "LedgerAccount_register_idx")
+  @@index([tenantId, businessId, parentId, status], map: "LedgerAccount_parent_status_idx")
+}

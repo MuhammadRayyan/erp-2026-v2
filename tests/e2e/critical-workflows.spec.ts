@@ -20,7 +20,7 @@ async function createAccount(page: Page, input: { name: string; email: string; p
   await expect(page).toHaveURL(/\/businesses\/new$/);
 }
 
-test("critical owner, viewer, private-file, invitation, and recovery workflows", async ({ page, browser }, testInfo) => {
+test("critical owner, viewer, private-file, invitation, accounting, and recovery workflows", async ({ page, browser }, testInfo) => {
   const runKey = safeRunKey(`${process.env.E2E_RUN_ID ?? Date.now()}-${testInfo.retry}`);
   const ownerEmail = `owner-${runKey}@e2e.local`;
   const viewerEmail = `viewer-${runKey}@e2e.local`;
@@ -33,6 +33,8 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
   const partyName = `E2E Customer ${runKey}`;
   const catalogName = `E2E Service ${runKey}`;
   const sku = `E2E-${runKey.toUpperCase().slice(-14)}`;
+  const accountCode = `E2E-${runKey.toUpperCase().slice(-8)}`;
+  const accountName = `E2E Accounting Expense ${runKey}`;
   const fixtureName = "e2e-evidence.csv";
 
   await clearMailbox();
@@ -88,6 +90,18 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await expect(page.getByRole("link", { name: catalogName })).toBeVisible();
   });
 
+  await test.step("owner sees the default chart and creates a custom account", async () => {
+    await page.goto(`/business/${businessId}/accounting`);
+    await expect(page.getByRole("heading", { name: "Chart of accounts" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /1130 · Accounts Receivable/ })).toBeVisible();
+    const accountForm = page.getByRole("heading", { name: "Add ledger account" }).locator("xpath=ancestor::form");
+    await accountForm.getByLabel("Code").fill(accountCode);
+    await accountForm.getByLabel("Name").fill(accountName);
+    await accountForm.getByLabel("Parent header").selectOption({ label: "6000 · Operating Expenses · Expense" });
+    await accountForm.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByRole("link", { name: new RegExp(accountName) })).toBeVisible();
+  });
+
   await test.step("owner uploads and downloads a private file", async () => {
     await page.goto(`/business/${businessId}/files`);
     const uploadForm = page.getByRole("heading", { name: "Upload private file" }).locator("xpath=ancestor::form");
@@ -140,7 +154,7 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await expect(acceptedEvent.getByText(`Target: E2E Viewer · ${viewerEmail}`, { exact: true })).toBeVisible();
   });
 
-  await test.step("viewer can read shared data and files but cannot write", async () => {
+  await test.step("viewer can read shared data, accounting, and files but cannot write", async () => {
     await viewerPage.goto(`/business/${businessId}/parties`);
     await expect(viewerPage.getByRole("heading", { name: partyName })).toBeVisible();
     await expect(viewerPage.getByRole("heading", { name: "Add customer or supplier" })).toHaveCount(0);
@@ -163,6 +177,25 @@ test("critical owner, viewer, private-file, invitation, and recovery workflows",
     await viewerPage.goto(`/business/${businessId}/catalog`);
     await expect(viewerPage.getByRole("link", { name: catalogName })).toBeVisible();
     await expect(viewerPage.getByRole("heading", { name: "Add product or service" })).toHaveCount(0);
+
+    await viewerPage.goto(`/business/${businessId}/accounting`);
+    await expect(viewerPage.getByRole("link", { name: new RegExp(accountName) })).toBeVisible();
+    await expect(viewerPage.getByRole("heading", { name: "Add ledger account" })).toHaveCount(0);
+    const accountingDenied = await viewerContext.request.post(`${baseURL}/api/businesses/${businessId}/accounting/accounts`, {
+      data: {
+        code: `DENIED-${runKey.slice(-6).toUpperCase()}`,
+        name: "Denied accounting write",
+        description: "",
+        class: "EXPENSE",
+        type: "OPERATING_EXPENSE",
+        normalBalance: "DEBIT",
+        kind: "POSTING",
+        isContra: false,
+        manualPostingAllowed: true,
+        parentId: null,
+      },
+    });
+    expect(accountingDenied.status()).toBe(403);
 
     await viewerPage.goto(`/business/${businessId}/files`);
     await expect(viewerPage.getByRole("heading", { name: fixtureName })).toBeVisible();

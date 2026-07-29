@@ -130,6 +130,14 @@
 - PostgreSQL integration coverage for access-event completeness, no-op suppression, exact session counts, owner authorization, tenant isolation, cross-tenant correlation rejection, unsafe metadata, and database immutability.
 - Playwright verification that the owner can see accepted-invitation and business-access events after a real Mailpit-delivered invitation is accepted.
 - `TENANT_ACCESS_AUDIT.md` and ADR-019 defining transactionality, authorization, immutability, safe metadata, concurrency, and operating rules.
+- Business-scoped `LedgerAccount` structure with account classes, constrained types, normal balances, contra behavior, header/posting/control kinds, lifecycle, stable system keys, and required controls.
+- UAE-oriented small-business default chart backfilled for existing businesses and installed atomically during onboarding.
+- Composite business and hierarchy scope, class/type/balance/kind checks, and a PostgreSQL hierarchy trigger preventing cycles and unsafe lifecycle changes.
+- Protected accounting register/detail APIs and UI with create, edit, activate, and deactivate controls but no hard-delete or posting path.
+- Business audit events for ledger-account creation, updates, activation, and deactivation.
+- Accounting RBAC and `accounting.core` entitlement integration with viewer read-only behavior.
+- Unit, PostgreSQL integration, migration-upgrade, and Playwright coverage for account defaults, lifecycle, hierarchy, tenant isolation, entitlement, and owner/viewer behavior.
+- `ACCOUNTING_FOUNDATION.md` and ADR-020 defining the structure-only accounting boundary.
 
 ### Changed
 
@@ -173,7 +181,12 @@
 - Member administration now records only meaningful before/after changes and rejects contradictory disable-plus-active-grant requests.
 - The migration-integrity manifest now protects 27 composite foreign keys, 38 checks, three custom indexes, two trigger/function pairs, and `pg_trgm`.
 - Tenant administration history queries run serially after one authorization decision, avoiding overlapping PostgreSQL client queries.
-- Phase 3 shared ERP foundations are verified for completion, subject only to the synchronized PR #25 documentation head repeating the full gate and merging normally.
+- Phase 3 shared ERP foundations are verified complete.
+- Accounting navigation is now an implemented Phase 4 foundation rather than a planned placeholder.
+- Existing businesses receive the default chart during migration and new businesses receive the same chart during serializable onboarding.
+- Migration integrity now protects ledger-account business/hierarchy keys, classification checks, and the hierarchy trigger/function.
+- Base-to-head upgrade verification now confirms both prior data preservation and default-chart installation.
+- Onboarding serialization retry detection now recognizes Prisma, PostgreSQL, and adapter conflict shapes and uses bounded exponential backoff.
 
 ### Fixed
 
@@ -191,3 +204,7 @@
 - Prevented future Prisma migration generation from proposing duplicate or renamed database keys solely because existing reviewed SQL constraints were absent from model metadata.
 - Normalized nested access-event metadata to valid JSON while preserving secret and URL rejection.
 - Scoped the access-history browser assertion to the correct event card when one target legitimately appears in multiple events.
+- Avoided a Prisma model collision by naming the accounting entity `LedgerAccount` while preserving Better Auth's `Account` model.
+- Kept the chart seed table available for the full migration session instead of dropping it at the first statement commit.
+- Preserved complete parent-header choices when the chart register is filtered and serialized chart reads to avoid adapter query overlap.
+- Prevented longer atomic onboarding setup from failing under recognized adapter-level serialization conflicts.

@@ -1,41 +1,78 @@
 # Progress
 
 Last updated: July 29, 2026
-Current branch: `main`
-Current phase: Phase 4 — Accounting kernel: chart structure and account lifecycle
+Current branch: `phase-4-chart-of-accounts`
+Current phase: Phase 4 — Accounting kernel
+Current slice: Chart of accounts and account lifecycle
 
 ## Evidence-based verified state
 
-- Phase 1 application foundation and Phase 2 identity/access foundations are merged and covered by the repository CI gate.
-- Phase 3 shared ERP foundations are complete: business profile, parties and contacts, catalog and units, staged imports, private files, business audit storage, numbering, exports, typed custom fields, durable queued email, browser verification, migration integrity, and immutable tenant access history.
+- Phases 1–3 are complete and merged through PR #25.
 - Better Auth uses PostgreSQL-backed revocable sessions.
-- Business access resolves through active tenant and business memberships plus an active tenant subscription.
-- Private files remain outside the public web root and use authenticated no-store downloads.
-- Controlled exports are scoped, spreadsheet-safe, bounded, checksummed, and audited without retaining generated payloads.
-- PR #22 merged the independent transaction, authorization, lifecycle, setup, and deployment hardening corrections. Run `30427561733`, job `90497258414`, passed its complete gate.
-- PR #23 merged production Playwright verification against PostgreSQL, Mailpit, the email worker, private storage, and cookie sessions. Run `30429920983`, job `90504549396`, passed its complete gate; merge `d1627ca55ca4563f9588a60cff96889bda6f365a`.
-- PR #24 merged clean-install and base-to-head migration integrity protection. Run `30432096576`, job `90511416006`, passed schema, catalog, upgrade, application, browser, Docker, and runtime gates; merge `acd0c8eb48d110ed8995842ece3e263a84826af9`.
-- PR #25 merged immutable tenant access history as `f13644c3d6248bf074647377b65910af8447ad9a`.
-- The final exact-head PR #25 run `30440271034`, job `90537656256`, passed clean dependency installation, Prisma generation, all migrations, migration history/diff/catalog verification, real base-to-head upgrade preservation, lint, strict TypeScript, unit and PostgreSQL tests, production build, owner access-history Playwright verification, Compose validation, both Docker images, runtime boot, database readiness, and protected outbox smoke.
+- Business access requires active tenant/business memberships and an active subscription.
+- Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
+- PR #26 implements the first Phase 4 structural slice without introducing balances or posting.
+- Implementation-head run `30442778259`, job `90545780793`, passed clean dependency installation, Prisma generation, all forward migrations, clean migration history/diff/catalog verification, real base-to-head upgrade with default-chart backfill, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, owner/viewer accounting Playwright verification, Compose validation, both Docker image builds, runtime boot, database readiness, and protected outbox smoke.
 
-## Phase 3 completion
+## Chart of accounts implemented in PR #26
 
-Phase 3 satisfies the repository completion rule. The blockers identified by `PHASE_3_VERIFICATION_AUDIT.md` were corrected through PRs #22–#25 and verified through clean executable gates.
+- Added tenant/business-scoped `LedgerAccount`, separate from Better Auth's `Account` model.
+- Added asset, liability, equity, revenue, and expense classes.
+- Added constrained account types, debit/credit normal balance, contra behavior, and header/posting/control kinds.
+- Added manual-posting policy, active/inactive status, optional parent header, stable system keys, required controls, and system-managed defaults.
+- Added composite business and parent foreign keys plus unique business code/system-key constraints.
+- Added PostgreSQL checks for code/name, class/type, normal balance/contra, kind/manual posting, system metadata, and required status.
+- Added a PostgreSQL hierarchy trigger for same-business/same-class header parents, active-parent rules, cycle prevention, active-child protection, stable system keys, and immutable system structure.
+- Backfilled every existing business with a deterministic UAE-oriented small-business chart.
+- Installed the same default chart atomically for new businesses during serializable onboarding.
+- Added `accounting.core` through the normalized feature/plan entitlement path.
+- Added protected accounting navigation, register/detail pages, filters, create/edit/status controls, and explicit structure-only warnings.
+- Added accounting.view/accounting.manage RBAC and viewer read-only enforcement.
+- Added business audit events for account creation, updates, activation, and deactivation.
+- Added no hard-delete path.
+- Expanded migration integrity to cover chart foreign keys, checks, and hierarchy trigger/function.
+- Extended real base-to-head upgrade verification to prove preserved Phase 3 data and default-chart installation.
+- Hardened onboarding retry detection for Prisma, PostgreSQL, and adapter serialization-conflict shapes after the larger atomic setup transaction.
 
-The completed scope includes shared ERP master data, file/audit/numbering/export/custom-field/outbox foundations and their tenant, authorization, concurrency, migration, browser, and runtime safety boundaries. It does not imply that accounting, VAT, sales, purchases, banking, inventory, projects, industry workflows, PDFs, e-invoicing, or commercial SaaS functionality is complete.
+## Verified behavior
 
-## Active Phase 4 slice
+- Default chart includes required receivable, payable, and retained-earnings controls, common UAE VAT controls, cash/bank, assets/liabilities/equity, revenue, cost of sales, and operating expenses.
+- Control and header accounts block manual posting.
+- Accumulated depreciation uses a credit normal balance as a contra asset.
+- Required system accounts cannot be deactivated.
+- System-managed class, type, balance, kind, contra flag, posting policy, parent, required flag, and system-managed state are immutable; code, name, and description remain editable while systemKey stays stable.
+- Headers with active children cannot be deactivated.
+- Children cannot be activated beneath an inactive parent.
+- Invalid class/type/balance/kind combinations and cross-tenant parents are rejected.
+- PostgreSQL rejects hierarchy cycles.
+- Owners can create custom accounts; viewers can read the chart but cannot use the form or direct write API.
 
-1. Implement tenant/business-scoped chart structure and account lifecycle without transaction entry.
-2. Define account classes, types, codes, names, normal balance, hierarchy, control-account rules, activation, and safe deactivation/archive behavior.
-3. Add explicit UAE-oriented default chart templates as business setup data without journal balances or postings.
-4. Add RBAC, feature entitlement, protected UI, audit events, tenant isolation, lifecycle, hierarchy, and migration-integrity tests.
-5. Follow with accounting periods and locks.
-6. Implement the central balanced posting kernel, idempotency, reversals, and PostgreSQL integration coverage before exposing journals or document posting.
+## Explicitly not implemented
+
+- Accounting periods or locks.
+- Opening balances.
+- Journal entries or lines.
+- Posted balances or general ledger.
+- Document posting.
+- VAT calculation/returns.
+- Receivable/payable allocation.
+- Bank reconciliation.
+- Financial statements.
+- Closing, retained-earnings transfer, reversals, or correction journals.
+
+## Next Phase 4 priority
+
+1. Implement business-scoped accounting periods and date locks.
+2. Define open, soft-locked, and closed states with clear authority and reason metadata.
+3. Prevent overlapping periods and enforce fiscal-date coverage.
+4. Add reopen controls, audit history, concurrency protection, migration integrity, and owner/accountant permissions.
+5. Only then implement the central balanced posting kernel with idempotency and reversals.
+6. Keep all journal/document transaction entry hidden until balance, scope, lock, retry, and reversal invariants pass PostgreSQL integration tests.
 
 ## Tracked non-blocking follow-up
 
-- Pagination for capped party, catalog, file, business-audit, and tenant-access history lists.
+- Pagination for capped registers.
+- Dynamic filtering of account-type choices by selected class in the client form; server validation already enforces compatibility.
 - Full contact/address editing and removal.
 - Broader party/catalog/import audit coverage.
 - File attachment target validation, stronger OOXML inspection, deployment request-size limits, and coordinated restore drills.
@@ -43,5 +80,5 @@ The completed scope includes shared ERP master data, file/audit/numbering/export
 
 ## Active blockers
 
-- No remaining Phase 3 blocker.
-- Phase 4 transaction entry remains blocked until chart structure, periods/locks, balanced posting invariants, idempotency, and reversal policy are implemented and PostgreSQL integration-tested.
+- PR #26 must pass the same complete gate on its synchronized documentation head and merge normally before this chart slice is complete.
+- Accounting transaction entry remains blocked by periods/locks, the balanced posting kernel, idempotency, and reversal policy.

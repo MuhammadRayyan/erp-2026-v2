@@ -120,7 +120,20 @@ async function verifyDatabase() {
     for (const [key, value] of Object.entries(expected)) {
       if (row[key] !== value) throw new Error(`Migration upgrade sentinel ${key} is ${row[key]}, expected ${value}.`);
     }
-    console.log("Migration upgrade sentinels preserved.");
+
+    const chart = await client.query(
+      `SELECT count(*)::int AS account_count,
+              count(*) FILTER (WHERE "systemKey" = 'ACCOUNTS_RECEIVABLE' AND "required" = true AND "kind" = 'CONTROL')::int AS receivable_count,
+              count(*) FILTER (WHERE "systemKey" = 'RETAINED_EARNINGS' AND "required" = true AND "normalBalance" = 'CREDIT')::int AS retained_count
+       FROM "LedgerAccount"
+       WHERE "tenantId" = $1 AND "businessId" = $2`,
+      [identifiers.tenantId, identifiers.businessId],
+    );
+    const chartRow = chart.rows[0];
+    if (!chartRow || chartRow.account_count < 30 || chartRow.receivable_count !== 1 || chartRow.retained_count !== 1) {
+      throw new Error(`Migration upgrade chart backfill is incomplete: ${JSON.stringify(chartRow)}.`);
+    }
+    console.log("Migration upgrade sentinels preserved and default chart installed.");
   } finally {
     await client.end();
   }
