@@ -67,7 +67,7 @@ function posting(input: {
       { accountId: input.cashId, description: "Cash received", debit: amount, credit: "0" },
       { accountId: input.revenueId, description: "Service revenue", debit: "0", credit: amount },
     ],
-  } as const;
+  };
 }
 
 describe("central journal posting kernel", () => {
