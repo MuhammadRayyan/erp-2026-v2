@@ -123,9 +123,9 @@ model Verification {
   id         String   @id
   identifier String
   value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([identifier])
   @@index([expiresAt])
@@ -219,4 +219,142 @@ model BusinessProfile {
   @@unique([tenantId, businessId])
   @@index([tenantId, industryProfile])
   @@index([tenantId, vatRegistrationStatus])
+}
+
+model BusinessMembership {
+  id         String           @id @default(cuid())
+  tenantId   String
+  businessId String
+  userId     String
+  roleKey    String
+  status     MembershipStatus @default(ACTIVE)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  business   Business         @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+  tenantUser TenantMembership @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([tenantId, userId, status])
+}
+
+model TenantInvitation {
+  id               String           @id @default(cuid())
+  tenantId         String
+  email            String
+  tokenDigest      String           @unique
+  status           InvitationStatus @default(PENDING)
+  expiresAt        DateTime
+  invitedByUserId  String
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy        User             @relation("InvitationSender", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?            @relation("InvitationAcceptor", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+  businessGrants   BusinessInvitationGrant[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status, expiresAt])
+  @@index([email, status])
+}
+
+model BusinessInvitationGrant {
+  id           String           @id @default(cuid())
+  invitationId String
+  tenantId     String
+  businessId   String
+  roleKey      String
+  invitation   TenantInvitation @relation(fields: [tenantId, invitationId], references: [tenantId, id], onDelete: Cascade, map: "BusinessInvitationGrant_invitation_scope_fkey")
+  business     Business         @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([invitationId, businessId])
+  @@index([tenantId, businessId])
+}
+
+model FeatureDefinition {
+  id          String               @id @default(cuid())
+  key         String               @unique
+  name        String
+  description String?
+  valueType   EntitlementValueType
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  plans       PlanEntitlement[]
+  overrides   TenantEntitlementOverride[]
+}
+
+model Plan {
+  id            String               @id @default(cuid())
+  key           String               @unique
+  name          String
+  description   String?
+  isInternal    Boolean              @default(false)
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  entitlements  PlanEntitlement[]
+  subscriptions TenantSubscription[]
+}
+
+model PlanEntitlement {
+  id         String            @id @default(cuid())
+  planId     String
+  featureId  String
+  enabled    Boolean?
+  limitValue Int?
+  unlimited  Boolean           @default(false)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  plan       Plan              @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature    FeatureDefinition @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+  @@index([featureId])
+}
+
+model TenantSubscription {
+  id        String             @id @default(cuid())
+  tenantId  String             @unique
+  planId    String
+  status    SubscriptionStatus @default(ACTIVE)
+  startsAt  DateTime           @default(now())
+  endsAt    DateTime?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan      Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([planId, status])
+}
+
+model TenantEntitlementOverride {
+  id         String            @id @default(cuid())
+  tenantId   String
+  featureId  String
+  enabled    Boolean?
+  limitValue Int?
+  unlimited  Boolean           @default(false)
+  reason     String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feature    FeatureDefinition @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, featureId])
+  @@index([featureId])
+}
+
+model OnboardingOperation {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique
+  userId         String
+  tenantId       String
+  businessId     String
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  business       Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
 }
