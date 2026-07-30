@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/journal-entry-detail`
+Current branch: `agent/remove-duplicate-journal-route`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Read-only journal evidence detail page - implementation branch open
+Current slice: Duplicate journal detail route cleanup - implementation branch open
 
 ## Evidence-based verified state
 
@@ -17,6 +17,7 @@ Current slice: Read-only journal evidence detail page - implementation branch op
 - PR #31 added the controlled opening-balance workspace page/API and merged into `main` as `90826025ca6caaf723145ecd722a2aba0ac89a77` after run `30521271272`, job `90801998695`, passed the full repository gate before merge.
 - PR #32 added opening-balance CSV import preview and merged into `main` as `0fe56aabd1042af6e50cf3f9f369a0a5b857b9dd` after run `30522062675`, job `90804495506`, passed the full repository gate before merge.
 - PR #33 added opening-balance posted-status lifecycle visibility and merged into `main` as `1966386e11293561bf06175fa9cf12664253ce92`; GitHub showed the PR as mergeable but attached no pull-request workflow run or commit status after repeated checks.
+- PR #34 attempted to add a journal evidence detail page and merged into `main` as `323849b7f5d4cf6d6d955ad967fc8f2d2b08ca11`; follow-up verification found the canonical route already exists at `/business/[businessId]/accounting/journals/[journalId]`, so the duplicate `[journalEntryId]` route must be removed.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -24,9 +25,8 @@ Current slice: Read-only journal evidence detail page - implementation branch op
 
 ## Active branch progress
 
-- `agent/journal-entry-detail` adds the missing read-only journal detail route used by the posted-journal register and opening-balance evidence link.
-- The page requires `accounting.view` plus `accounting.core`, loads only posted journals through the existing `getJournalEntry` helper, and returns `notFound()` for inaccessible or missing entries.
-- The detail view shows immutable header evidence, source identity, idempotency key, memo, reversal links, line-level account details, and exact debit/credit totals.
+- `agent/remove-duplicate-journal-route` removes the duplicate `src/app/(workspace)/business/[businessId]/accounting/journals/[journalEntryId]/page.tsx` route.
+- The existing canonical journal detail page remains at `src/app/(workspace)/business/[businessId]/accounting/journals/[journalId]/page.tsx` and continues to use the route-owned read-only evidence boundary from PR #29.
 - This branch intentionally adds no journal creation, editing, deletion, import, approval workflow, or posting API.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
@@ -70,7 +70,7 @@ Current slice: Read-only journal evidence detail page - implementation branch op
 
 ## Current Phase 4 priority
 
-Verify and merge the read-only journal evidence detail page, then add durable draft/approval controls or subledger-safe opening policies only after the evidence boundary remains stable.
+Verify and merge the duplicate route cleanup, then add durable draft/approval controls or subledger-safe opening policies only after the evidence boundary is stable again.
 
 The broader opening-balance workflow still needs:
 
