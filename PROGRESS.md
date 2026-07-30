@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/opening-balance-workspace`
+Current branch: `agent/opening-balance-import`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Controlled opening-balance workspace entry point - implementation branch open
+Current slice: Opening-balance CSV import preview - implementation branch open
 
 ## Evidence-based verified state
 
@@ -14,6 +14,7 @@ Current slice: Controlled opening-balance workspace entry point - implementation
 - Implementation-head run `30469369143`, job `90635303570`, passed clean dependency installation, Prisma generation, forward migrations, migration status, supported schema diff, PostgreSQL catalog integrity, real base-to-head upgrade verification, lint, strict TypeScript, unit tests, PostgreSQL integration tests, production build, Playwright browser verification, Compose validation, migration/runtime image builds, booted runtime readiness, and protected outbox smoke.
 - PR #29 added route-owned read-only posted-journal evidence and merged into `main` as `eb6a6cf0e6a189c9139e30d604585eee4e0bad70` after run `30475270032`, job `90655286041`, passed the full repository gate.
 - PR #30 added controlled opening-balance backend posting and merged into `main` as `c5aadcc18ec5921760239ec9e2e5ebe4d71e7291` after run `30520307890`, job `90798976536`, passed the full repository gate before merge.
+- PR #31 added the controlled opening-balance workspace page/API and merged into `main` as `90826025ca6caaf723145ecd722a2aba0ac89a77` after run `30521271272`, job `90801998695`, passed the full repository gate before merge.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -21,13 +22,12 @@ Current slice: Controlled opening-balance workspace entry point - implementation
 
 ## Active branch progress
 
-- `agent/opening-balance-workspace` adds the first workspace entry point for the controlled opening-balance backend.
-- The new route-owned page at `/business/[businessId]/accounting/opening-balances` requires `accounting.view` and `accounting.core`; the posting form is shown only to users with `accounting.manage`.
-- The page lists only active eligible non-control balance-sheet posting accounts using the shared backend eligibility helper.
-- The new API route at `/api/businesses/[businessId]/accounting/opening-balances` uses the request session, tenant/business access context, and the existing `postOpeningBalances` service.
-- Successful postings redirect to immutable posted-journal evidence; duplicate, idempotency-conflict, closed-period, missing-period, and ineligible-account errors are mapped to user-safe messages.
-- The chart and period pages now link to the opening-balance workflow and clarify that ordinary manual journals and unsupported subledger workflows remain blocked.
-- This branch intentionally adds no import workflow, approval workflow, draft opening sets, ordinary manual journal workflow, schema change, or subledger opening policies.
+- `agent/opening-balance-import` adds CSV import preview support to the existing controlled opening-balance workspace.
+- The import helper accepts pasted CSV with `accountCode,description,debit,credit`, including quoted descriptions, and maps account codes only against the eligible account list supplied by the page.
+- Import validation rejects unknown or ineligible account codes, malformed amounts, empty imports, and rows that provide both or neither debit and credit.
+- Imported rows fill the same editable review table as manual entry; final posting still uses the protected opening-balance API route and backend service.
+- Unit coverage verifies successful CSV parsing plus rejected unknown-account, malformed-amount, dual-sided, and empty imports.
+- This branch intentionally adds no durable import batches, approval workflow, draft opening sets, ordinary manual journal workflow, schema change, or subledger opening policies.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
@@ -70,18 +70,19 @@ Current slice: Controlled opening-balance workspace entry point - implementation
 
 ## Current Phase 4 priority
 
-Verify and merge the controlled opening-balance workspace entry point, then add import/approval lifecycle only after the direct workspace posting policy is stable.
+Verify and merge the opening-balance CSV import preview, then add durable draft/approval lifecycle or subledger-safe opening policies only after the import preview remains stable.
 
 The broader opening-balance workflow still needs:
 
-1. draft/approval/import controls if needed;
-2. subledger-safe opening policies for receivables, payables, inventory, VAT, bank reconciliation, and projects;
-3. reversal/correction UX for posted opening balances;
-4. browser evidence and operating documentation for the full workflow.
+1. durable draft/approval controls if needed;
+2. durable import batches if needed;
+3. subledger-safe opening policies for receivables, payables, inventory, VAT, bank reconciliation, and projects;
+4. reversal/correction UX for posted opening balances;
+5. browser evidence and operating documentation for the full workflow.
 
 ## Explicitly not implemented
 
-- Opening-balance import workflow.
+- Durable opening-balance import batches.
 - Ordinary manual journal-entry UI.
 - Draft, recurring, or approval-based journals.
 - Sales, purchase, bank, inventory, payroll, or project posting.
@@ -103,4 +104,4 @@ The broader opening-balance workflow still needs:
 
 ## Active blockers
 
-- Ordinary business transaction entry remains blocked until opening-balance import/lifecycle, subledger policies, and the applicable VAT/document posting rules are implemented and verified.
+- Ordinary business transaction entry remains blocked until durable opening-balance lifecycle, subledger policies, and the applicable VAT/document posting rules are implemented and verified.
