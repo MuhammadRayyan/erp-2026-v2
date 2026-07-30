@@ -10,9 +10,18 @@ export type OpeningBalanceImportRow = {
   credit: string;
 };
 
+export type OpeningBalanceImportSummary = {
+  rowCount: number;
+  totalDebit: string;
+  totalCredit: string;
+  netDifference: string;
+  fingerprint: string;
+};
+
 export type OpeningBalanceImportResult = {
   rows: OpeningBalanceImportRow[];
   errors: string[];
+  summary: OpeningBalanceImportSummary;
 };
 
 const amountPattern = /^\d{1,16}(?:\.\d{1,4})?$/;
@@ -46,6 +55,38 @@ function splitCsvLine(line: string) {
 function normalizeAmount(value: string | undefined) {
   const trimmed = value?.trim() ?? "";
   return trimmed === "" ? "0" : trimmed;
+}
+
+function amount(value: number) {
+  return value.toFixed(4);
+}
+
+function stableHash(value: string) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function summarize(rows: OpeningBalanceImportRow[]): OpeningBalanceImportSummary {
+  const totalDebit = rows.reduce((sum, row) => sum + Number(row.debit), 0);
+  const totalCredit = rows.reduce((sum, row) => sum + Number(row.credit), 0);
+  const normalizedRows = rows.map((row) => ({
+    accountId: row.accountId,
+    description: row.description.trim(),
+    debit: amount(Number(row.debit)),
+    credit: amount(Number(row.credit)),
+  }));
+
+  return {
+    rowCount: rows.length,
+    totalDebit: amount(totalDebit),
+    totalCredit: amount(totalCredit),
+    netDifference: amount(totalDebit - totalCredit),
+    fingerprint: `obimp_${stableHash(JSON.stringify(normalizedRows))}`,
+  };
 }
 
 function isHeader(cells: string[]) {
@@ -104,5 +145,5 @@ export function parseOpeningBalanceCsv(csv: string, accounts: OpeningBalanceImpo
     errors.push("Paste at least one opening-balance row.");
   }
 
-  return { rows, errors };
+  return { rows, errors, summary: summarize(rows) };
 }
