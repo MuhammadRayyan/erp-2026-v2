@@ -8,7 +8,7 @@ import type { BusinessAccessContext } from "@/modules/tenancy/server/context";
 
 const openingBalanceSourceType = "OPENING_BALANCE";
 const openingBalanceSourceId = "OPENING_BALANCES";
-const openingBalanceEquitySystemKey = "OWNER_CAPITAL";
+export const openingBalanceEquitySystemKey = "OWNER_CAPITAL";
 const blockedOpeningBalanceTypes = new Set<AccountType>([
   "BANK",
   "ACCOUNTS_RECEIVABLE",
@@ -33,6 +33,16 @@ type OpeningBalanceAccount = {
   status: AccountStatus;
   systemKey: string | null;
 };
+
+export function isOpeningBalanceInputAccountEligible(account: OpeningBalanceAccount) {
+  return account.status === "ACTIVE"
+    && account.kind !== "HEADER"
+    && account.kind !== "CONTROL"
+    && account.class !== "REVENUE"
+    && account.class !== "EXPENSE"
+    && !blockedOpeningBalanceTypes.has(account.type)
+    && account.systemKey !== openingBalanceEquitySystemKey;
+}
 
 function decimal(value: string) {
   return new Prisma.Decimal(value).toDecimalPlaces(4);
