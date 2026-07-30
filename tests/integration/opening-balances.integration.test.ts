@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { db } from "../../src/lib/db";
 import { createAccountingPeriod } from "../../src/modules/accounting/server/periods";
 import { getOpeningBalanceStatus, postOpeningBalances } from "../../src/modules/accounting/server/opening-balances";
+import { summarizeOpeningBalanceImportRows } from "../../src/modules/accounting/contracts/opening-balance-import";
 import { onboardOwner } from "../../src/modules/tenancy/server/onboarding";
 import { requireBusinessAccessContext } from "../../src/modules/tenancy/server/context";
 
@@ -54,21 +55,16 @@ describe("controlled opening balance posting", () => {
 
   it("posts one idempotent opening set and balances the net amount to owner capital", async () => {
     const setup = await setupBusiness("Opening Balanced");
+    const lines = [
+      { accountId: setup.cash.id, description: "Cash counted at cutover", debit: "100.0000", credit: "0" },
+      { accountId: setup.loan.id, description: "Loan outstanding at cutover", debit: "0", credit: "30.0000" },
+    ];
     const input = {
       cutoverDate: "2027-01-01",
       idempotencyKey: `opening-balanced-${randomUUID()}`,
       memo: "Owner-approved opening balances",
-      importSummary: {
-        rowCount: 2,
-        totalDebit: "100.0000",
-        totalCredit: "30.0000",
-        netDifference: "70.0000",
-        fingerprint: "obimp_1234abcd",
-      },
-      lines: [
-        { accountId: setup.cash.id, description: "Cash counted at cutover", debit: "100.0000", credit: "0" },
-        { accountId: setup.loan.id, description: "Loan outstanding at cutover", debit: "0", credit: "30.0000" },
-      ],
+      importSummary: summarizeOpeningBalanceImportRows(lines),
+      lines,
     };
 
     const first = await postOpeningBalances(setup.context, input);
@@ -78,7 +74,7 @@ describe("controlled opening balance posting", () => {
     expect(first.sourceId).toBe("OPENING_BALANCES");
     expect(first.postingDate.toISOString().slice(0, 10)).toBe("2027-01-01");
     expect(first.memo).toContain("Owner-approved opening balances");
-    expect(first.memo).toContain("Import obimp_1234abcd");
+    expect(first.memo).toContain(`Import ${input.importSummary.fingerprint}`);
     expect(first.memo).toContain("rows 2");
     expect(first.lines).toHaveLength(3);
     expect(first.lines.reduce((sum, line) => sum + Number(line.debit), 0)).toBe(100);
@@ -88,6 +84,22 @@ describe("controlled opening balance posting", () => {
     expect(balancingLine).toBeTruthy();
     expect(Number(balancingLine?.credit)).toBe(70);
     expect(Number(balancingLine?.debit)).toBe(0);
+  });
+
+  it("rejects import-preview evidence that does not match submitted rows", async () => {
+    const setup = await setupBusiness("Opening Evidence Mismatch");
+    const lines = [{ accountId: setup.cash.id, description: "Cash counted", debit: "42.0000", credit: "0" }];
+
+    await expect(postOpeningBalances(setup.context, {
+      cutoverDate: "2027-01-01",
+      idempotencyKey: `opening-evidence-mismatch-${randomUUID()}`,
+      memo: null,
+      importSummary: {
+        ...summarizeOpeningBalanceImportRows(lines),
+        totalDebit: "43.0000",
+      },
+      lines,
+    })).rejects.toThrow("OPENING_BALANCE_IMPORT_EVIDENCE_MISMATCH");
   });
 
   it("reports posted status only after the opening set exists", async () => {
