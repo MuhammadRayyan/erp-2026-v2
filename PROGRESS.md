@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/opening-balance-import-summary`
+Current branch: `agent/opening-balance-import-evidence`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Opening-balance import preview summary/fingerprint - implementation branch open
+Current slice: Opening-balance import evidence handoff - implementation branch open
 
 ## Evidence-based verified state
 
@@ -18,9 +18,10 @@ Current slice: Opening-balance import preview summary/fingerprint - implementati
 - PR #32 added opening-balance CSV import preview and merged into `main` as `0fe56aabd1042af6e50cf3f9f369a0a5b857b9dd` after run `30522062675`, job `90804495506`, passed the full repository gate before merge.
 - PR #33 added opening-balance posted-status lifecycle visibility and merged into `main` as `1966386e11293561bf06175fa9cf12664253ce92`; GitHub showed the PR as mergeable but attached no pull-request workflow run or commit status after repeated checks.
 - PR #34 attempted to add a journal evidence detail page and merged into `main` as `323849b7f5d4cf6d6d955ad967fc8f2d2b08ca11`; follow-up verification found the canonical route already exists at `/business/[businessId]/accounting/journals/[journalId]`.
-- PR #35 removed the duplicate `[journalEntryId]` journal route and merged into `main` as `e99cc2e5dd1a26048933a93c7f756e7246eb71a6`; follow-up verification confirmed the canonical `[journalId]` route exists, the duplicate route is absent, no open PRs remained, and no workflow/status objects were attached to the merge commit.
+- PR #35 removed the duplicate `[journalEntryId]` journal route and merged into `main` as `e99cc2e5dd1a26048933a93c7f756e7246eb71a6`; follow-up verification confirmed the canonical `[journalId]` route exists, the duplicate route is absent, no workflow/status objects were attached to the merge commit, and no open PRs remained.
 - PR #36 added the opening-balance blocked policy matrix and merged into `main` as `4dc5b8389a5bcc5fd6d8e1f4537b7fceff9a6e0b` after CI run `30524938603`, job `90813581732`, passed the full repository gate before merge.
 - PR #37 centralized the blocked opening-balance policy matrix in `src/modules/accounting/contracts/opening-balance-policies.ts` and merged into `main` as `3d78e05cfd7ddd31a0a8af035446d776016c17bb` after CI run `30526198564`, job `90817561958`, passed the full repository gate before merge.
+- PR #38 added opening-balance import preview summary/fingerprint evidence and merged into `main` as `2249f9656fa7aa42f058fac903579468d9025108` after CI run `30529230652`, job `90827330472`, passed the full repository gate before merge.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -28,12 +29,12 @@ Current slice: Opening-balance import preview summary/fingerprint - implementati
 
 ## Active branch progress
 
-- `agent/opening-balance-import-summary` adds an `OpeningBalanceImportSummary` to the CSV parser result.
-- The summary records row count, debit total, credit total, net difference, and a deterministic browser-safe preview fingerprint over normalized import rows.
-- The opening-balance workspace displays the import summary after a successful CSV preview and clears it when rows are manually changed.
-- Unit coverage verifies import summary totals and stable fingerprinting for equivalent imports.
-- `ACCOUNTING_OPENING_BALANCES.md` records the preview summary/fingerprint as operator review evidence.
-- This branch intentionally adds no durable import batches, draft workflow, approval workflow, schema change, posting API change, or ordinary manual journal workflow.
+- `agent/opening-balance-import-evidence` adds optional import-preview summary evidence to the protected opening-balance posting contract.
+- The opening-balance workspace submits the current import summary only while the preview still matches the reviewed rows; manual row changes clear the preview message and evidence handoff.
+- The backend validates the import-summary fingerprint/totals shape and appends a compact import evidence line to the posted journal memo without adding schema or a durable import-batch table.
+- Unit coverage verifies valid and invalid import-summary evidence, and PostgreSQL integration coverage verifies the posted journal memo contains the import fingerprint and row evidence.
+- `ACCOUNTING_OPENING_BALANCES.md` records the distinction between browser preview evidence and immutable journal memo evidence.
+- This branch intentionally adds no durable import batches, draft workflow, approval workflow, schema change, posting API change beyond optional evidence metadata, or ordinary manual journal workflow.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
@@ -76,7 +77,7 @@ Current slice: Opening-balance import preview summary/fingerprint - implementati
 
 ## Current Phase 4 priority
 
-Verify and merge the opening-balance import preview summary/fingerprint, then move into durable opening-balance drafts/import batches or subledger-safe opening policies.
+Verify and merge the opening-balance import evidence handoff, then move into durable opening-balance drafts/import batches or subledger-safe opening policies.
 
 The broader opening-balance workflow still needs:
 

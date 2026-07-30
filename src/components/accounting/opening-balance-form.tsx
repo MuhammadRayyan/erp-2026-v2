@@ -65,14 +65,19 @@ export function OpeningBalanceForm({
     return { debit, credit, balancing: debit - credit };
   }, [rows]);
 
+  function clearImportEvidence() {
+    setImportSummary(null);
+    setImportMessage(null);
+  }
+
   function updateRow(key: string, patch: Partial<OpeningBalanceRow>) {
     setRows((current) => current.map((row) => row.key === key ? { ...row, ...patch } : row));
-    setImportSummary(null);
+    clearImportEvidence();
   }
 
   function removeRow(key: string) {
     setRows((current) => current.length === 1 ? current : current.filter((row) => row.key !== key));
-    setImportSummary(null);
+    clearImportEvidence();
   }
 
   function importCsvRows() {
@@ -102,6 +107,7 @@ export function OpeningBalanceForm({
           cutoverDate: data.get("cutoverDate"),
           idempotencyKey,
           memo: data.get("memo") || null,
+          importSummary: importSummary ?? undefined,
           lines: rows.map((row) => ({
             accountId: row.accountId,
             description: row.description.trim() || null,
@@ -192,7 +198,7 @@ export function OpeningBalanceForm({
 
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--muted)]">
       <p>Debit {amount(totals.debit)} · Credit {amount(totals.credit)}</p>
-      <button type="button" onClick={() => { setRows((current) => [...current, newRow(accounts[0]?.id ?? "")]); setImportSummary(null); }} disabled={accounts.length === 0} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50">Add line</button>
+      <button type="button" onClick={() => { setRows((current) => [...current, newRow(accounts[0]?.id ?? "")]); clearImportEvidence(); }} disabled={accounts.length === 0} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50">Add line</button>
     </div>
 
     <div className="mt-5 flex flex-wrap items-center gap-3">

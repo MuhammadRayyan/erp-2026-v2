@@ -58,6 +58,13 @@ describe("controlled opening balance posting", () => {
       cutoverDate: "2027-01-01",
       idempotencyKey: `opening-balanced-${randomUUID()}`,
       memo: "Owner-approved opening balances",
+      importSummary: {
+        rowCount: 2,
+        totalDebit: "100.0000",
+        totalCredit: "30.0000",
+        netDifference: "70.0000",
+        fingerprint: "obimp_1234abcd",
+      },
       lines: [
         { accountId: setup.cash.id, description: "Cash counted at cutover", debit: "100.0000", credit: "0" },
         { accountId: setup.loan.id, description: "Loan outstanding at cutover", debit: "0", credit: "30.0000" },
@@ -70,6 +77,9 @@ describe("controlled opening balance posting", () => {
     expect(first.sourceType).toBe("OPENING_BALANCE");
     expect(first.sourceId).toBe("OPENING_BALANCES");
     expect(first.postingDate.toISOString().slice(0, 10)).toBe("2027-01-01");
+    expect(first.memo).toContain("Owner-approved opening balances");
+    expect(first.memo).toContain("Import obimp_1234abcd");
+    expect(first.memo).toContain("rows 2");
     expect(first.lines).toHaveLength(3);
     expect(first.lines.reduce((sum, line) => sum + Number(line.debit), 0)).toBe(100);
     expect(first.lines.reduce((sum, line) => sum + Number(line.credit), 0)).toBe(100);
