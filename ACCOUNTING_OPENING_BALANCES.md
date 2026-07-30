@@ -1,10 +1,12 @@
 # Controlled Opening Balances
 
-This guide defines the initial Phase 4 opening-balance backend boundary. Opening balances are not an ordinary manual journal workflow. They are a controlled business cutover posting that uses the central accounting kernel.
+This guide defines the initial Phase 4 opening-balance workflow boundary. Opening balances are not an ordinary manual journal workflow. They are a controlled business cutover posting that uses the central accounting kernel.
 
 ## Scope
 
-The initial service accepts one opening-balance set for a business and posts it as one journal through `postJournalEntry`.
+The backend service accepts one opening-balance set for a business and posts it as one journal through `postJournalEntry`.
+
+The workspace page at `/business/[businessId]/accounting/opening-balances` provides the first controlled browser entry point for users with accounting management access. It offers only eligible account choices, posts through the opening-balance API route, and redirects successful postings to immutable journal evidence.
 
 The request contains:
 
@@ -39,7 +41,7 @@ Opening-balance input lines must use active non-header, non-control balance-shee
 - retained earnings;
 - the reserved `OWNER_CAPITAL` balancing account as an input line.
 
-This keeps receivables, payables, inventory, VAT, retained earnings, and bank reconciliation from receiving unsupported aggregate balances before their subledger and reconciliation policies exist.
+This keeps receivables, payables, inventory, VAT, retained earnings, and bank reconciliation from receiving unsupported aggregate balances before their subledger and reconciliation policies exist. The workspace account list uses the same eligibility helper as the backend, but the backend remains the final authority.
 
 ## Balancing policy
 
@@ -65,11 +67,10 @@ The central posting kernel still enforces:
 - immutable posted history;
 - audit event creation.
 
-Automated coverage verifies opening-balance input shape, owner-capital balancing, equivalent retry behavior, conflicting duplicate-source rejection, and blocked control, bank, and profit-and-loss accounts.
+Automated coverage verifies opening-balance input shape, owner-capital balancing, equivalent retry behavior, conflicting duplicate-source rejection, and blocked control, bank, and profit-and-loss accounts. The workspace workflow reuses the existing protected session, business access, entitlement, and posting-date boundaries.
 
 ## Explicitly not implemented
 
-- opening-balance UI;
 - import workflow;
 - approval workflow;
 - draft opening sets;
