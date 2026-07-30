@@ -70,7 +70,7 @@ function stableHash(value: string) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-function summarize(rows: OpeningBalanceImportRow[]): OpeningBalanceImportSummary {
+export function summarizeOpeningBalanceImportRows(rows: OpeningBalanceImportRow[]): OpeningBalanceImportSummary {
   const totalDebit = rows.reduce((sum, row) => sum + Number(row.debit), 0);
   const totalCredit = rows.reduce((sum, row) => sum + Number(row.credit), 0);
   const normalizedRows = rows.map((row) => ({
@@ -145,5 +145,5 @@ export function parseOpeningBalanceCsv(csv: string, accounts: OpeningBalanceImpo
     errors.push("Paste at least one opening-balance row.");
   }
 
-  return { rows, errors, summary: summarize(rows) };
+  return { rows, errors, summary: summarizeOpeningBalanceImportRows(rows) };
 }
