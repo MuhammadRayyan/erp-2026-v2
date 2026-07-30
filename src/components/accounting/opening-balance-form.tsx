@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { parseOpeningBalanceCsv } from "@/modules/accounting/contracts/opening-balance-import";
+import { parseOpeningBalanceCsv, type OpeningBalanceImportSummary } from "@/modules/accounting/contracts/opening-balance-import";
 
 type AccountOption = {
   id: string;
@@ -56,6 +56,7 @@ export function OpeningBalanceForm({
   const [importText, setImportText] = useState("accountCode,description,debit,credit\n");
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importSummary, setImportSummary] = useState<OpeningBalanceImportSummary | null>(null);
   const [rows, setRows] = useState<OpeningBalanceRow[]>([newRow(accounts[0]?.id ?? "")]);
 
   const totals = useMemo(() => {
@@ -66,15 +67,18 @@ export function OpeningBalanceForm({
 
   function updateRow(key: string, patch: Partial<OpeningBalanceRow>) {
     setRows((current) => current.map((row) => row.key === key ? { ...row, ...patch } : row));
+    setImportSummary(null);
   }
 
   function removeRow(key: string) {
     setRows((current) => current.length === 1 ? current : current.filter((row) => row.key !== key));
+    setImportSummary(null);
   }
 
   function importCsvRows() {
     const result = parseOpeningBalanceCsv(importText, accounts);
     setImportErrors(result.errors);
+    setImportSummary(result.errors.length === 0 ? result.summary : null);
     if (result.errors.length > 0) {
       setImportMessage(null);
       return;
@@ -153,6 +157,13 @@ export function OpeningBalanceForm({
       </div>
       <textarea value={importText} onChange={(event) => setImportText(event.target.value)} rows={5} spellCheck={false} className={`${inputClass} mt-4 w-full font-mono text-sm`} />
       {importMessage && <p role="status" className="mt-3 text-sm text-[var(--brand)]">{importMessage}</p>}
+      {importSummary && <dl className="mt-3 grid gap-3 text-sm md:grid-cols-5">
+        <div className="rounded-xl border border-[var(--border)] p-3"><dt className="text-[var(--muted)]">Rows</dt><dd className="mt-1 font-medium tabular-nums">{importSummary.rowCount}</dd></div>
+        <div className="rounded-xl border border-[var(--border)] p-3"><dt className="text-[var(--muted)]">Debit</dt><dd className="mt-1 font-medium tabular-nums">{importSummary.totalDebit}</dd></div>
+        <div className="rounded-xl border border-[var(--border)] p-3"><dt className="text-[var(--muted)]">Credit</dt><dd className="mt-1 font-medium tabular-nums">{importSummary.totalCredit}</dd></div>
+        <div className="rounded-xl border border-[var(--border)] p-3"><dt className="text-[var(--muted)]">Net</dt><dd className="mt-1 font-medium tabular-nums">{importSummary.netDifference}</dd></div>
+        <div className="rounded-xl border border-[var(--border)] p-3"><dt className="text-[var(--muted)]">Fingerprint</dt><dd className="mt-1 break-all font-mono text-xs">{importSummary.fingerprint}</dd></div>
+      </dl>}
       {importErrors.length > 0 && <div role="alert" className="mt-3 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-3 text-sm text-[var(--danger)]">
         <p className="font-medium">Import needs attention</p>
         <ul className="mt-2 space-y-1">{importErrors.slice(0, 5).map((error) => <li key={error}>{error}</li>)}</ul>
@@ -181,7 +192,7 @@ export function OpeningBalanceForm({
 
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--muted)]">
       <p>Debit {amount(totals.debit)} · Credit {amount(totals.credit)}</p>
-      <button type="button" onClick={() => setRows((current) => [...current, newRow(accounts[0]?.id ?? "")])} disabled={accounts.length === 0} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50">Add line</button>
+      <button type="button" onClick={() => { setRows((current) => [...current, newRow(accounts[0]?.id ?? "")]); setImportSummary(null); }} disabled={accounts.length === 0} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50">Add line</button>
     </div>
 
     <div className="mt-5 flex flex-wrap items-center gap-3">
