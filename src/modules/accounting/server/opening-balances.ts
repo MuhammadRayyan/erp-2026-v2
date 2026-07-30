@@ -6,8 +6,8 @@ import { postJournalEntry } from "@/modules/accounting/server/journals";
 import { requireTenantFeature } from "@/modules/entitlements/server/resolve";
 import type { BusinessAccessContext } from "@/modules/tenancy/server/context";
 
-const openingBalanceSourceType = "OPENING_BALANCE";
-const openingBalanceSourceId = "OPENING_BALANCES";
+export const openingBalanceSourceType = "OPENING_BALANCE";
+export const openingBalanceSourceId = "OPENING_BALANCES";
 export const openingBalanceEquitySystemKey = "OWNER_CAPITAL";
 const blockedOpeningBalanceTypes = new Set<AccountType>([
   "BANK",
@@ -21,6 +21,11 @@ const blockedOpeningBalanceTypes = new Set<AccountType>([
 
 async function requireOpeningBalanceAccess(context: BusinessAccessContext) {
   requireBusinessCapability(context, "accounting.manage");
+  await requireTenantFeature(context.tenantId, "accounting.core");
+}
+
+async function requireOpeningBalanceView(context: BusinessAccessContext) {
+  requireBusinessCapability(context, "accounting.view");
   await requireTenantFeature(context.tenantId, "accounting.core");
 }
 
@@ -42,6 +47,30 @@ export function isOpeningBalanceInputAccountEligible(account: OpeningBalanceAcco
     && account.class !== "EXPENSE"
     && !blockedOpeningBalanceTypes.has(account.type)
     && account.systemKey !== openingBalanceEquitySystemKey;
+}
+
+export async function getOpeningBalanceStatus(context: BusinessAccessContext) {
+  await requireOpeningBalanceView(context);
+  return db.journalEntry.findFirst({
+    where: {
+      tenantId: context.tenantId,
+      businessId: context.businessId,
+      sourceType: openingBalanceSourceType,
+      sourceId: openingBalanceSourceId,
+      status: "POSTED",
+    },
+    select: {
+      id: true,
+      postingDate: true,
+      postedAt: true,
+      currencyCode: true,
+      memo: true,
+      lines: {
+        select: { debit: true, credit: true },
+      },
+    },
+    orderBy: { postedAt: "desc" },
+  });
 }
 
 function decimal(value: string) {
