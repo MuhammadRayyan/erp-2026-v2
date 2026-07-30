@@ -49,7 +49,7 @@ This keeps receivables, payables, inventory, VAT, retained earnings, and bank re
 
 ## Blocked policy matrix
 
-The workspace shows the blocked subledger and control-account areas as an explicit policy matrix so operators can distinguish supported cutover accounts from future work.
+The workspace shows the blocked subledger and control-account areas as an explicit policy matrix so operators can distinguish supported cutover accounts from future work. The rows are defined in `opening-balance-policies.ts` and covered by unit tests to keep the workspace, operating guide, and future policy work aligned.
 
 | Area | Blocked shortcut | Required policy before enablement |
 | --- | --- | --- |
@@ -86,7 +86,7 @@ The central posting kernel still enforces:
 - immutable posted history;
 - audit event creation.
 
-Automated coverage verifies opening-balance input shape, CSV parsing and rejected import rows, posted-status lookup, owner-capital balancing, equivalent retry behavior, conflicting duplicate-source rejection, and blocked control, bank, and profit-and-loss accounts. The workspace workflow reuses the existing protected session, business access, entitlement, and posting-date boundaries.
+Automated coverage verifies opening-balance input shape, CSV parsing and rejected import rows, posted-status lookup, blocked policy matrix coverage, owner-capital balancing, equivalent retry behavior, conflicting duplicate-source rejection, and blocked control, bank, and profit-and-loss accounts. The workspace workflow reuses the existing protected session, business access, entitlement, and posting-date boundaries.
 
 ## Explicitly not implemented
 
