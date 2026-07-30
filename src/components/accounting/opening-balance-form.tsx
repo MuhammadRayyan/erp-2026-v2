@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { parseOpeningBalanceCsv } from "@/modules/accounting/contracts/opening-balance-import";
 
 type AccountOption = {
   id: string;
@@ -18,9 +19,13 @@ type OpeningBalanceRow = {
   credit: string;
 };
 
+function rowKey(index = 0) {
+  return `${Date.now()}-${Math.random()}-${index}`;
+}
+
 function newRow(accountId: string): OpeningBalanceRow {
   return {
-    key: `${Date.now()}-${Math.random()}`,
+    key: rowKey(),
     accountId,
     description: "",
     debit: "0",
@@ -48,6 +53,9 @@ export function OpeningBalanceForm({
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [importText, setImportText] = useState("accountCode,description,debit,credit\n");
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [rows, setRows] = useState<OpeningBalanceRow[]>([newRow(accounts[0]?.id ?? "")]);
 
   const totals = useMemo(() => {
@@ -62,6 +70,17 @@ export function OpeningBalanceForm({
 
   function removeRow(key: string) {
     setRows((current) => current.length === 1 ? current : current.filter((row) => row.key !== key));
+  }
+
+  function importCsvRows() {
+    const result = parseOpeningBalanceCsv(importText, accounts);
+    setImportErrors(result.errors);
+    if (result.errors.length > 0) {
+      setImportMessage(null);
+      return;
+    }
+    setRows(result.rows.map((row, index) => ({ ...row, key: rowKey(index) })));
+    setImportMessage(`${result.rows.length} opening-balance lines imported for review.`);
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -111,7 +130,7 @@ export function OpeningBalanceForm({
       <div>
         <p className="text-sm font-medium text-[var(--brand)]">Controlled cutover</p>
         <h2 className="mt-1 text-xl font-semibold">Post opening balances</h2>
-        <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">Post one business opening set through the accounting kernel. The system adds any net balancing amount to owner capital and rejects unsupported subledger shortcuts.</p>
+        <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">Post one business opening set through the accounting kernel. Importing fills editable lines only; final posting still uses the protected opening-balance service.</p>
       </div>
       <div className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
         <p className="font-medium">Net balancing</p>
@@ -123,6 +142,23 @@ export function OpeningBalanceForm({
       <label className="grid gap-2 text-sm font-medium">Cutover date<input name="cutoverDate" type="date" required className={inputClass} /></label>
       <label className="grid gap-2 text-sm font-medium">Memo<input name="memo" maxLength={500} className={inputClass} placeholder="Opening balances approved by owner" /></label>
     </div>
+
+    <section className="mt-5 rounded-2xl border border-[var(--border)] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="font-semibold">Import lines</h3>
+          <p className="mt-1 text-sm text-[var(--muted)]">Paste CSV with columns accountCode, description, debit, credit. Account codes must already appear in the eligible account register.</p>
+        </div>
+        <button type="button" onClick={importCsvRows} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Preview import</button>
+      </div>
+      <textarea value={importText} onChange={(event) => setImportText(event.target.value)} rows={5} spellCheck={false} className={`${inputClass} mt-4 w-full font-mono text-sm`} />
+      {importMessage && <p role="status" className="mt-3 text-sm text-[var(--brand)]">{importMessage}</p>}
+      {importErrors.length > 0 && <div role="alert" className="mt-3 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-3 text-sm text-[var(--danger)]">
+        <p className="font-medium">Import needs attention</p>
+        <ul className="mt-2 space-y-1">{importErrors.slice(0, 5).map((error) => <li key={error}>{error}</li>)}</ul>
+        {importErrors.length > 5 && <p className="mt-2">{importErrors.length - 5} more errors.</p>}
+      </div>}
+    </section>
 
     <div className="mt-5 overflow-hidden rounded-2xl border border-[var(--border)]">
       <div className="grid min-w-[980px] grid-cols-[2fr_1.6fr_1fr_1fr_auto] gap-3 bg-[var(--surface-muted)] px-4 py-3 text-sm font-medium text-[var(--muted)]">
