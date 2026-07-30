@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/opening-balance-policy-matrix`
+Current branch: `agent/opening-balance-policy-contract`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Opening-balance blocked policy matrix - implementation branch open
+Current slice: Opening-balance blocked policy contract - implementation branch open
 
 ## Evidence-based verified state
 
@@ -19,6 +19,7 @@ Current slice: Opening-balance blocked policy matrix - implementation branch ope
 - PR #33 added opening-balance posted-status lifecycle visibility and merged into `main` as `1966386e11293561bf06175fa9cf12664253ce92`; GitHub showed the PR as mergeable but attached no pull-request workflow run or commit status after repeated checks.
 - PR #34 attempted to add a journal evidence detail page and merged into `main` as `323849b7f5d4cf6d6d955ad967fc8f2d2b08ca11`; follow-up verification found the canonical route already exists at `/business/[businessId]/accounting/journals/[journalId]`.
 - PR #35 removed the duplicate `[journalEntryId]` journal route and merged into `main` as `e99cc2e5dd1a26048933a93c7f756e7246eb71a6`; follow-up verification confirmed the canonical `[journalId]` route exists, the duplicate route is absent, no open PRs remained, and no workflow/status objects were attached to the merge commit.
+- PR #36 added the opening-balance blocked policy matrix and merged into `main` as `4dc5b8389a5bcc5fd6d8e1f4537b7fceff9a6e0b` after CI run `30524938603`, job `90813581732`, passed the full repository gate before merge.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -26,9 +27,10 @@ Current slice: Opening-balance blocked policy matrix - implementation branch ope
 
 ## Active branch progress
 
-- `agent/opening-balance-policy-matrix` makes blocked opening-balance shortcuts explicit in the workspace instead of relying only on hidden account eligibility.
-- The opening-balance page now shows the future policy required before receivables, payables, inventory, bank, VAT, and retained earnings cutover shortcuts can be enabled.
-- `ACCOUNTING_OPENING_BALANCES.md` records the same matrix and clarifies that the browser rows are informational while backend eligibility and the posting kernel remain authoritative.
+- `agent/opening-balance-policy-contract` centralizes the blocked opening-balance policy matrix in `src/modules/accounting/contracts/opening-balance-policies.ts`.
+- The opening-balance workspace imports the shared policy rows instead of maintaining a page-local copy.
+- Unit coverage verifies the expected blocked areas and ensures every row has operator-facing blocked-shortcut and enablement-policy text.
+- `ACCOUNTING_OPENING_BALANCES.md` records that the matrix is contract-owned and covered by tests.
 - This branch intentionally adds no durable import batches, draft workflow, approval workflow, schema change, posting API change, or ordinary manual journal workflow.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
@@ -72,7 +74,7 @@ Current slice: Opening-balance blocked policy matrix - implementation branch ope
 
 ## Current Phase 4 priority
 
-Verify and merge the opening-balance policy matrix, then investigate the missing Actions attachments before moving into durable opening-balance drafts/import batches or subledger-safe opening policies.
+Verify and merge the opening-balance blocked policy contract, then move into durable opening-balance drafts/import batches or subledger-safe opening policies.
 
 The broader opening-balance workflow still needs:
 
@@ -107,4 +109,3 @@ The broader opening-balance workflow still needs:
 ## Active blockers
 
 - Ordinary business transaction entry remains blocked until durable opening-balance lifecycle, subledger policies, and the applicable VAT/document posting rules are implemented and verified.
-- Recent PRs #33 through #35 did not receive visible workflow/status attachments despite the workflow retaining `pull_request` and `push` triggers; this needs repository Actions verification outside the connector if it continues.
