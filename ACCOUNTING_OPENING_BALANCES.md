@@ -47,6 +47,21 @@ Opening-balance input lines must use active non-header, non-control balance-shee
 
 This keeps receivables, payables, inventory, VAT, retained earnings, and bank reconciliation from receiving unsupported aggregate balances before their subledger and reconciliation policies exist. The workspace account list uses the same eligibility helper as the backend, but the backend remains the final authority. The CSV parser also maps by this eligible account-code list, so unsupported account codes never become postable rows.
 
+## Blocked policy matrix
+
+The workspace shows the blocked subledger and control-account areas as an explicit policy matrix so operators can distinguish supported cutover accounts from future work.
+
+| Area | Blocked shortcut | Required policy before enablement |
+| --- | --- | --- |
+| Receivables | Accounts receivable control balances | Customer-level opening invoices, aging, allocation, and VAT evidence. |
+| Payables | Accounts payable control balances | Supplier-level opening bills, aging, payment allocation, and tax evidence. |
+| Inventory | Inventory and cost controls | Item/location quantities, valuation method, and stock audit trail. |
+| Bank | Bank account shortcuts | Opening bank statement balance, unreconciled items, and reconciliation start point. |
+| VAT | VAT input/output controls | Return-period liability, recoverable tax evidence, and filing status. |
+| Retained earnings | Direct retained-earnings cutover | Prior-period close and retained-earnings transfer policy. |
+
+These rows are informational in the browser. The backend eligibility helper and posting kernel remain the enforcement boundary.
+
 ## Balancing policy
 
 The net difference between submitted opening debit and credit lines is posted to `OWNER_CAPITAL`.
