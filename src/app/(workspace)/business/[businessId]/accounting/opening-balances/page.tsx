@@ -7,6 +7,39 @@ import { requireBusinessPageAccess } from "@/modules/access/server/business-page
 import { listLedgerAccounts } from "@/modules/accounting/server/accounts";
 import { getOpeningBalanceStatus, isOpeningBalanceInputAccountEligible } from "@/modules/accounting/server/opening-balances";
 
+const blockedPolicyRows = [
+  {
+    area: "Receivables",
+    blocked: "Accounts receivable control balances",
+    requiredPolicy: "Customer-level opening invoices, aging, allocation, and VAT evidence.",
+  },
+  {
+    area: "Payables",
+    blocked: "Accounts payable control balances",
+    requiredPolicy: "Supplier-level opening bills, aging, payment allocation, and tax evidence.",
+  },
+  {
+    area: "Inventory",
+    blocked: "Inventory and cost controls",
+    requiredPolicy: "Item/location quantities, valuation method, and stock audit trail.",
+  },
+  {
+    area: "Bank",
+    blocked: "Bank account shortcuts",
+    requiredPolicy: "Opening bank statement balance, unreconciled items, and reconciliation start point.",
+  },
+  {
+    area: "VAT",
+    blocked: "VAT input/output controls",
+    requiredPolicy: "Return-period liability, recoverable tax evidence, and filing status.",
+  },
+  {
+    area: "Retained earnings",
+    blocked: "Direct retained-earnings cutover",
+    requiredPolicy: "Prior-period close and retained-earnings transfer policy.",
+  },
+];
+
 function label(value: string) {
   return value.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
@@ -62,6 +95,23 @@ export default async function OpeningBalancesPage({ params }: { params: Promise<
       <p className="font-medium">Subledger shortcuts remain blocked</p>
       <p className="mt-1 text-[var(--muted)]">Receivables, payables, inventory, VAT, retained earnings, and bank reconciliation still need dedicated cutover policies. This page only posts eligible balance-sheet accounts and lets the kernel balance the net amount to owner capital.</p>
     </div>
+
+    <section>
+      <div className="flex items-center justify-between gap-4">
+        <div><h2 className="text-xl font-semibold">Blocked opening-balance policies</h2><p className="mt-1 text-sm text-[var(--muted)]">Unsupported shortcuts stay visible as explicit future work rather than hidden account-list gaps.</p></div>
+        <span className="text-sm text-[var(--muted)]">{blockedPolicyRows.length} blocked areas</span>
+      </div>
+      <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+        <div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-sm">
+          <thead className="bg-[var(--surface-muted)] text-[var(--muted)]"><tr><th className="px-4 py-3">Area</th><th className="px-4 py-3">Blocked shortcut</th><th className="px-4 py-3">Required policy before enablement</th></tr></thead>
+          <tbody className="divide-y divide-[var(--border)]">{blockedPolicyRows.map((row) => <tr key={row.area}>
+            <td className="px-4 py-4 font-medium">{row.area}</td>
+            <td className="px-4 py-4 text-[var(--muted)]">{row.blocked}</td>
+            <td className="px-4 py-4 text-[var(--muted)]">{row.requiredPolicy}</td>
+          </tr>)}</tbody>
+        </table></div>
+      </div>
+    </section>
 
     {postedOpeningBalance ? <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">

@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/remove-duplicate-journal-route`
+Current branch: `agent/opening-balance-policy-matrix`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Duplicate journal detail route cleanup - implementation branch open
+Current slice: Opening-balance blocked policy matrix - implementation branch open
 
 ## Evidence-based verified state
 
@@ -17,7 +17,8 @@ Current slice: Duplicate journal detail route cleanup - implementation branch op
 - PR #31 added the controlled opening-balance workspace page/API and merged into `main` as `90826025ca6caaf723145ecd722a2aba0ac89a77` after run `30521271272`, job `90801998695`, passed the full repository gate before merge.
 - PR #32 added opening-balance CSV import preview and merged into `main` as `0fe56aabd1042af6e50cf3f9f369a0a5b857b9dd` after run `30522062675`, job `90804495506`, passed the full repository gate before merge.
 - PR #33 added opening-balance posted-status lifecycle visibility and merged into `main` as `1966386e11293561bf06175fa9cf12664253ce92`; GitHub showed the PR as mergeable but attached no pull-request workflow run or commit status after repeated checks.
-- PR #34 attempted to add a journal evidence detail page and merged into `main` as `323849b7f5d4cf6d6d955ad967fc8f2d2b08ca11`; follow-up verification found the canonical route already exists at `/business/[businessId]/accounting/journals/[journalId]`, so the duplicate `[journalEntryId]` route must be removed.
+- PR #34 attempted to add a journal evidence detail page and merged into `main` as `323849b7f5d4cf6d6d955ad967fc8f2d2b08ca11`; follow-up verification found the canonical route already exists at `/business/[businessId]/accounting/journals/[journalId]`.
+- PR #35 removed the duplicate `[journalEntryId]` journal route and merged into `main` as `e99cc2e5dd1a26048933a93c7f756e7246eb71a6`; follow-up verification confirmed the canonical `[journalId]` route exists, the duplicate route is absent, no open PRs remained, and no workflow/status objects were attached to the merge commit.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -25,9 +26,10 @@ Current slice: Duplicate journal detail route cleanup - implementation branch op
 
 ## Active branch progress
 
-- `agent/remove-duplicate-journal-route` removes the duplicate `src/app/(workspace)/business/[businessId]/accounting/journals/[journalEntryId]/page.tsx` route.
-- The existing canonical journal detail page remains at `src/app/(workspace)/business/[businessId]/accounting/journals/[journalId]/page.tsx` and continues to use the route-owned read-only evidence boundary from PR #29.
-- This branch intentionally adds no journal creation, editing, deletion, import, approval workflow, or posting API.
+- `agent/opening-balance-policy-matrix` makes blocked opening-balance shortcuts explicit in the workspace instead of relying only on hidden account eligibility.
+- The opening-balance page now shows the future policy required before receivables, payables, inventory, bank, VAT, and retained earnings cutover shortcuts can be enabled.
+- `ACCOUNTING_OPENING_BALANCES.md` records the same matrix and clarifies that the browser rows are informational while backend eligibility and the posting kernel remain authoritative.
+- This branch intentionally adds no durable import batches, draft workflow, approval workflow, schema change, posting API change, or ordinary manual journal workflow.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
@@ -70,7 +72,7 @@ Current slice: Duplicate journal detail route cleanup - implementation branch op
 
 ## Current Phase 4 priority
 
-Verify and merge the duplicate route cleanup, then add durable draft/approval controls or subledger-safe opening policies only after the evidence boundary is stable again.
+Verify and merge the opening-balance policy matrix, then investigate the missing Actions attachments before moving into durable opening-balance drafts/import batches or subledger-safe opening policies.
 
 The broader opening-balance workflow still needs:
 
@@ -105,3 +107,4 @@ The broader opening-balance workflow still needs:
 ## Active blockers
 
 - Ordinary business transaction entry remains blocked until durable opening-balance lifecycle, subledger policies, and the applicable VAT/document posting rules are implemented and verified.
+- Recent PRs #33 through #35 did not receive visible workflow/status attachments despite the workflow retaining `pull_request` and `push` triggers; this needs repository Actions verification outside the connector if it continues.
