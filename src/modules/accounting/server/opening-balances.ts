@@ -2,6 +2,7 @@ import { Prisma, type AccountClass, type AccountKind, type AccountStatus, type A
 import { db } from "@/lib/db";
 import { requireBusinessCapability } from "@/modules/access/server/authorize";
 import { postOpeningBalancesSchema, type PostOpeningBalancesInput } from "@/modules/accounting/contracts/opening-balances";
+import { summarizeOpeningBalanceImportRows } from "@/modules/accounting/contracts/opening-balance-import";
 import { postJournalEntry } from "@/modules/accounting/server/journals";
 import { requireTenantFeature } from "@/modules/entitlements/server/resolve";
 import type { BusinessAccessContext } from "@/modules/tenancy/server/context";
@@ -82,6 +83,25 @@ function amount(value: Prisma.Decimal) {
   return value.toFixed(4);
 }
 
+function assertImportEvidenceMatchesLines(input: ReturnType<typeof postOpeningBalancesSchema.parse>) {
+  if (!input.importSummary) return;
+
+  const actual = summarizeOpeningBalanceImportRows(input.lines.map((line) => ({
+    accountId: line.accountId,
+    description: line.description ?? "",
+    debit: line.debit,
+    credit: line.credit,
+  })));
+  const expected = input.importSummary;
+  if (actual.rowCount !== expected.rowCount
+    || actual.totalDebit !== expected.totalDebit
+    || actual.totalCredit !== expected.totalCredit
+    || actual.netDifference !== expected.netDifference
+    || actual.fingerprint !== expected.fingerprint) {
+    throw new Error("OPENING_BALANCE_IMPORT_EVIDENCE_MISMATCH");
+  }
+}
+
 function memoWithImportEvidence(input: ReturnType<typeof postOpeningBalancesSchema.parse>) {
   const baseMemo = input.memo ?? `Opening balances at ${input.cutoverDate}`;
   if (!input.importSummary) return baseMemo;
@@ -113,6 +133,7 @@ function validateOpeningAccount(account: OpeningBalanceAccount) {
 export async function postOpeningBalances(context: BusinessAccessContext, rawInput: PostOpeningBalancesInput) {
   await requireOpeningBalanceAccess(context);
   const input = postOpeningBalancesSchema.parse(rawInput);
+  assertImportEvidenceMatchesLines(input);
   const accountIds = Array.from(new Set(input.lines.map((line) => line.accountId)));
 
   const [business, accounts, balancingAccount] = await Promise.all([
