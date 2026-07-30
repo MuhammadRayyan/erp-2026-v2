@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/opening-balance-import-evidence`
+Current branch: `agent/opening-balance-import-evidence-validation`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Opening-balance import evidence handoff - implementation branch open
+Current slice: Server-verified opening-balance import evidence - implementation branch open
 
 ## Evidence-based verified state
 
@@ -22,6 +22,7 @@ Current slice: Opening-balance import evidence handoff - implementation branch o
 - PR #36 added the opening-balance blocked policy matrix and merged into `main` as `4dc5b8389a5bcc5fd6d8e1f4537b7fceff9a6e0b` after CI run `30524938603`, job `90813581732`, passed the full repository gate before merge.
 - PR #37 centralized the blocked opening-balance policy matrix in `src/modules/accounting/contracts/opening-balance-policies.ts` and merged into `main` as `3d78e05cfd7ddd31a0a8af035446d776016c17bb` after CI run `30526198564`, job `90817561958`, passed the full repository gate before merge.
 - PR #38 added opening-balance import preview summary/fingerprint evidence and merged into `main` as `2249f9656fa7aa42f058fac903579468d9025108` after CI run `30529230652`, job `90827330472`, passed the full repository gate before merge.
+- PR #39 added opening-balance import evidence handoff to posted journal memos and merged into `main` as `8c007fb259afdbb39ab997e63eadad1d67b56466` after CI run `30529984549`, job `90829767518`, passed the full repository gate before merge.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -29,12 +30,12 @@ Current slice: Opening-balance import evidence handoff - implementation branch o
 
 ## Active branch progress
 
-- `agent/opening-balance-import-evidence` adds optional import-preview summary evidence to the protected opening-balance posting contract.
-- The opening-balance workspace submits the current import summary only while the preview still matches the reviewed rows; manual row changes clear the preview message and evidence handoff.
-- The backend validates the import-summary fingerprint/totals shape and appends a compact import evidence line to the posted journal memo without adding schema or a durable import-batch table.
-- Unit coverage verifies valid and invalid import-summary evidence, and PostgreSQL integration coverage verifies the posted journal memo contains the import fingerprint and row evidence.
-- `ACCOUNTING_OPENING_BALANCES.md` records the distinction between browser preview evidence and immutable journal memo evidence.
-- This branch intentionally adds no durable import batches, draft workflow, approval workflow, schema change, posting API change beyond optional evidence metadata, or ordinary manual journal workflow.
+- `agent/opening-balance-import-evidence-validation` exports the deterministic opening-balance import summarizer for both browser preview and server verification.
+- The backend recomputes import-summary evidence from submitted posting lines and rejects mismatched row count, totals, net difference, or fingerprint before creating a journal.
+- The opening-balance API maps evidence mismatches to an operator-safe preview-again message.
+- Integration coverage verifies both posted journal memo evidence for matching summaries and rejection for mismatched summaries.
+- `ACCOUNTING_OPENING_BALANCES.md` records server-side import-evidence recomputation and mismatch rejection.
+- This branch intentionally adds no durable import batches, draft workflow, approval workflow, schema change, posting API change beyond stricter optional evidence validation, or ordinary manual journal workflow.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
@@ -77,7 +78,7 @@ Current slice: Opening-balance import evidence handoff - implementation branch o
 
 ## Current Phase 4 priority
 
-Verify and merge the opening-balance import evidence handoff, then move into durable opening-balance drafts/import batches or subledger-safe opening policies.
+Verify and merge server-verified opening-balance import evidence, then move into durable opening-balance drafts/import batches or subledger-safe opening policies.
 
 The broader opening-balance workflow still needs:
 
