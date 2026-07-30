@@ -9,6 +9,7 @@ import type { BusinessAccessContext } from "@/modules/tenancy/server/context";
 export const openingBalanceSourceType = "OPENING_BALANCE";
 export const openingBalanceSourceId = "OPENING_BALANCES";
 export const openingBalanceEquitySystemKey = "OWNER_CAPITAL";
+const journalMemoMaxLength = 500;
 const blockedOpeningBalanceTypes = new Set<AccountType>([
   "BANK",
   "ACCOUNTS_RECEIVABLE",
@@ -79,6 +80,25 @@ function decimal(value: string) {
 
 function amount(value: Prisma.Decimal) {
   return value.toFixed(4);
+}
+
+function memoWithImportEvidence(input: ReturnType<typeof postOpeningBalancesSchema.parse>) {
+  const baseMemo = input.memo ?? `Opening balances at ${input.cutoverDate}`;
+  if (!input.importSummary) return baseMemo;
+
+  const evidence = [
+    `Import ${input.importSummary.fingerprint}`,
+    `rows ${input.importSummary.rowCount}`,
+    `debit ${input.importSummary.totalDebit}`,
+    `credit ${input.importSummary.totalCredit}`,
+    `net ${input.importSummary.netDifference}`,
+  ].join(", ");
+  const fullMemo = `${baseMemo}\n${evidence}`;
+  if (fullMemo.length <= journalMemoMaxLength) return fullMemo;
+
+  const baseLimit = journalMemoMaxLength - evidence.length - 4;
+  if (baseLimit <= 0) return evidence.slice(0, journalMemoMaxLength);
+  return `${baseMemo.slice(0, baseLimit)}...\n${evidence}`;
 }
 
 function validateOpeningAccount(account: OpeningBalanceAccount) {
@@ -155,7 +175,7 @@ export async function postOpeningBalances(context: BusinessAccessContext, rawInp
     sourceType: openingBalanceSourceType,
     sourceId: openingBalanceSourceId,
     idempotencyKey: input.idempotencyKey,
-    memo: input.memo ?? `Opening balances at ${input.cutoverDate}`,
+    memo: memoWithImportEvidence(input),
     lines: postingLines,
   });
 }
