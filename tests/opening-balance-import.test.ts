@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseOpeningBalanceCsv } from "../src/modules/accounting/contracts/opening-balance-import";
+import { parseOpeningBalanceCsv, parseOpeningBalanceImportEvidenceMemo } from "../src/modules/accounting/contracts/opening-balance-import";
 
 const accounts = [
   { id: "cash-id", code: "1010" },
@@ -35,6 +35,22 @@ describe("opening balance CSV import", () => {
     expect(first.errors).toEqual([]);
     expect(second.errors).toEqual([]);
     expect(first.summary.fingerprint).toBe(second.summary.fingerprint);
+  });
+
+  it("parses posted import evidence from journal memos", () => {
+    expect(parseOpeningBalanceImportEvidenceMemo(`Owner-approved opening balances
+Import obimp_1234abcd, rows 2, debit 100.0000, credit 40.2500, net 59.7500`)).toEqual({
+      fingerprint: "obimp_1234abcd",
+      rowCount: 2,
+      totalDebit: "100.0000",
+      totalCredit: "40.2500",
+      netDifference: "59.7500",
+    });
+  });
+
+  it("ignores memos without valid posted import evidence", () => {
+    expect(parseOpeningBalanceImportEvidenceMemo("Owner-approved opening balances")).toBeNull();
+    expect(parseOpeningBalanceImportEvidenceMemo("Import bad, rows 2, debit 100.0000, credit 0.0000, net 100.0000")).toBeNull();
   });
 
   it("rejects unknown accounts, malformed amounts, and dual-sided rows", () => {
