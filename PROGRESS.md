@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/opening-balance-import-evidence-validation`
+Current branch: `agent/opening-balance-posted-import-evidence`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Server-verified opening-balance import evidence - implementation branch open
+Current slice: Posted opening-balance import evidence visibility - implementation branch open
 
 ## Evidence-based verified state
 
@@ -23,6 +23,7 @@ Current slice: Server-verified opening-balance import evidence - implementation 
 - PR #37 centralized the blocked opening-balance policy matrix in `src/modules/accounting/contracts/opening-balance-policies.ts` and merged into `main` as `3d78e05cfd7ddd31a0a8af035446d776016c17bb` after CI run `30526198564`, job `90817561958`, passed the full repository gate before merge.
 - PR #38 added opening-balance import preview summary/fingerprint evidence and merged into `main` as `2249f9656fa7aa42f058fac903579468d9025108` after CI run `30529230652`, job `90827330472`, passed the full repository gate before merge.
 - PR #39 added opening-balance import evidence handoff to posted journal memos and merged into `main` as `8c007fb259afdbb39ab997e63eadad1d67b56466` after CI run `30529984549`, job `90829767518`, passed the full repository gate before merge.
+- PR #40 added server-side opening-balance import evidence recomputation/mismatch rejection and merged into `main` as `560b5d6db197f94670774e3e9aeabfb205847798` after CI run `30531896261`, job `90835913987`, passed the full repository gate before merge.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -30,12 +31,11 @@ Current slice: Server-verified opening-balance import evidence - implementation 
 
 ## Active branch progress
 
-- `agent/opening-balance-import-evidence-validation` exports the deterministic opening-balance import summarizer for both browser preview and server verification.
-- The backend recomputes import-summary evidence from submitted posting lines and rejects mismatched row count, totals, net difference, or fingerprint before creating a journal.
-- The opening-balance API maps evidence mismatches to an operator-safe preview-again message.
-- Integration coverage verifies both posted journal memo evidence for matching summaries and rejection for mismatched summaries.
-- `ACCOUNTING_OPENING_BALANCES.md` records server-side import-evidence recomputation and mismatch rejection.
-- This branch intentionally adds no durable import batches, draft workflow, approval workflow, schema change, posting API change beyond stricter optional evidence validation, or ordinary manual journal workflow.
+- `agent/opening-balance-posted-import-evidence` adds a shared parser for the compact import-evidence line stored in opening-balance journal memos.
+- The opening-balance posted-status panel surfaces parsed import evidence as structured row count, debit, credit, net, and fingerprint fields.
+- Unit coverage verifies valid posted import-evidence parsing and ignores invalid/non-evidence memos.
+- `ACCOUNTING_OPENING_BALANCES.md` records the posted import-evidence visibility behavior.
+- This branch intentionally adds no durable import batches, draft workflow, approval workflow, schema change, posting API change, or ordinary manual journal workflow.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
@@ -78,7 +78,7 @@ Current slice: Server-verified opening-balance import evidence - implementation 
 
 ## Current Phase 4 priority
 
-Verify and merge server-verified opening-balance import evidence, then move into durable opening-balance drafts/import batches or subledger-safe opening policies.
+Verify and merge posted opening-balance import evidence visibility, then move into durable opening-balance drafts/import batches or subledger-safe opening policies.
 
 The broader opening-balance workflow still needs:
 

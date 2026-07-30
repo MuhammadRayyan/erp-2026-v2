@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { OpeningBalanceForm } from "@/components/accounting/opening-balance-form";
 import { hasBusinessCapability } from "@/modules/access/roles";
 import { requireBusinessPageAccess } from "@/modules/access/server/business-page";
+import { parseOpeningBalanceImportEvidenceMemo } from "@/modules/accounting/contracts/opening-balance-import";
 import { openingBalanceBlockedPolicyRows } from "@/modules/accounting/contracts/opening-balance-policies";
 import { listLedgerAccounts } from "@/modules/accounting/server/accounts";
 import { getOpeningBalanceStatus, isOpeningBalanceInputAccountEligible } from "@/modules/accounting/server/opening-balances";
@@ -35,6 +36,7 @@ export default async function OpeningBalancesPage({ params }: { params: Promise<
     listLedgerAccounts(access.context),
     getOpeningBalanceStatus(access.context),
   ]);
+  const postedImportEvidence = parseOpeningBalanceImportEvidenceMemo(postedOpeningBalance?.memo);
   const eligibleAccounts = accounts
     .filter(isOpeningBalanceInputAccountEligible)
     .map((account) => ({
@@ -96,6 +98,21 @@ export default async function OpeningBalancesPage({ params }: { params: Promise<
         <div className="rounded-xl border border-[var(--border)] p-3"><dt className="text-[var(--muted)]">Total</dt><dd className="mt-1 font-medium tabular-nums">{postedOpeningBalance.currencyCode} {journalTotal(postedOpeningBalance)}</dd></div>
         <div className="rounded-xl border border-[var(--border)] p-3"><dt className="text-[var(--muted)]">Lines</dt><dd className="mt-1 font-medium">{postedOpeningBalance.lines.length}</dd></div>
       </dl>
+      {postedImportEvidence && <div className="mt-5 rounded-xl border border-[var(--border)] p-4 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-medium">Import evidence</p>
+            <p className="mt-1 text-[var(--muted)]">The posted journal memo includes the server-verified import preview fingerprint.</p>
+          </div>
+          <code className="rounded-lg bg-[var(--surface-muted)] px-2 py-1 text-xs">{postedImportEvidence.fingerprint}</code>
+        </div>
+        <dl className="mt-4 grid gap-3 md:grid-cols-4">
+          <div><dt className="text-[var(--muted)]">Rows</dt><dd className="mt-1 font-medium tabular-nums">{postedImportEvidence.rowCount}</dd></div>
+          <div><dt className="text-[var(--muted)]">Debit</dt><dd className="mt-1 font-medium tabular-nums">{postedImportEvidence.totalDebit}</dd></div>
+          <div><dt className="text-[var(--muted)]">Credit</dt><dd className="mt-1 font-medium tabular-nums">{postedImportEvidence.totalCredit}</dd></div>
+          <div><dt className="text-[var(--muted)]">Net</dt><dd className="mt-1 font-medium tabular-nums">{postedImportEvidence.netDifference}</dd></div>
+        </dl>
+      </div>}
       {postedOpeningBalance.memo && <p className="mt-4 text-sm"><span className="font-medium">Memo:</span> {postedOpeningBalance.memo}</p>}
     </section> : canManage ? eligibleAccounts.length > 0
       ? <OpeningBalanceForm businessId={businessId} accounts={eligibleAccounts} idempotencyKey={`opening-balances-${randomUUID()}`} />
