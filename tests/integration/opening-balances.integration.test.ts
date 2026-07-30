@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "../../src/lib/db";
 import { createAccountingPeriod } from "../../src/modules/accounting/server/periods";
-import { postOpeningBalances } from "../../src/modules/accounting/server/opening-balances";
+import { getOpeningBalanceStatus, postOpeningBalances } from "../../src/modules/accounting/server/opening-balances";
 import { onboardOwner } from "../../src/modules/tenancy/server/onboarding";
 import { requireBusinessAccessContext } from "../../src/modules/tenancy/server/context";
 
@@ -78,6 +78,25 @@ describe("controlled opening balance posting", () => {
     expect(balancingLine).toBeTruthy();
     expect(Number(balancingLine?.credit)).toBe(70);
     expect(Number(balancingLine?.debit)).toBe(0);
+  });
+
+  it("reports posted status only after the opening set exists", async () => {
+    const setup = await setupBusiness("Opening Status");
+    await expect(getOpeningBalanceStatus(setup.context)).resolves.toBeNull();
+
+    const posted = await postOpeningBalances(setup.context, {
+      cutoverDate: "2027-01-01",
+      idempotencyKey: `opening-status-${randomUUID()}`,
+      memo: "Status-visible opening balances",
+      lines: [{ accountId: setup.cash.id, description: null, debit: "42.0000", credit: "0" }],
+    });
+
+    const status = await getOpeningBalanceStatus(setup.context);
+    expect(status?.id).toBe(posted.id);
+    expect(status?.postingDate.toISOString().slice(0, 10)).toBe("2027-01-01");
+    expect(status?.currencyCode).toBe(posted.currencyCode);
+    expect(status?.memo).toBe("Status-visible opening balances");
+    expect(status?.lines.reduce((sum, line) => sum + Number(line.debit), 0)).toBe(42);
   });
 
   it("rejects conflicting duplicate opening sets for the same business", async () => {
