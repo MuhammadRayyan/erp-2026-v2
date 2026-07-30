@@ -8,7 +8,7 @@ The backend service accepts one opening-balance set for a business and posts it 
 
 The workspace page at `/business/[businessId]/accounting/opening-balances` provides the first controlled browser entry point for users with accounting management access. It offers only eligible account choices, posts through the opening-balance API route, and redirects successful postings to immutable journal evidence.
 
-Users can enter lines manually or paste CSV with columns `accountCode,description,debit,credit`. CSV import only fills editable review rows in the browser. The import preview shows row count, debit total, credit total, net difference, and a deterministic preview fingerprint so operators can compare what they reviewed before posting. When a current import preview is posted, the backend validates the preview evidence and appends a compact fingerprint/totals line to the posted journal memo. Final posting still uses the protected opening-balance API route and backend service.
+Users can enter lines manually or paste CSV with columns `accountCode,description,debit,credit`. CSV import only fills editable review rows in the browser. The import preview shows row count, debit total, credit total, net difference, and a deterministic preview fingerprint so operators can compare what they reviewed before posting. When a current import preview is posted, the backend recomputes and validates the preview evidence from the submitted lines before appending a compact fingerprint/totals line to the posted journal memo. Final posting still uses the protected opening-balance API route and backend service.
 
 After the opening set is posted, the page reads the existing source-owned journal and shows a posted-status panel with a journal evidence link instead of presenting another posting form. The posting kernel remains the final guard against duplicate source posting.
 
@@ -87,7 +87,7 @@ The central posting kernel still enforces:
 - immutable posted history;
 - audit event creation.
 
-Automated coverage verifies opening-balance input shape, CSV parsing, summary totals, stable preview fingerprinting, import-evidence contract validation, posted journal memo evidence, rejected import rows, posted-status lookup, blocked policy matrix coverage, owner-capital balancing, equivalent retry behavior, conflicting duplicate-source rejection, and blocked control, bank, and profit-and-loss accounts. The workspace workflow reuses the existing protected session, business access, entitlement, and posting-date boundaries.
+Automated coverage verifies opening-balance input shape, CSV parsing, summary totals, stable preview fingerprinting, import-evidence contract validation, server-side import-evidence recomputation and mismatch rejection, posted journal memo evidence, rejected import rows, posted-status lookup, blocked policy matrix coverage, owner-capital balancing, equivalent retry behavior, conflicting duplicate-source rejection, and blocked control, bank, and profit-and-loss accounts. The workspace workflow reuses the existing protected session, business access, entitlement, and posting-date boundaries.
 
 ## Explicitly not implemented
 
