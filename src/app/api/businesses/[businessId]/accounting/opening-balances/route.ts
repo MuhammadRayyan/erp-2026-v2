@@ -28,6 +28,7 @@ function messageFor(error: unknown) {
   if (message.includes("JOURNAL_ENTRY_IDEMPOTENCY_CONFLICT")) return "This idempotency key was already used with different opening-balance details.";
   if (message.includes("ACCOUNTING_PERIOD_NOT_OPEN")) return "The cutover date must be inside an open accounting period.";
   if (message.includes("ACCOUNTING_PERIOD_REQUIRED")) return "Create an open accounting period that covers the cutover date before posting opening balances.";
+  if (message.includes("OPENING_BALANCE_IMPORT_EVIDENCE_MISMATCH")) return "Preview the import again before posting because the reviewed rows changed.";
   if (message.includes("OPENING_BALANCE_EQUITY_ACCOUNT_NOT_AVAILABLE")) return "The required owner-capital balancing account is unavailable.";
   if (message.includes("OPENING_BALANCE_ACCOUNT")) return "One or more selected accounts are not eligible for controlled opening balances.";
   return "Opening balances could not be posted.";
