@@ -10,6 +10,8 @@ The workspace page at `/business/[businessId]/accounting/opening-balances` provi
 
 Users can enter lines manually or paste CSV with columns `accountCode,description,debit,credit`. CSV import only fills editable review rows in the browser. Final posting still uses the protected opening-balance API route and backend service.
 
+After the opening set is posted, the page reads the existing source-owned journal and shows a posted-status panel with a journal evidence link instead of presenting another posting form. The posting kernel remains the final guard against duplicate source posting.
+
 The request contains:
 
 - a cutover accounting date;
@@ -69,7 +71,7 @@ The central posting kernel still enforces:
 - immutable posted history;
 - audit event creation.
 
-Automated coverage verifies opening-balance input shape, CSV parsing and rejected import rows, owner-capital balancing, equivalent retry behavior, conflicting duplicate-source rejection, and blocked control, bank, and profit-and-loss accounts. The workspace workflow reuses the existing protected session, business access, entitlement, and posting-date boundaries.
+Automated coverage verifies opening-balance input shape, CSV parsing and rejected import rows, posted-status lookup, owner-capital balancing, equivalent retry behavior, conflicting duplicate-source rejection, and blocked control, bank, and profit-and-loss accounts. The workspace workflow reuses the existing protected session, business access, entitlement, and posting-date boundaries.
 
 ## Explicitly not implemented
 

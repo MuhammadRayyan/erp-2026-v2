@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/opening-balance-import`
+Current branch: `agent/opening-balance-status`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Opening-balance CSV import preview - implementation branch open
+Current slice: Opening-balance posted-status lifecycle - implementation branch open
 
 ## Evidence-based verified state
 
@@ -15,6 +15,7 @@ Current slice: Opening-balance CSV import preview - implementation branch open
 - PR #29 added route-owned read-only posted-journal evidence and merged into `main` as `eb6a6cf0e6a189c9139e30d604585eee4e0bad70` after run `30475270032`, job `90655286041`, passed the full repository gate.
 - PR #30 added controlled opening-balance backend posting and merged into `main` as `c5aadcc18ec5921760239ec9e2e5ebe4d71e7291` after run `30520307890`, job `90798976536`, passed the full repository gate before merge.
 - PR #31 added the controlled opening-balance workspace page/API and merged into `main` as `90826025ca6caaf723145ecd722a2aba0ac89a77` after run `30521271272`, job `90801998695`, passed the full repository gate before merge.
+- PR #32 added opening-balance CSV import preview and merged into `main` as `0fe56aabd1042af6e50cf3f9f369a0a5b857b9dd` after run `30522062675`, job `90804495506`, passed the full repository gate before merge.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -22,12 +23,12 @@ Current slice: Opening-balance CSV import preview - implementation branch open
 
 ## Active branch progress
 
-- `agent/opening-balance-import` adds CSV import preview support to the existing controlled opening-balance workspace.
-- The import helper accepts pasted CSV with `accountCode,description,debit,credit`, including quoted descriptions, and maps account codes only against the eligible account list supplied by the page.
-- Import validation rejects unknown or ineligible account codes, malformed amounts, empty imports, and rows that provide both or neither debit and credit.
-- Imported rows fill the same editable review table as manual entry; final posting still uses the protected opening-balance API route and backend service.
-- Unit coverage verifies successful CSV parsing plus rejected unknown-account, malformed-amount, dual-sided, and empty imports.
-- This branch intentionally adds no durable import batches, approval workflow, draft opening sets, ordinary manual journal workflow, schema change, or subledger opening policies.
+- `agent/opening-balance-status` adds posted-status awareness to the controlled opening-balance workspace.
+- The opening-balance service exposes a read helper that uses the same source type/source ID as posting to find the immutable posted opening-balance journal.
+- The workspace page loads accounts and posted status together. If the opening set exists, it shows cutover date, posted timestamp, currency total, line count, memo, and a journal evidence link instead of the manual/import posting form.
+- The central posting kernel remains the final duplicate-source guard; this slice only improves lifecycle visibility and prevents repeated form presentation after cutover.
+- Integration coverage verifies status is null before posting and returns the source-owned journal after posting.
+- This branch intentionally adds no durable import batches, approval workflow, draft opening sets, ordinary manual journal workflow, schema change, reversal/correction workflow, or subledger opening policies.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
@@ -70,7 +71,7 @@ Current slice: Opening-balance CSV import preview - implementation branch open
 
 ## Current Phase 4 priority
 
-Verify and merge the opening-balance CSV import preview, then add durable draft/approval lifecycle or subledger-safe opening policies only after the import preview remains stable.
+Verify and merge the opening-balance posted-status lifecycle, then add durable draft/approval controls or subledger-safe opening policies only after the status boundary remains stable.
 
 The broader opening-balance workflow still needs:
 
