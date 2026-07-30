@@ -30,12 +30,15 @@ export default async function AccountingPeriodsPage({ params }: { params: Promis
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Accounting periods</h1>
         <p className="mt-2 max-w-3xl text-[var(--muted)]">Define non-overlapping fiscal periods and control whether future posting dates are open, soft-locked, or closed.</p>
       </div>
-      <Link href={`/business/${businessId}/accounting`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Back to chart</Link>
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/business/${businessId}/accounting/opening-balances`} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 font-medium text-white">Opening balances</Link>
+        <Link href={`/business/${businessId}/accounting`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 font-medium">Back to chart</Link>
+      </div>
     </div>
 
     <div className="rounded-2xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-sm">
-      <p className="font-medium">Posting remains blocked</p>
-      <p className="mt-1 text-[var(--muted)]">These periods establish the date-lock boundary for the future journal kernel. No balances, journals, opening entries, or document posting are available yet.</p>
+      <p className="font-medium">Date lock boundary</p>
+      <p className="mt-1 text-[var(--muted)]">Opening-balance cutover and future document posting must use open periods. Soft-locked and closed periods continue to block posting through the kernel.</p>
     </div>
 
     {canManage && <AccountingPeriodForm businessId={businessId} />}
