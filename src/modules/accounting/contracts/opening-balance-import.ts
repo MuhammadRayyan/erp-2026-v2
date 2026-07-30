@@ -25,6 +25,7 @@ export type OpeningBalanceImportResult = {
 };
 
 const amountPattern = /^\d{1,16}(?:\.\d{1,4})?$/;
+const evidenceLinePattern = /^Import (obimp_[0-9a-f]{8}), rows ([1-9]\d*), debit (\d{1,16}\.\d{4}), credit (\d{1,16}\.\d{4}), net (-?\d{1,16}\.\d{4})$/;
 
 function splitCsvLine(line: string) {
   const cells: string[] = [];
@@ -86,6 +87,20 @@ export function summarizeOpeningBalanceImportRows(rows: OpeningBalanceImportRow[
     totalCredit: amount(totalCredit),
     netDifference: amount(totalDebit - totalCredit),
     fingerprint: `obimp_${stableHash(JSON.stringify(normalizedRows))}`,
+  };
+}
+
+export function parseOpeningBalanceImportEvidenceMemo(memo: string | null | undefined): OpeningBalanceImportSummary | null {
+  const line = memo?.split(/\r?\n/).map((value) => value.trim()).find((value) => value.startsWith("Import obimp_"));
+  if (!line) return null;
+  const match = evidenceLinePattern.exec(line);
+  if (!match) return null;
+  return {
+    fingerprint: match[1],
+    rowCount: Number(match[2]),
+    totalDebit: match[3],
+    totalCredit: match[4],
+    netDifference: match[5],
   };
 }
 
