@@ -1,9 +1,9 @@
 # Progress
 
 Last updated: July 30, 2026
-Current branch: `agent/opening-balance-status`
+Current branch: `agent/journal-entry-detail`
 Current phase: Phase 4 - Accounting kernel
-Current slice: Opening-balance posted-status lifecycle - implementation branch open
+Current slice: Read-only journal evidence detail page - implementation branch open
 
 ## Evidence-based verified state
 
@@ -16,6 +16,7 @@ Current slice: Opening-balance posted-status lifecycle - implementation branch o
 - PR #30 added controlled opening-balance backend posting and merged into `main` as `c5aadcc18ec5921760239ec9e2e5ebe4d71e7291` after run `30520307890`, job `90798976536`, passed the full repository gate before merge.
 - PR #31 added the controlled opening-balance workspace page/API and merged into `main` as `90826025ca6caaf723145ecd722a2aba0ac89a77` after run `30521271272`, job `90801998695`, passed the full repository gate before merge.
 - PR #32 added opening-balance CSV import preview and merged into `main` as `0fe56aabd1042af6e50cf3f9f369a0a5b857b9dd` after run `30522062675`, job `90804495506`, passed the full repository gate before merge.
+- PR #33 added opening-balance posted-status lifecycle visibility and merged into `main` as `1966386e11293561bf06175fa9cf12664253ce92`; GitHub showed the PR as mergeable but attached no pull-request workflow run or commit status after repeated checks.
 - Better Auth uses PostgreSQL-backed revocable sessions.
 - Business access requires active tenant/business memberships and an active subscription.
 - Shared master data, files, audit, numbering, exports, custom fields, queued email, browser E2E, migration integrity, and immutable tenant access history remain covered by the repository gate.
@@ -23,12 +24,10 @@ Current slice: Opening-balance posted-status lifecycle - implementation branch o
 
 ## Active branch progress
 
-- `agent/opening-balance-status` adds posted-status awareness to the controlled opening-balance workspace.
-- The opening-balance service exposes a read helper that uses the same source type/source ID as posting to find the immutable posted opening-balance journal.
-- The workspace page loads accounts and posted status together. If the opening set exists, it shows cutover date, posted timestamp, currency total, line count, memo, and a journal evidence link instead of the manual/import posting form.
-- The central posting kernel remains the final duplicate-source guard; this slice only improves lifecycle visibility and prevents repeated form presentation after cutover.
-- Integration coverage verifies status is null before posting and returns the source-owned journal after posting.
-- This branch intentionally adds no durable import batches, approval workflow, draft opening sets, ordinary manual journal workflow, schema change, reversal/correction workflow, or subledger opening policies.
+- `agent/journal-entry-detail` adds the missing read-only journal detail route used by the posted-journal register and opening-balance evidence link.
+- The page requires `accounting.view` plus `accounting.core`, loads only posted journals through the existing `getJournalEntry` helper, and returns `notFound()` for inaccessible or missing entries.
+- The detail view shows immutable header evidence, source identity, idempotency key, memo, reversal links, line-level account details, and exact debit/credit totals.
+- This branch intentionally adds no journal creation, editing, deletion, import, approval workflow, or posting API.
 - CI for this branch is pending PR creation and GitHub Actions execution.
 
 ## Verified accounting structure
@@ -71,7 +70,7 @@ Current slice: Opening-balance posted-status lifecycle - implementation branch o
 
 ## Current Phase 4 priority
 
-Verify and merge the opening-balance posted-status lifecycle, then add durable draft/approval controls or subledger-safe opening policies only after the status boundary remains stable.
+Verify and merge the read-only journal evidence detail page, then add durable draft/approval controls or subledger-safe opening policies only after the evidence boundary remains stable.
 
 The broader opening-balance workflow still needs:
 
